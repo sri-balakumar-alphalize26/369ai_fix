@@ -1,0 +1,110 @@
+.df_bk {
+    height: 100%;
+    overflow: auto;
+    padding: 16px 20px 40px;
+    background: #f6f7f9;
+
+    .df_bk_bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+    .df_bk_title { margin: 0 6px 0 0; font-size: 1.4rem; }
+    .df_bk_grow { flex: 1; }
+    .df_bk_pill {
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+        background: #fde8e8;
+        color: #b42318;
+    }
+    .df_bk_pill_open { background: #eef2f6; color: #364152; }
+    .df_bk_pulse { animation: df_bk_pulse 1s ease-in-out infinite; }
+    .df_bk_poll {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #e7f8ee;
+        color: #127a3c;
+        font-size: 0.85rem;
+    }
+    .df_bk_sound_on { color: #127a3c; font-weight: 600; }
+
+    .df_bk_warn {
+        margin-bottom: 12px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: #fff4e5;
+        color: #8a4b00;
+    }
+    .df_bk_empty {
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        padding: 60px 0;
+        color: #667085;
+    }
+    .df_bk_empty_mark { font-size: 2.6rem; color: #12b76a; }
+
+    .df_bk_grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 14px;
+    }
+    .df_bk_card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 14px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #e4e7ec;
+        border-left: 6px solid #98a2b3;
+        box-shadow: 0 6px 16px -12px rgba(16, 24, 40, 0.4);
+    }
+    .df_bk_new { border-left-color: #f04438; }
+    .df_bk_calling { border-left-color: #f79009; }
+    .df_bk_accepted { border-left-color: #12b76a; }
+
+    .df_bk_top { display: flex; align-items: center; gap: 8px; }
+    .df_bk_ref { font-weight: 800; font-size: 1.1rem; }
+    .df_bk_stage {
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: #f2f4f7;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .df_bk_new .df_bk_stage { background: #fee4e2; color: #b42318; }
+    .df_bk_calling .df_bk_stage { background: #fef0c7; color: #93370d; }
+    .df_bk_accepted .df_bk_stage { background: #d1fadf; color: #05603a; }
+    .df_bk_age { margin-left: auto; color: #667085; font-size: 0.85rem; }
+    .df_bk_meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: 0.78rem; color: #667085; }
+    .df_bk_meta span { padding: 1px 6px; border-radius: 4px; background: #f9fafb; border: 1px solid #eaecf0; }
+
+    .df_bk_cust { font-weight: 700; font-size: 1.05rem; }
+    .df_bk_contact { display: flex; gap: 10px; }
+    .df_bk_wa { color: #128c4b; font-weight: 600; }
+    .df_bk_addr { color: #475467; }
+
+    .df_bk_lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+    .df_bk_lines li { display: flex; gap: 8px; align-items: baseline; }
+    .df_bk_qty {
+        min-width: 22px;
+        text-align: center;
+        border-radius: 4px;
+        background: #eef4ff;
+        color: #3538cd;
+        font-weight: 700;
+        font-size: 0.85rem;
+    }
+    .df_bk_note { color: #475467; font-size: 0.9rem; white-space: pre-line; }
+    .df_bk_taken { font-size: 0.9rem; color: #05603a; }
+    .df_bk_err { font-size: 0.85rem; color: #b42318; }
+    .df_bk_actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 6px; }
+}
+
+@keyframes df_bk_pulse {
+    50% { transform: scale(1.08); }
+}
