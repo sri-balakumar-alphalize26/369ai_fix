@@ -1,0 +1,22 @@
+{
+  "name": "doorstep-repair",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "render:video": "node scripts/render-video.mjs"
+  },
+  "dependencies": {
+    "@astrojs/node": "^9.5.5",
+    "astro": "^5.1.1"
+  },
+  "devDependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "puppeteer-core": "^23.10.0"
+  }
+}

@@ -1,0 +1,674 @@
+@font-face { font-family: 'Schibsted Grotesk'; src: url('/fonts/schibsted.woff2') format('woff2'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: 'Plus Jakarta Sans'; src: url('/fonts/jakarta.woff2') format('woff2'); font-weight: 200 800; font-display: swap; }
+/*
+  Themes. Pick one with the palette button (bottom-right) or ?theme=<id>.
+  Each theme sets the same tokens; --media-hue shifts the baked orange video
+  and image to match until the video is re-rendered in the chosen colours.
+*/
+:root {
+  --surface: #ffffff;
+  --glass: #ffffff;
+  --glass-2: #ffffff;
+  --lime: #12a150;
+  --radius: 20px;
+  --display: 'Schibsted Grotesk', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --body: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --grad: linear-gradient(120deg, var(--violet), var(--blue));
+  --grad-hot: linear-gradient(120deg, var(--violet), var(--blue));
+  --pink: var(--violet);
+  color-scheme: light;
+
+  /* light-theme chip lightness; dark themes override */
+  --chip-l: 94%;
+  --chip-ink-l: 40%;
+  --chip-line-l: 85%;
+  --head-case: none;
+
+  /* Green — dark green-black (from the Danat mockup). Only via the Theme menu. */
+  --bg: #07120e;
+  --surface: #0d1c17;
+  --glass: #0d1c17;
+  --glass-2: #10231c;
+  --ink: #eef6f2;
+  --ink-2: #a7bcb3;
+  --ink-3: #6c857b;
+  --navy: #040b08;
+  --violet: #2fd07f;
+  --blue: #1fae68;
+  --cyan: #3ee08f;
+  --lime: #3ee08f;
+  --a1: 47, 208, 127;
+  --a2: 31, 174, 104;
+  --accent-soft: rgba(47, 208, 127, .12);
+  --glow: #0f5c38;
+  --on-accent: #04120c;
+  --media-hue: -70deg;
+  --line: rgba(255, 255, 255, 0.08);
+  --tint: rgba(255, 255, 255, 0.04);
+  --tint-2: rgba(255, 255, 255, 0.07);
+  --shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 18px 40px -20px rgba(0, 0, 0, .6);
+  --chip-l: 16%;
+  --chip-ink-l: 68%;
+  --chip-line-l: 26%;
+  --head-case: uppercase;
+  color-scheme: dark;}
+
+:root[data-theme='danat'], :root[data-theme='blue'], :root[data-theme='red'], :root[data-theme='teal'],
+:root[data-theme='yellow'], :root[data-theme='orange'], :root[data-theme='slate'] {
+  --surface: #ffffff;
+  --glass: #ffffff;
+  --glass-2: #ffffff;
+  --lime: #12a150;
+  --on-accent: #ffffff;
+  --chip-l: 94%;
+  --chip-ink-l: 40%;
+  --chip-line-l: 85%;
+  --head-case: none;
+  --shadow: 0 1px 2px rgba(15, 27, 45, .05), 0 14px 34px -18px rgba(15, 27, 45, .22);
+  color-scheme: light;
+}
+:root[data-theme='danat'] {
+  /* Danat (default) — warm off-white, deep green-black ink, Danat green */
+  --bg: #f4f6f2;
+  --ink: #0f1c15;
+  --ink-2: #4a5a51;
+  --ink-3: #87948c;
+  --navy: #0c1811;
+  --violet: #2e8b46;
+  --blue: #59aa54;
+  --cyan: #247a3a;
+  --lime: #238a45;
+  --a1: 46, 139, 70;
+  --a2: 89, 170, 84;
+  --accent-soft: #e4f1e3;
+  --glow: #bfe0c0;
+  --on-accent: #ffffff;
+  --media-hue: -70deg;
+  --line: rgba(15, 28, 21, 0.1);
+  --tint: rgba(15, 28, 21, 0.04);
+  --tint-2: rgba(15, 28, 21, 0.07);
+  --shadow: 0 1px 2px rgba(15, 28, 21, .05), 0 16px 36px -22px rgba(15, 28, 21, .28);
+}
+
+:root[data-theme='blue'] {
+  /* Blue (default, set on <html>) — white + royal blue */
+  --bg: #f4f7fc;
+  --ink: #0b1f3a;
+  --ink-2: #44546c;
+  --ink-3: #8593a8;
+  --navy: #0b1f3a;
+  --violet: #1d4ed8;
+  --blue: #0ea5e9;
+  --cyan: #1d4ed8;
+  --a1: 29, 78, 216;
+  --a2: 14, 165, 233;
+  --accent-soft: #e8efff;
+  --glow: #bcd3ff;
+  --on-accent: #ffffff;
+  --media-hue: 0deg;
+  --line: rgba(11, 31, 58, 0.1);
+  --tint: rgba(11, 31, 58, 0.04);
+  --tint-2: rgba(11, 31, 58, 0.07);
+  --shadow: 0 1px 2px rgba(11, 31, 58, .05), 0 14px 34px -18px rgba(11, 31, 58, .22);
+}
+
+:root[data-theme='red'] {
+  --bg: #faf7f7;
+  --ink: #141414;
+  --ink-2: #4d4d52;
+  --ink-3: #8e8e95;
+  --navy: #141414;
+  --violet: #e11d2e;
+  --blue: #ff5a5f;
+  --cyan: #d0162a;
+  --a1: 225, 29, 46;
+  --a2: 255, 90, 95;
+  --accent-soft: #ffe8ea;
+  --glow: #ffc2c6;
+  --media-hue: 135deg;
+  --line: rgba(20, 20, 20, 0.1);
+  --tint: rgba(20, 20, 20, 0.04);
+  --tint-2: rgba(20, 20, 20, 0.07);
+}
+
+:root[data-theme='teal'] {
+  --bg: #f2f8f7;
+  --ink: #0d2b2e;
+  --ink-2: #3f5a5c;
+  --ink-3: #7f9899;
+  --navy: #0d2b2e;
+  --violet: #0d9488;
+  --blue: #22c3a6;
+  --cyan: #0b7f75;
+  --a1: 13, 148, 136;
+  --a2: 34, 195, 166;
+  --accent-soft: #dcf5f1;
+  --glow: #a8e8dd;
+  --media-hue: -45deg;
+  --line: rgba(13, 43, 46, 0.1);
+  --tint: rgba(13, 43, 46, 0.04);
+  --tint-2: rgba(13, 43, 46, 0.07);
+}
+
+:root[data-theme='yellow'] {
+  --bg: #f6f5f1;
+  --ink: #17171a;
+  --ink-2: #4a4a50;
+  --ink-3: #8b8b92;
+  --navy: #17171a;
+  --violet: #f5b400;
+  --blue: #ffd24a;
+  --cyan: #a37400;
+  --a1: 245, 180, 0;
+  --a2: 255, 210, 74;
+  --accent-soft: #fff4cf;
+  --glow: #ffe38a;
+  --on-accent: #17171a;
+  --media-hue: -175deg;
+  --line: rgba(23, 23, 26, 0.1);
+  --tint: rgba(23, 23, 26, 0.04);
+  --tint-2: rgba(23, 23, 26, 0.07);
+}
+
+:root[data-theme='orange'] {
+  --bg: #f7f4ee;
+  --ink: #0f1b2d;
+  --ink-2: #475467;
+  --ink-3: #8590a2;
+  --navy: #0f1b2d;
+  --violet: #ff5a1f;
+  --blue: #ff8a00;
+  --cyan: #e2450f;
+  --a1: 255, 90, 31;
+  --a2: 255, 138, 0;
+  --accent-soft: #fff1ea;
+  --glow: #ffb38a;
+  --media-hue: 160deg;
+}
+
+:root[data-theme='slate'] {
+  /* Mid-tone: grey page, not dark, electric-blue accent */
+  --bg: #e6eaf0;
+  --surface: #f9fafc;
+  --glass: #f9fafc;
+  --glass-2: #f9fafc;
+  --ink: #1e2a3b;
+  --ink-2: #4a5669;
+  --ink-3: #7e899a;
+  --navy: #1e2a3b;
+  --violet: #2f6bff;
+  --blue: #00b3ff;
+  --cyan: #2458d6;
+  --a1: 47, 107, 255;
+  --a2: 0, 179, 255;
+  --accent-soft: #dde7ff;
+  --glow: #b5c9f5;
+  --media-hue: 0deg;
+  --line: rgba(30, 42, 59, 0.12);
+  --tint: rgba(30, 42, 59, 0.05);
+  --tint-2: rgba(30, 42, 59, 0.08);
+}
+
+.m-image img, .post-img img { filter: hue-rotate(var(--media-hue, 0deg)); }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--display);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+p { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+img, video, svg { display: block; max-width: 100%; }
+
+.wrap {
+  width: min(1200px, 100% - 32px);
+  margin-inline: auto;
+}
+
+.section { padding: clamp(72px, 10vw, 128px) 0; position: relative; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.eyebrow::before {
+  content: '';
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--grad);
+}
+
+.h-xl { font-size: clamp(38px, 6vw, 80px); text-transform: var(--head-case); letter-spacing: -.01em; }
+.h-lg { font-size: clamp(32px, 4.4vw, 56px); }
+.h-md { font-size: clamp(22px, 2.4vw, 30px); }
+.lead { font-size: clamp(16px, 1.4vw, 19px); color: var(--ink-2); max-width: 60ch; }
+
+.grad-text {
+  background: var(--grad-hot);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+@keyframes shimmer { to { background-position: 200% center; } }
+
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--glass-2);
+  font-weight: 600;
+  font-size: 15px;
+  transition: transform .25s, box-shadow .25s, background .25s;
+  white-space: nowrap;
+}
+.btn:hover { transform: translateY(-2px); background: var(--surface); box-shadow: var(--shadow); }
+.btn-primary {
+  border: 0;
+  background: var(--grad);
+  color: var(--on-accent);
+  box-shadow: 0 12px 34px -10px rgba(var(--a1), .6);
+}
+.btn-primary:hover { background: var(--grad); box-shadow: 0 16px 40px -8px rgba(var(--a2), .55); }
+.btn svg { width: 18px; height: 18px; }
+
+.price-tag {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--lime);
+}
+
+/* Segmented control, used by the media lab and service picker */
+.seg {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 999px;
+  background: rgba(20, 22, 60, .05);
+  border: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.seg button {
+  border: 0;
+  background: transparent;
+  padding: 9px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-2);
+  transition: background .2s, color .2s;
+}
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  background: rgba(20, 22, 60, .06);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+/* Reveal on scroll */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1);
+  transition-delay: var(--d, 0s);
+}
+[data-reveal].in { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  [data-reveal] { opacity: 1; transform: none; }
+}
+
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+/* ================================================================
+   Design refresh — applies to every theme.
+   Stronger type, solid accents instead of gradient text, a dark hero
+   stage for the media, calmer cards and more breathing room.
+   ================================================================ */
+h1, h2, h3, h4 { letter-spacing: -0.035em; font-weight: 800; }
+.h-xl { letter-spacing: -0.04em; line-height: .98; }
+.h-lg { letter-spacing: -0.035em; line-height: 1.02; }
+.lead { line-height: 1.65; }
+.eyebrow { color: var(--cyan); font-weight: 700; letter-spacing: .16em; }
+.eyebrow::before { background: currentColor; width: 22px; }
+
+/* solid accent with a soft marker underline instead of the shimmering gradient */
+.grad-text {
+  animation: none; color: var(--cyan); -webkit-text-fill-color: currentColor;
+  background: linear-gradient(transparent 64%, var(--accent-soft) 64%, var(--accent-soft) 92%, transparent 92%);
+  background-size: auto; -webkit-background-clip: border-box; background-clip: border-box;
+  padding: 0 .06em; border-radius: 4px;
+}
+
+.btn { padding: 15px 26px; font-weight: 700; letter-spacing: -.005em; }
+.btn-primary { background: var(--violet); box-shadow: 0 14px 30px -14px rgba(var(--a1), .8); }
+.btn-primary:hover { background: var(--cyan); box-shadow: 0 18px 36px -14px rgba(var(--a1), .8); }
+.glass { border-radius: 24px; }
+a.glass, .issue.glass, .mode.glass { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s, border-color .35s; }
+a.glass:hover, .issue.glass:hover { transform: translateY(-4px); border-color: rgba(var(--a1), .35); box-shadow: 0 26px 50px -30px rgba(var(--a1), .55); }
+.section { padding: clamp(40px, 4vw, 60px) 0; }
+
+/* dark hero stage: the media sits in a proper frame, text reads white */
+:root .hero {
+  position: relative; isolation: isolate; color: #fff !important;
+  margin: 12px clamp(8px, 1.5vw, 20px) 0; padding: clamp(40px, 6vw, 84px) 0 clamp(48px, 6vw, 80px);
+  border-radius: 34px; overflow: hidden;
+  background:
+    radial-gradient(60% 70% at 85% 20%, rgba(var(--a2), .28), transparent 60%),
+    radial-gradient(50% 60% at 0% 100%, rgba(var(--a1), .22), transparent 65%),
+    linear-gradient(160deg, color-mix(in oklab, var(--navy) 92%, #fff) 0%, var(--navy) 100%);
+}
+:root .hero::after { content: ''; position: absolute; inset: 0; z-index: -1; opacity: .5;
+  background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 56px 56px; -webkit-mask: radial-gradient(70% 80% at 60% 30%, #000, transparent); mask: radial-gradient(70% 80% at 60% 30%, #000, transparent); }
+:root .hero h1, :root .hero .devices-line, :root .hero .hero-facts b { color: #fff !important; }
+:root .hero .grad-text { color: var(--blue) !important; background: none; padding: 0; }
+:root .hero .lead { color: rgba(255,255,255,.72) !important; }
+:root .hero .eyebrow { color: var(--blue) !important; }
+:root .hero .hero-facts { color: rgba(255,255,255,.55) !important; border-top: 1px solid rgba(255,255,255,.12); padding-top: 22px; }
+:root .hero .btn:not(.btn-primary) { background: rgba(255,255,255,.08) !important; color: #fff !important; border-color: rgba(255,255,255,.18) !important; }
+:root .hero .btn:not(.btn-primary):hover { background: rgba(255,255,255,.16) !important; }
+:root .hero .price-tag { color: var(--blue) !important; }
+:root .hero .lab-panel { background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.12) !important; box-shadow: none; backdrop-filter: blur(10px); color: #fff !important; }
+:root .hero .lab-label, :root .hero .lab-foot { color: rgba(255,255,255,.55) !important; }
+:root .hero .lab-foot { border-color: rgba(255,255,255,.12) !important; }
+:root .hero .lab-now b { color: #fff !important; }
+:root .hero .lab-link { color: var(--blue) !important; }
+:root .hero .seg { background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.12) !important; }
+:root .hero .seg button { color: rgba(255,255,255,.7) !important; }
+:root .hero .seg button[aria-pressed='true'] { background: #fff; color: var(--navy) !important; }
+
+/* brand band: quieter, bigger */
+:root .marquee-item { letter-spacing: -.03em; }
+
+/* page headers (Services, Our Team) share the hero's dark stage */
+:root .page-head {
+  position: relative; isolation: isolate; color: #fff !important;
+  margin: 12px clamp(8px, 1.5vw, 20px) 0; padding: clamp(56px, 7vw, 96px) 0 clamp(48px, 6vw, 72px) !important;
+  border-radius: 34px; overflow: hidden;
+  background: radial-gradient(55% 80% at 90% 10%, rgba(var(--a2), .3), transparent 60%),
+    linear-gradient(160deg, color-mix(in oklab, var(--navy) 92%, #fff) 0%, var(--navy) 100%);
+}
+:root .page-head h1 { color: #fff !important; }
+:root .page-head .grad-text { color: var(--blue) !important; background: none; padding: 0; }
+:root .page-head .lead, :root .page-head p { color: rgba(255,255,255,.72) !important; }
+:root .page-head .eyebrow { color: var(--blue) !important; }
+:root .page-head .chip { background: rgba(255,255,255,.08) !important; border-color: rgba(255,255,255,.16) !important; color: rgba(255,255,255,.85) !important; }
+
+/* ---------- Brand themes (header switcher): colours follow the chosen logo ---------- */
+:root[data-brand][data-brand='369'] {
+  /* 369 ai Fix — from the 369 logo: blue, orange accent */
+  --bg: #f4f7fb; --ink: #0b1f3a; --ink-2: #44546c; --ink-3: #8593a8; --navy: #0a1a2e;
+  --violet: #0f6fd1; --blue: #29a3ec; --cyan: #0f6fd1; --lime: #f07a1a; --deep: #0a4f9a;
+  --a1: 15, 111, 209; --a2: 41, 163, 236;
+  --accent-soft: #e6f1fc; --glow: #bcdcf7; --on-accent: #ffffff; --media-hue: 150deg;
+  --line: rgba(11, 31, 58, .1); --tint: rgba(11, 31, 58, .04); --tint-2: rgba(11, 31, 58, .07);
+  --shadow: 0 1px 2px rgba(11, 31, 58, .05), 0 16px 36px -22px rgba(11, 31, 58, .28);
+}
+
+:root[data-brand='369'] .bk-hero { background: linear-gradient(120deg, #f3f8fe 0%, #e2effc 55%, #ffeedd 100%) !important; }
+
+/* ---------- Pastel shades (Theme button, ShadePicker.astro) ---------- */
+:root[data-brand][data-shade='1'][data-shade] { --p-bg: #f7f4ff; --p-s1: #e9e1ff; --p-s2: #d8cbff; --p-s3: #b9a4f5; --p-acc: #7c5cd6; --p-warm: #ffd3b4;
+  --bg: #f7f4ff; --violet: #7c5cd6; --cyan: #7c5cd6; --accent-soft: #e9e1ff; --glow: #d8cbff; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='2'][data-shade] { --p-bg: #fff5fb; --p-s1: #fbe1f1; --p-s2: #f3c6e6; --p-s3: #d9a2e8; --p-acc: #a45cc9; --p-warm: #bde0ff;
+  --bg: #fff5fb; --violet: #a45cc9; --cyan: #a45cc9; --accent-soft: #fbe1f1; --glow: #f3c6e6; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='3'][data-shade] { --p-bg: #f3f8ff; --p-s1: #dfeaff; --p-s2: #c9d9ff; --p-s3: #a9b8f7; --p-acc: #5b6fd6; --p-warm: #e9c9ff;
+  --bg: #f3f8ff; --violet: #5b6fd6; --cyan: #5b6fd6; --accent-soft: #dfeaff; --glow: #c9d9ff; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='4'][data-shade] { --p-bg: #fff8f3; --p-s1: #ffe7d6; --p-s2: #ffd0b5; --p-s3: #e3b5f0; --p-acc: #8a5ad1; --p-warm: #ffc28f;
+  --bg: #fff8f3; --violet: #8a5ad1; --cyan: #8a5ad1; --accent-soft: #ffe7d6; --glow: #ffd0b5; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='5'][data-shade] { --p-bg: #f3fbf8; --p-s1: #dcf3ec; --p-s2: #c6ebe0; --p-s3: #d6c3f5; --p-acc: #7a5fcf; --p-warm: #ffd9b8;
+  --bg: #f3fbf8; --violet: #7a5fcf; --cyan: #7a5fcf; --accent-soft: #dcf3ec; --glow: #c6ebe0; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='6'][data-shade] { --p-bg: #faf7ff; --p-s1: #e3ecff; --p-s2: #f3dcff; --p-s3: #ffdcea; --p-acc: #8b5cf6; --p-warm: #ffcfa8;
+  --bg: #faf7ff; --violet: #8b5cf6; --cyan: #8b5cf6; --accent-soft: #e3ecff; --glow: #f3dcff; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='7'][data-shade] { --p-bg: #fffdf2; --p-s1: #fff6c9; --p-s2: #ffec9e; --p-s3: #f5d97a; --p-acc: #c08a1e; --p-warm: #ffcfa8;
+  --bg: #fffdf2; --violet: #c08a1e; --cyan: #c08a1e; --accent-soft: #fff6c9; --glow: #ffec9e; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='8'][data-shade] { --p-bg: #f2fbfb; --p-s1: #d6f3f1; --p-s2: #b8e9e4; --p-s3: #9fd8e6; --p-acc: #2f8f9d; --p-warm: #ffd9c7;
+  --bg: #f2fbfb; --violet: #2f8f9d; --cyan: #2f8f9d; --accent-soft: #d6f3f1; --glow: #b8e9e4; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='9'][data-shade] { --p-bg: #fff6f7; --p-s1: #fde2e6; --p-s2: #f9c9d2; --p-s3: #eab3c6; --p-acc: #c04d74; --p-warm: #ffd8b8;
+  --bg: #fff6f7; --violet: #c04d74; --cyan: #c04d74; --accent-soft: #fde2e6; --glow: #f9c9d2; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='10'][data-shade] { --p-bg: #f5f6ff; --p-s1: #e3e6ff; --p-s2: #cdd2ff; --p-s3: #b3b9f5; --p-acc: #5a5fc8; --p-warm: #f7d2ff;
+  --bg: #f5f6ff; --violet: #5a5fc8; --cyan: #5a5fc8; --accent-soft: #e3e6ff; --glow: #cdd2ff; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='11'][data-shade] { --p-bg: #fff7f1; --p-s1: #ffe4d3; --p-s2: #ffcdb2; --p-s3: #f7b6a8; --p-acc: #d0634a; --p-warm: #ffe7a8;
+  --bg: #fff7f1; --violet: #d0634a; --cyan: #d0634a; --accent-soft: #ffe4d3; --glow: #ffcdb2; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='12'][data-shade] { --p-bg: #f6faf4; --p-s1: #e3efdd; --p-s2: #cfe3c6; --p-s3: #b9d4c4; --p-acc: #5f8a63; --p-warm: #f3dcc2;
+  --bg: #f6faf4; --violet: #5f8a63; --cyan: #5f8a63; --accent-soft: #e3efdd; --glow: #cfe3c6; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='13'][data-shade] { --p-bg: #f4faff; --p-s1: #dcefff; --p-s2: #c3e2ff; --p-s3: #a8cff5; --p-acc: #3a7cc4; --p-warm: #ffe0f0;
+  --bg: #f4faff; --violet: #3a7cc4; --cyan: #3a7cc4; --accent-soft: #dcefff; --glow: #c3e2ff; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade='14'][data-shade] { --p-bg: #f8f7fb; --p-s1: #ebe8f2; --p-s2: #dcd7e8; --p-s3: #c8c0dc; --p-acc: #6f6391; --p-warm: #f4dcd2;
+  --bg: #f8f7fb; --violet: #6f6391; --cyan: #6f6391; --accent-soft: #ebe8f2; --glow: #dcd7e8; --line: rgba(60, 40, 110, .1); }
+:root[data-brand][data-shade] body { background:
+  radial-gradient(900px 600px at 105% -5%, var(--p-s3), transparent 60%),
+  radial-gradient(800px 600px at -10% 35%, var(--p-s1), transparent 60%),
+  radial-gradient(700px 500px at 60% 110%, var(--p-warm), transparent 65%), var(--p-bg) !important; background-attachment: fixed !important; }
+:root[data-brand][data-shade] .btn-primary, :root[data-brand][data-shade] .nav-cta, :root[data-brand][data-shade] .uc-all,
+:root[data-brand][data-shade] .cd-go, :root[data-brand][data-shade] .cta2-btn {
+  background: linear-gradient(110deg, var(--p-acc), var(--p-s3) 50%, var(--p-acc)) !important; background-size: 200% 100% !important;
+  box-shadow: 0 14px 28px -14px var(--p-acc) !important; }
+:root[data-brand][data-shade] .grad-text, :root[data-brand][data-shade] .vhero .grad-text,
+:root[data-brand][data-shade] .hero .grad-text, :root[data-brand][data-shade] .page-head .grad-text {
+  background: linear-gradient(100deg, var(--p-s3), #f0c4f7 40%, var(--p-warm) 60%, var(--p-s3)) !important; background-size: 200% 100% !important;
+  -webkit-background-clip: text !important; background-clip: text !important; }
+:root[data-brand][data-shade] .bk-hero { background: linear-gradient(120deg, var(--p-bg), var(--p-s1) 45%, var(--p-s2) 75%, var(--p-warm)) !important; }
+:root[data-brand][data-shade] .uc-badge { background: linear-gradient(90deg, var(--p-s1), var(--p-s2)) !important; }
+:root[data-brand][data-shade] .uc-cat:nth-child(odd) { background: var(--p-s1); }
+:root[data-brand][data-shade] .aurora .o1 { background: conic-gradient(from 0deg, var(--p-s3), var(--p-s2), var(--p-warm), var(--p-s1), var(--p-s3)) !important; opacity: .45; }
+
+/* more pastel shades */
+
+
+/* 369 ai Fix pastel shades (from its logo: 369 blue, orange arrow, silver ai) */
+:root[data-brand][data-shade='21'][data-shade] { --p-bg: #f3f9ff; --p-s1: #dcefff; --p-s2: #c2e2ff; --p-s3: #a3cff5; --p-acc: #1f78c8; --p-warm: #ffd9b3;
+  --bg: #f3f9ff; --violet: #1f78c8; --cyan: #1f78c8; --accent-soft: #dcefff; --glow: #c2e2ff; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade='22'][data-shade] { --p-bg: #f5faff; --p-s1: #e0f0ff; --p-s2: #ffe6cf; --p-s3: #b5d8f7; --p-acc: #2a86d6; --p-warm: #ffc58f;
+  --bg: #f5faff; --violet: #2a86d6; --cyan: #2a86d6; --accent-soft: #e0f0ff; --glow: #ffe6cf; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade='23'][data-shade] { --p-bg: #f7f8fa; --p-s1: #eceff3; --p-s2: #dde2e9; --p-s3: #c7d0dc; --p-acc: #4f6a8a; --p-warm: #ffd1a6;
+  --bg: #f7f8fa; --violet: #4f6a8a; --cyan: #4f6a8a; --accent-soft: #eceff3; --glow: #dde2e9; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade='24'][data-shade] { --p-bg: #f2fafd; --p-s1: #d7f0f8; --p-s2: #bfe5f3; --p-s3: #9fd4ec; --p-acc: #1c7fae; --p-warm: #ffdcb8;
+  --bg: #f2fafd; --violet: #1c7fae; --cyan: #1c7fae; --accent-soft: #d7f0f8; --glow: #bfe5f3; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade='25'][data-shade] { --p-bg: #fffaf4; --p-s1: #ffebd6; --p-s2: #ffd6b0; --p-s3: #b9dcf8; --p-acc: #e27424; --p-warm: #cfe6ff;
+  --bg: #fffaf4; --violet: #e27424; --cyan: #e27424; --accent-soft: #ffebd6; --glow: #ffd6b0; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade='26'][data-shade] { --p-bg: #f8f9fb; --p-s1: #eef1f5; --p-s2: #e1e6ee; --p-s3: #cdd6e2; --p-acc: #3b6ea5; --p-warm: #ffe0c2;
+  --bg: #f8f9fb; --violet: #3b6ea5; --cyan: #3b6ea5; --accent-soft: #eef1f5; --glow: #e1e6ee; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade='27'][data-shade] { --p-bg: #f3fbfb; --p-s1: #dbf3f3; --p-s2: #ffe5d2; --p-s3: #a8dde0; --p-acc: #1d8a9a; --p-warm: #ffc9a3;
+  --bg: #f3fbfb; --violet: #1d8a9a; --cyan: #1d8a9a; --accent-soft: #dbf3f3; --glow: #ffe5d2; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade='28'][data-shade] { --p-bg: #f6f7ff; --p-s1: #e4e9ff; --p-s2: #cfd9ff; --p-s3: #b0c3f5; --p-acc: #3f63c9; --p-warm: #ffd7b0;
+  --bg: #f6f7ff; --violet: #3f63c9; --cyan: #3f63c9; --accent-soft: #e4e9ff; --glow: #cfd9ff; --line: rgba(20, 50, 90, .1); }
+:root[data-brand][data-shade^='2'][data-shade] .grad-text, :root[data-brand][data-shade^='2'][data-shade] .vhero .grad-text, :root[data-brand][data-shade^='2'][data-shade] .page-head .grad-text {
+  background: linear-gradient(100deg, var(--p-s3), #d7ecff 35%, var(--p-warm) 60%, var(--p-s3)) !important; background-size: 200% 100% !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; color: transparent !important; animation: dfFlow 7s linear infinite; }
+
+
+/* ================= Danat Fix brand system (from the logo) =================
+   Tech Blue + Cyan + AI Purple (accent only) + Fix Orange (actions) on a navy/white base.
+   Theme button offers 5 brand themes: Danat Blue (default), Dark, AI, Light, Midnight. */
+:root[data-brand][data-brand='danatfix'] {
+  --d-main: #0757B8; --d-cyan: #18B9E8; --d-purple: #8B2BE2; --d-orange: #FF8A2A; --d-orange2: #FFB25C;
+  --d-bg: #F8FAFC; --d-navbg: #ffffff; --d-navink: #101828;
+  --d-word: linear-gradient(100deg, #18B9E8 0%, #3B8BEB 35%, #8B2BE2 70%, #FF7A00 100%);
+  --bg: var(--d-bg); --ink: #101828; --ink-2: #475467; --ink-3: #667085; --navy: #0B1630;
+  --violet: var(--d-main); --blue: var(--d-cyan); --cyan: var(--d-main); --lime: var(--d-main); --deep: #053F86;
+  --a1: 7, 87, 184; --a2: 24, 185, 232;
+  --accent-soft: #EAF2FD; --glow: #CFE6FB; --on-accent: #ffffff; --media-hue: 170deg;
+  --grad: linear-gradient(120deg, var(--d-main), var(--d-cyan));
+  --line: rgba(16, 24, 40, .1); --tint: rgba(16, 24, 40, .04); --tint-2: rgba(16, 24, 40, .07);
+  --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 16px 36px -22px rgba(16, 24, 40, .28);
+}
+/* Danat Dark — navy + blue + orange */
+:root[data-brand][data-brand='danatfix'][data-shade='32'][data-shade] { --d-main: #1E5FC8; --d-bg: #EEF2F7; --d-navbg: #0B1630; --d-navink: #ffffff; --accent-soft: #E3EAF5; --ink: #0B1630;
+  --d-word: linear-gradient(100deg, #5AA2FF 0%, #18B9E8 35%, #8B5CF6 70%, #FF9A3D 100%); }
+/* Danat AI — blue + purple + orange */
+:root[data-brand][data-brand='danatfix'][data-shade='33'][data-shade] { --d-main: #6A2BD9; --d-bg: #F8F7FD; --accent-soft: #F0E9FD; --glow: #E0D2FB; --a1: 106, 43, 217;
+  --grad: linear-gradient(120deg, #0757B8, #8B2BE2); --d-word: linear-gradient(100deg, #3B8BEB, #8B2BE2 55%, #FF7A00); }
+/* Danat Light — white + blue + orange */
+:root[data-brand][data-brand='danatfix'][data-shade='34'][data-shade] { --d-bg: #FFFFFF; --accent-soft: #EEF5FE; --line: rgba(16, 24, 40, .08);
+  --d-word: linear-gradient(100deg, #3B9BF0 0%, #18B9E8 45%, #8B5CF6 100%); }
+/* Danat Midnight — dark navy + cyan + orange */
+:root[data-brand][data-brand='danatfix'][data-shade='35'][data-shade] { --d-main: #0A8FC2; --d-cyan: #22D3EE; --d-bg: #F1F6FA; --d-navbg: #081224; --d-navink: #E6F6FF; --accent-soft: #E3F4FB; --glow: #C2ECF8; --a1: 10, 143, 194;
+  --grad: linear-gradient(120deg, #0A8FC2, #22D3EE); --d-word: linear-gradient(100deg, #22D3EE 0%, #67E8F9 35%, #A78BFA 70%, #FF9A3D 100%); }
+
+/* page: clean soft-white, no colour clouds (beats the generic pastel-shade rules) */
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] body { background: var(--d-bg) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .aurora .orb,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .aurora .o1 { background: var(--glow) !important; opacity: .25 !important; animation: drift 22s ease-in-out infinite alternate !important; }
+/* navbar */
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .nav-inner { background: var(--d-navbg) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] nav a:not([aria-current]) { color: var(--d-navink); }
+:root[data-brand='danatfix'][data-shade='32'] nav a:not([aria-current]):hover,
+:root[data-brand='danatfix'][data-shade='35'] nav a:not([aria-current]):hover { color: var(--d-cyan); }
+/* orange = Fix / booking actions only */
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .btn-primary,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .nav-cta,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .cta2-btn,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .uc-all {
+  background: linear-gradient(180deg, var(--d-orange2), var(--d-orange)) !important; background-size: auto !important; animation: none !important;
+  color: #fff !important; border-color: transparent !important; box-shadow: 0 12px 26px -14px rgba(255, 138, 42, .5) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .btn-primary:hover,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .nav-cta:hover { filter: brightness(1.05); box-shadow: 0 16px 30px -14px rgba(255, 138, 42, .6) !important; }
+/* WhatsApp Us = white button */
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .vhero .btn-wa { background: #fff !important; color: #101828 !important; box-shadow: 0 12px 26px -16px rgba(0,0,0,.6) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .vhero .btn-wa svg { color: #25D366; }
+/* one highlighted phrase carries the Danat gradient */
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .grad-text,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .vhero .grad-text,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .hero .grad-text,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .page-head .grad-text {
+  background: var(--d-word) !important; background-size: 100% 100% !important; animation: none !important;
+  -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; color: transparent !important; padding-bottom: .08em; }
+/* small labels, badges and cards: blue / cyan, purple only as a hint */
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .eyebrow { color: var(--d-cyan) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .eyebrow::before { background: var(--d-cyan) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .uc-badge { background: var(--accent-soft) !important; color: var(--d-main) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .uc-cat { background: #fff !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .uc-cat:hover,
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .uc-card:hover { border-color: var(--d-main) !important; box-shadow: 0 18px 34px -22px rgba(var(--a1), .6) !important; }
+:root[data-brand='danatfix']:is(:not([data-shade]),[data-shade='32'],[data-shade='33'],[data-shade='34'],[data-shade='35'],[data-shade='36'],[data-shade='37'])[data-brand][data-brand] .bk-hero { background: linear-gradient(120deg, #F5F9FE 0%, var(--accent-soft) 60%, #FFF1E3 100%) !important; }
+/* Danat Dark / Midnight navy bar: logo on a white chip, icons readable */
+:root[data-brand='danatfix']:is([data-shade='32'],[data-shade='35']) .bs-logo { padding: 3px 8px; border-radius: 12px; background: #fff; }
+:root[data-brand='danatfix']:is([data-shade='32'],[data-shade='35']) .nav-search,
+:root[data-brand='danatfix']:is([data-shade='32'],[data-shade='35']) .nav-cart { color: #fff; border-color: rgba(255,255,255,.25); }
+:root[data-brand='danatfix']:is([data-shade='32'],[data-shade='35']) .bs-btn { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
+
+/* Danat Logo Palette (sampled from the logo): warm white base, navy text, orange actions,
+   blue secondary, blue → purple accent gradient */
+:root[data-brand][data-brand='danatfix'][data-shade='36'][data-shade] {
+  --d-main: #0455C0; --d-cyan: #049AE9; --d-purple: #A20ABF; --d-orange: #F78E36; --d-orange2: #FFA65A;
+  --d-bg: #F8FAFC; --d-navbg: #FFFFFF; --d-navink: #101828;
+  --d-word: linear-gradient(100deg, #049AE9 0%, #6A4FD8 45%, #A20ABF 75%, #D22AD4 100%);
+  --ink: #211D38; --ink-2: #4A4659; --ink-3: #6B6870; --navy: #211D38;
+  --accent-soft: #FDEEE3; --glow: #E9D3F5; --a1: 4, 154, 233; --a2: 162, 10, 191;
+  --grad: linear-gradient(120deg, #049AE9, #A20ABF);
+  --line: rgba(33, 29, 56, .1); --tint: rgba(33, 29, 56, .04); --tint-2: rgba(33, 29, 56, .07);
+}
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .vhero .btn-wa { background: #049AE9 !important; color: #fff !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .vhero .btn-wa svg { color: #fff !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-cat:hover,
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-card:hover { border-color: transparent !important; box-shadow: 0 0 0 2px #A20ABF, 0 18px 34px -20px rgba(162, 10, 191, .55) !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-ci, :root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-ti { background: linear-gradient(135deg, #E3F4FD, #F3E3F8) !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .eyebrow { color: #A20ABF !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .eyebrow::before { background: #A20ABF !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-badge { background: #FDEEE3 !important; color: #D06A14 !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .bk-hero { background: linear-gradient(120deg, #FFF9F5 0%, #E8F5FD 50%, #F6E6FA 100%) !important; }
+
+/* Danat Logo Palette, soft version: every pastel comes from a logo colour
+   soft blue #E8F5FF · soft cyan #E8FAFF · soft purple #F3EAFF · soft orange #FFF0E5 */
+:root[data-brand][data-brand='danatfix'][data-shade='36'][data-shade] {
+  --d-main: #0757B8; --d-purple: #8B2BE2; --d-orange: #FF8A2A; --d-orange2: #FFB25C;
+  --ink: #101828; --accent-soft: #E8F5FF; --glow: #F3EAFF;
+}
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] body { background:
+  radial-gradient(900px 520px at 100% 0%, #F3EAFF, transparent 62%),
+  radial-gradient(800px 520px at 0% 40%, #E8F5FF, transparent 62%),
+  radial-gradient(700px 480px at 70% 100%, #FFF0E5, transparent 65%), #F8FAFC !important; background-attachment: fixed !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-cat:nth-child(4n+1) .uc-ci { background: #E8F5FF !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-cat:nth-child(4n+2) .uc-ci { background: #E8FAFF !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-cat:nth-child(4n+3) .uc-ci { background: #F3EAFF !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-cat:nth-child(4n+4) .uc-ci { background: #FFF0E5 !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-badge { background: #FFF0E5 !important; color: #C25E00 !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .eyebrow { color: #8B2BE2 !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .eyebrow::before { background: #8B2BE2 !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .bk-hero { background: linear-gradient(120deg, #E8F5FF 0%, #E8FAFF 40%, #F3EAFF 75%, #FFF0E5 100%) !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .tst, :root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .cta2 { background: linear-gradient(120deg, #E8F5FF, #F3EAFF 60%, #FFF0E5) !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-add { border-color: #0757B8 !important; color: #0757B8 !important; }
+:root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-add:hover, :root[data-brand='danatfix'][data-shade='36'][data-shade][data-brand][data-brand][data-brand] .uc-add.done { background: #0757B8 !important; color: #fff !important; }
+/* Danat Logo Palette (Warm) — the original shade-36 look: warm white, navy, orange #F78E36,
+   blue #049AE9 secondary, blue → purple → magenta accent */
+:root[data-brand][data-brand='danatfix'][data-shade='37'][data-shade] {
+  --d-main: #0455C0; --d-cyan: #049AE9; --d-purple: #A20ABF; --d-orange: #F78E36; --d-orange2: #FFA65A;
+  --d-bg: #FFF9F5; --d-navbg: #FFFFFF; --d-navink: #211D38;
+  --d-word: linear-gradient(100deg, #049AE9 0%, #6A4FD8 45%, #A20ABF 75%, #D22AD4 100%);
+  --ink: #211D38; --ink-2: #4A4659; --ink-3: #6B6870; --navy: #211D38;
+  --accent-soft: #FDEEE3; --glow: #E9D3F5; --a1: 4, 154, 233; --a2: 162, 10, 191;
+  --grad: linear-gradient(120deg, #049AE9, #A20ABF);
+  --line: rgba(33, 29, 56, .1); --tint: rgba(33, 29, 56, .04); --tint-2: rgba(33, 29, 56, .07);
+}
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .vhero .btn-wa { background: #049AE9 !important; color: #fff !important; }
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .vhero .btn-wa svg { color: #fff !important; }
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .uc-cat:hover, :root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .uc-card:hover { border-color: transparent !important; box-shadow: 0 0 0 2px #A20ABF, 0 18px 34px -20px rgba(162, 10, 191, .55) !important; }
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .uc-ci, :root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .uc-ti { background: linear-gradient(135deg, #E3F4FD, #F3E3F8) !important; }
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .eyebrow { color: #A20ABF !important; }
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .eyebrow::before { background: #A20ABF !important; }
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .uc-badge { background: #FDEEE3 !important; color: #D06A14 !important; }
+:root[data-brand='danatfix'][data-shade='37'][data-shade][data-brand][data-brand][data-brand] .bk-hero { background: linear-gradient(120deg, #FFF9F5 0%, #E8F5FD 50%, #F6E6FA 100%) !important; }
+/* count-up numbers (site-wide, see Base.astro): steady width while counting, little pop when done */
+[data-count] { display: inline-block; font-variant-numeric: tabular-nums; }
+[data-count].counted { animation: countPop .5s cubic-bezier(.3,1.6,.5,1); }
+@keyframes countPop { 40% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { [data-count].counted { animation: none; } }
+
+/* WhatsApp buttons = WhatsApp's own light green, in every brand and theme (never dark blue) */
+:root[data-brand][data-brand][data-brand] :is(.bk-cta, .ig-send, .cd-go) {
+  background: linear-gradient(180deg, #4BE08A, #25D366) !important; background-size: auto !important;
+  color: #fff !important; border-color: transparent !important; text-shadow: 0 1px 2px rgba(0, 90, 40, .25);
+  box-shadow: 0 14px 28px -14px rgba(37, 211, 102, .7), inset 0 1px 0 rgba(255, 255, 255, .35) !important; }
+:root[data-brand][data-brand][data-brand] :is(.bk-cta, .ig-send, .cd-go):hover { filter: brightness(1.04); box-shadow: 0 18px 32px -14px rgba(37, 211, 102, .8) !important; }

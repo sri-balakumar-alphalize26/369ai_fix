@@ -1,0 +1,100 @@
+---
+// Theme button in the header (next to search/cart) to try pastel shades live. "Default" = the brand's own theme.
+// Danat Fix brand themes 32–35 (0 = Danat Blue) + pastels 1–14, 369 ai Fix shades 21–28; the menu lists the current brand's set.
+// Choice is remembered (localStorage 'shade'); ?shade=N or ?shade=0 also works.
+// Colours for each shade live in global.css under :root[data-shade='N'].
+// Danat Fix: 5 brand themes from the logo (blue, cyan, purple accent, orange actions, navy/white)
+export const shades = [
+  { id: '0', name: 'Danat Blue', a: '#0757B8', b: '#FF7A00', g: 'Brand themes' },
+  { id: '32', name: 'Danat Dark', a: '#0B1630', b: '#FF7A00' },
+  { id: '33', name: 'Danat AI', a: '#8B2BE2', b: '#0757B8' },
+  { id: '34', name: 'Danat Light', a: '#FFFFFF', b: '#0757B8' },
+  { id: '35', name: 'Danat Midnight', a: '#081224', b: '#22D3EE' },
+  { id: '36', name: 'Danat Logo Palette (Soft)', a: '#0757B8', b: '#FF7A00' },
+  { id: '37', name: 'Danat Logo Palette (Warm)', a: '#049AE9', b: '#F78E36' },
+  { id: '1', name: 'Lavender Mist', a: '#7c5cd6', b: '#d8cbff', g: 'Pastel shades' },
+  { id: '2', name: 'Cotton Candy', a: '#a45cc9', b: '#f3c6e6' },
+  { id: '3', name: 'Sky Lilac', a: '#5b6fd6', b: '#c9d9ff' },
+  { id: '4', name: 'Peach Violet', a: '#8a5ad1', b: '#ffd0b5' },
+  { id: '5', name: 'Mint Orchid', a: '#7a5fcf', b: '#c6ebe0' },
+  { id: '6', name: 'Aurora Pastel', a: '#8b5cf6', b: '#ffdcea' },
+  { id: '7', name: 'Butter Lemon', a: '#c08a1e', b: '#ffec9e' },
+  { id: '8', name: 'Sea Foam', a: '#2f8f9d', b: '#b8e9e4' },
+  { id: '9', name: 'Rose Quartz', a: '#c04d74', b: '#f9c9d2' },
+  { id: '10', name: 'Periwinkle', a: '#5a5fc8', b: '#cdd2ff' },
+  { id: '11', name: 'Apricot Blush', a: '#d0634a', b: '#ffcdb2' },
+  { id: '12', name: 'Sage Mist', a: '#5f8a63', b: '#cfe3c6' },
+  { id: '13', name: 'Baby Blue', a: '#3a7cc4', b: '#c3e2ff' },
+  { id: '14', name: 'Lilac Grey', a: '#6f6391', b: '#dcd7e8' },
+];
+// 369 ai Fix shades (shown in the menu when that brand is selected)
+export const shades369 = [
+  { id: '0', name: 'Default', a: '#0f6fd1', b: '#f07a1a', g: 'Theme shade' },
+  { id: '21', name: 'Ice Blue', a: '#1f78c8', b: '#c2e2ff' },
+  { id: '22', name: 'Sky Apricot', a: '#2a86d6', b: '#ffe6cf' },
+  { id: '23', name: 'Silver Mist', a: '#4f6a8a', b: '#dde2e9' },
+  { id: '24', name: 'Ocean Pastel', a: '#1c7fae', b: '#bfe5f3' },
+  { id: '25', name: 'Sunrise Blue', a: '#e27424', b: '#ffd6b0' },
+  { id: '26', name: 'Cloud Grey', a: '#3b6ea5', b: '#e1e6ee' },
+  { id: '27', name: 'Aqua Peach', a: '#1d8a9a', b: '#ffe5d2' },
+  { id: '28', name: 'Periwinkle Sky', a: '#3f63c9', b: '#cfd9ff' },
+];
+---
+
+<div class="sp" data-sp data-no-brand>
+  <div class="sp-menu" role="group" aria-label="Colour shade" data-sp-menu hidden>
+    {[['danatfix', shades], ['369', shades369]].map(([brand, list]) => (list as any[]).flatMap((s) => [s.g && <p data-grp={brand}>{s.g}</p>, (
+      <button type="button" data-shade-id={s.id} data-for-brand={brand} aria-pressed="false">
+        <span class="sp-sw" style={`--a:${s.a};--b:${s.b}`}></span>{s.name}
+      </button>
+    )]))}
+  </div>
+  <button type="button" class="sp-btn" aria-expanded="false" aria-label="Theme" title="Theme" data-sp-btn>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.1-4-7.6-9-7.6z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/></svg>
+    <span>Theme</span>
+  </button>
+</div>
+
+<script is:inline>
+(() => {
+  const root = document.querySelector('[data-sp]'), btn = root.querySelector('[data-sp-btn]'), menu = root.querySelector('[data-sp-menu]');
+  const mark = () => { const cur = document.documentElement.dataset.shade || '0'; menu.querySelectorAll('[data-shade-id]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.shadeId === cur && b.dataset.forBrand === (document.documentElement.dataset.brand || 'danatfix')))); };
+  const set = (id) => {
+    if (id === '0') delete document.documentElement.dataset.shade; else document.documentElement.dataset.shade = id;
+    try { localStorage.setItem('shade', id); } catch {}
+    mark();
+  };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute('aria-expanded', String(!menu.hidden)); });
+  menu.addEventListener('click', (e) => { const b = e.target.closest('[data-shade-id]'); if (b) set(b.dataset.shadeId); });
+  document.addEventListener('click', (e) => { if (!root.contains(e.target)) { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); } });
+  // only one header menu open at a time; Escape closes it
+  const shut = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', () => { if (!menu.hidden) document.dispatchEvent(new CustomEvent('hdr-menu', { detail: 'sp' })); });
+  document.addEventListener('hdr-menu', (e) => { if (e.detail !== 'sp') shut(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) { shut(); btn.focus(); } });
+  // a shade belongs to one brand (1–14 Danat Fix, 21–28 369 ai Fix): drop it when the brand no longer matches
+  const fits = () => { const s = Number(document.documentElement.dataset.shade || 0), br = document.documentElement.dataset.brand || 'danatfix'; return !s || (br === '369' ? s >= 21 && s <= 28 : (s >= 1 && s <= 14) || (s >= 32 && s <= 37)); };
+  const check = () => { if (!fits()) { delete document.documentElement.dataset.shade; try { localStorage.setItem('shade', '0'); } catch {} } mark(); };
+  new MutationObserver(check).observe(document.documentElement, { attributes: true, attributeFilter: ['data-brand'] });
+  check();
+})();
+</script>
+
+<style>
+  .sp { position: relative; }
+  .sp-btn { display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 14px 0 11px; border: 1px solid var(--line); border-radius: 999px; background: linear-gradient(135deg, #fff, var(--accent-soft)); color: var(--ink); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+  .sp-btn:hover, .sp-btn[aria-expanded='true'] { border-color: var(--violet); box-shadow: 0 8px 18px -10px var(--violet); }
+  .sp-btn svg { width: 18px; height: 18px; color: var(--violet); }
+  .sp-menu { position: absolute; right: 0; top: calc(100% + 12px); z-index: 80; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 400px; max-width: calc(100vw - 32px); padding: 10px; border: 1px solid var(--line); border-radius: 18px; background: #fff; box-shadow: 0 24px 50px -20px rgba(0,0,0,.35); }
+  .sp-menu[hidden] { display: none; }
+  .sp-menu p { grid-column: 1 / -1; margin: 2px 8px 6px; font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #8a86a0; }
+  .sp-menu button { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 11px; background: none; font: inherit; font-size: 14px; color: #26252b; text-align: left; cursor: pointer; }
+  .sp-menu [data-for-brand] { display: none !important; }
+  :global(:root[data-brand='danatfix']) .sp-menu button[data-for-brand='danatfix'], :global(:root[data-brand='369']) .sp-menu button[data-for-brand='369'] { display: flex !important; }
+  :global(:root[data-brand='danatfix']) .sp-menu p[data-grp='danatfix'], :global(:root[data-brand='369']) .sp-menu p[data-grp='369'] { display: block !important; }
+  .sp-menu p[data-grp] { display: none; }
+  .sp-menu button:hover { background: #f3f0fa; }
+  .sp-menu button[aria-pressed='true'] { background: #efe9fd; font-weight: 700; }
+  .sp-sw { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--a) 50%, var(--b) 50%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+  @media (max-width: 900px) { .sp-btn { padding: 0 11px; } .sp-btn span { display: none; } }
+</style>

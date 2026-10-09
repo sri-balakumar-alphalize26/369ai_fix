@@ -1,0 +1,448 @@
+---
+// Re-engagement (manager brief):
+//  • Idle 35 s (no mouse, scroll, key or touch) → "Book Your Slot" image slider
+//    with a quick phone/email field that sends to WhatsApp.
+//  • Exit intent (pointer leaves through the top) or cursor still for 15 s →
+//    slide-in panel from the LEFT asking what service they need.
+// Each shows at most once per browser session, and never on top of another popup.
+import { site, price } from '../data/site';
+import { categories, iconPaths } from '../data/devices';
+import DeviceArt from './DeviceArt.astro';
+import { artFor } from '../data/menu';
+const label: Record<string, string> = { mobile: 'Mobile repair', laptop: 'Laptop repair', printer: 'Printer repair', cctv: 'CCTV installation', network: 'Wi-Fi & networking', data: 'Data recovery' };
+
+const tel = site.phone.tel.replace('+', '');
+const slides = ['mobile', 'laptop', 'printer', 'cctv', 'data'].map((id) => categories.find((c) => c.id === id)!);
+const title: Record<string, [string, string]> = { mobile: ['Mobile', 'Repair'], laptop: ['Laptop', 'Repair'], printer: ['Printer', 'Repair'], cctv: ['CCTV', 'Installation'], data: ['Data', 'Recovery'] };
+const pitch: Record<string, string> = {
+  mobile: 'Screen, battery, charging, camera and more – quick and reliable service.',
+  laptop: 'Screens, keyboards, batteries, hinges and board-level repair.',
+  printer: 'Paper jams, print quality, toner and setup – fixed on-site.',
+  cctv: 'Site survey, camera install, DVR/NVR setup and phone viewing.',
+  data: 'Deleted files, dead drives and formatted disks recovered.',
+};
+const perks: Record<string, string[]> = {
+  mobile: ['Genuine parts', 'Expert technicians', 'Affordable pricing', 'Quick turnaround'],
+  laptop: ['Genuine parts', 'Board-level repair', 'Affordable pricing', 'Pickup & drop'],
+  printer: ['On-site service', 'All major brands', 'Affordable pricing', 'Setup included'],
+  cctv: ['Site survey first', 'Clean cabling', 'Remote viewing', 'Maintenance plans'],
+  data: ['Honest assessment', 'Secure handling', 'All drive types', 'Updates on WhatsApp'],
+};
+// Phone country codes + number lengths (shared). The visitor's own country (from /api/currency) is pre-selected.
+import { DIAL as dial } from '../lib/phone';
+---
+
+<!-- Book your slot popup (on open, and after 35 s idle) -->
+<div class="ig" data-idle hidden data-tel={tel}>
+  <div class="ig-bg" data-idle-x></div>
+  <div class="ig-card" role="dialog" aria-modal="true" aria-labelledby="ig-title">
+    <button type="button" class="ig-x" data-idle-x aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+
+    <!-- LEFT: product showcase -->
+    <div class="ig-show">
+      <span class="ig-swoosh" aria-hidden="true"></span>
+      {slides.map((c, i) => (
+        <div class:list={['ig-slide', { on: i === 0 }]} data-slide={i}>
+          <div class="ig-copy">
+            <span class="ig-eyebrow">Book your slot <i></i></span>
+            <h3>{title[c.id][0]} <em>{title[c.id][1]}</em></h3>
+            <p>{pitch[c.id]}</p>
+            <ul class="ig-checks">
+              {perks[c.id].map((k) => <li><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>{k}</li>)}
+            </ul>
+            <div class="ig-from"><small>Starting from</small><b>{price()}</b></div>
+          </div>
+          <div class="ig-product">
+            <span class="ig-hand" aria-hidden="true">We fix it<br />like new!<svg viewBox="0 0 40 60" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M28 4c10 14 8 34-14 48"/><path d="M12 40l1 13 12-5"/></svg></span>
+            <span class="ig-glow" aria-hidden="true"></span>
+            <span class="ig-dev"><DeviceArt kind={artFor[c.id]} /></span>
+            <span class="ig-pedestal" aria-hidden="true"></span>
+          </div>
+        </div>
+      ))}
+      <button type="button" class="ig-arrow prev" data-prev aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button type="button" class="ig-arrow next" data-next aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      <div class="ig-thumbs" role="tablist" aria-label="Choose a service">
+        {slides.map((c, i) => (
+          <button type="button" role="tab" class:list={['ig-thumb', { on: i === 0 }]} data-thumb={i}>
+            <span class="ig-thumb-art"><DeviceArt kind={artFor[c.id]} /></span>
+            <span>{title[c.id].join(' ')}</span>
+          </button>
+        ))}
+      </div>
+      <div class="ig-dots">{slides.map((_, i) => <button type="button" data-dot={i} class:list={[{ on: i === 0 }]} aria-label={`Slide ${i + 1}`}></button>)}</div>
+      <i data-prog hidden></i>
+    </div>
+
+    <!-- RIGHT: booking form -->
+    <div class="ig-form">
+      <span class="ig-wa-pill"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg> Book instantly on WhatsApp</span>
+      <h2 id="ig-title">Book your slot</h2>
+      <p class="ig-sub">Share your number or email and we'll start the booking on WhatsApp.</p>
+      <div class="ig-mode" role="tablist" aria-label="Contact method">
+        <button type="button" role="tab" data-mode="phone" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>Mobile Number</button>
+        <button type="button" role="tab" data-mode="email" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email Address</button>
+      </div>
+      <form class="ig-quick" data-quick novalidate>
+        <div class="ig-row" data-row-phone>
+          <label class="ig-cc" title="Country code">
+            <img class="flag" src="/flags/om.svg" alt="" width="26" height="17" data-cc-flag />
+            <span data-cc-code>+968</span>
+            <svg class="cc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            <select name="cc" aria-label="Country code" data-cc>
+              {dial.map((d) => <option value={d.cc} data-code={d.code} data-len={d.len} data-eg={d.eg} selected={d.cc === 'om'}>{d.name} ({d.code})</option>)}
+            </select>
+          </label>
+          <input name="phone" inputmode="tel" placeholder="9123 4567" maxlength="16" autocomplete="tel-national" aria-label="Mobile number" data-ph />
+        </div>
+        <div class="ig-row" data-row-email hidden>
+          <input name="email" type="email" placeholder="name@email.com" autocomplete="email" aria-label="Email address" />
+        </div>
+        <p class="ig-err" data-field-err role="alert" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg><span data-err-text></span><button type="button" class="ig-fix" data-err-fix hidden>Use it</button></p>
+        <button type="submit" class="ig-send"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg> <span>Send on WhatsApp</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <p class="ig-msg" data-quick-msg aria-live="polite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-quick-note>No spam. We only use your number to confirm the booking.</span></p>
+      </form>
+      <div class="ig-or"><span>OR</span></div>
+      <a class="ig-all" href="/services#all" data-idle-x><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>View all services<svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <ul class="ig-feat">
+        <li><span class="f1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><b>Quick Service</b><small>In most areas</small></li>
+        <li><span class="f2"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.4 9.3-8 11-4.6-1.7-8-6-8-11V5z"/><path d="M8.5 12l2.5 2.5 4.5-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b>Genuine Parts</b><small>Trusted quality</small></li>
+        <li><span class="f3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span><b>Best Price</b><small>Transparent pricing</small></li>
+      </ul>
+    </div>
+  </div>
+</div>
+<!-- Left slide-in -->
+<aside class="sl" data-slide-in hidden aria-label="Need help?">
+  <div class="sl-head">
+    <button type="button" class="sl-x" data-sl-x aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <span class="sl-av"><img data-for="danatfix" src="/brand/danat-fix@240.png" alt="" width="44" height="44" /><img data-for="369" src="/brand/369-ai-fix@240.png" alt="" width="44" height="44" /><i></i></span>
+    <div>
+      <b>Leaving already? 👋</b>
+      <small><i class="dot"></i>We reply on WhatsApp</small>
+    </div>
+  </div>
+  <div class="sl-body">
+    <p>What do you need fixed today? Tap one — we'll reply on WhatsApp.</p>
+    <div class="sl-grid">
+      {categories.filter((c) => !['tablet', 'desktop', 'itsupport'].includes(c.id)).map((c, i) => (
+        <a class="sl-tile" style={`--h:${c.hue}; --i:${i}`} target="_blank" rel="noopener" href={`https://wa.me/${tel}?text=${encodeURIComponent(`Hi Danat Fix, I need help with my ${c.name}.`)}`}>
+          <span class="sl-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={iconPaths[c.icon]} /></span>
+          <span>{c.name.replace(' & MacBooks', '').replace(' Installation', '').replace(' & Wi-Fi', '')}</span>
+        </a>
+      ))}
+    </div>
+    <a class="sl-cta" target="_blank" rel="noopener" href={`https://wa.me/${tel}?text=${encodeURIComponent('Hi Danat Fix, I need help with a repair.')}`}><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg> Chat with us on WhatsApp</a>
+    <a class="sl-all" href="/#book-services">See all services →</a>
+  </div>
+</aside>
+<script>
+  import { checkPhone, bindPhone, limitPhone } from '../lib/phone';
+    import { checkEmail } from '../lib/email';
+  const idle = document.querySelector<HTMLElement>('[data-idle]');
+  const sl = document.querySelector<HTMLElement>('[data-slide-in]');
+  if (idle && sl) {
+    const tel = idle.dataset.tel!;
+    const ss = (k: string) => { try { return sessionStorage.getItem(k); } catch { return null; } };
+    const sset = (k: string) => { try { sessionStorage.setItem(k, '1'); } catch {} };
+    const q = new URLSearchParams(location.search);
+    const IDLE_MS = Number(q.get('idle')) * 1000 || 35000;
+    const STILL_MS = Number(q.get('still')) * 1000 || 15000;
+    const busy = () => document.documentElement.style.overflow === 'hidden' || ![...document.querySelectorAll<HTMLElement>('[data-po],[data-sw],[data-idle]')].every((m) => m.hidden);
+
+    // ---- idle slider ----
+    let slideT = 0, cur = 0;
+    const slides = [...idle.querySelectorAll<HTMLElement>('[data-slide]')];
+    const dots = [...idle.querySelectorAll<HTMLElement>('[data-dot]')];
+    const thumbs = [...idle.querySelectorAll<HTMLElement>('[data-thumb]')];
+    const title_of = (i: number) => slides[i].querySelector('h3')!.textContent!.replace(/\s+/g, ' ').trim();
+    const go = (i: number) => {
+      cur = (i + slides.length) % slides.length;
+      slides.forEach((s, k) => s.classList.toggle('on', k === cur));
+      dots.forEach((d, k) => d.classList.toggle('on', k === cur));
+      thumbs.forEach((d, k) => d.classList.toggle('on', k === cur));
+      clearTimeout(slideT);
+      slideT = window.setTimeout(() => go(cur + 1), 3500);
+    };
+    dots.forEach((d, k) => d.addEventListener('click', () => go(k)));
+    thumbs.forEach((d, k) => d.addEventListener('click', () => go(k)));
+    // Keep sliding; pause only while the visitor is typing in the form.
+    const form = idle.querySelector('.ig-form')!;
+    form.addEventListener('focusin', () => clearTimeout(slideT));
+    form.addEventListener('focusout', () => { if (!idle.hidden) go(cur); });
+
+    // contact mode tabs
+    let mode = 'phone';
+    idle.querySelectorAll<HTMLElement>('[data-mode]').forEach((b) => b.addEventListener('click', () => {
+      mode = b.dataset.mode!;
+      idle.querySelectorAll('[data-mode]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+      idle.querySelector<HTMLElement>('[data-row-phone]')!.hidden = mode !== 'phone';
+      idle.querySelector<HTMLElement>('[data-row-email]')!.hidden = mode !== 'email';
+      (window as any).__clearQuickErr?.();
+      const note = idle.querySelector('[data-quick-note]'); if (note) note.textContent = `No spam. We only use your ${mode === 'email' ? 'email' : 'number'} to confirm the booking.`;
+      idle.querySelector<HTMLInputElement>(mode === 'phone' ? '[name=phone]' : '[name=email]')!.focus();
+    }));
+    idle.querySelector('[data-prev]')!.addEventListener('click', () => go(cur - 1));
+    idle.querySelector('[data-next]')!.addEventListener('click', () => go(cur + 1));
+    const openIdle = (force = false) => {
+      if (!force && (ss('idle-shown') || busy())) return;
+      sset('idle-shown');
+      hideSl();
+      idle.hidden = false;
+      requestAnimationFrame(() => idle.classList.add('in'));
+      document.documentElement.style.overflow = 'hidden';
+      go(0);
+    };
+    const closeIdle = () => {
+      idle.classList.remove('in');
+      document.documentElement.style.overflow = '';
+      clearTimeout(slideT);
+      setTimeout(() => (idle.hidden = true), 350);
+    };
+    idle.querySelectorAll('[data-idle-x]').forEach((b) => b.addEventListener('click', closeIdle));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !idle.hidden) closeIdle(); });
+
+    const qMsg = idle.querySelector<HTMLElement>('[data-quick-msg]')!;
+    // Country code picker: shows flag + code, follows the visitor's country until they choose one
+    const ccSel = idle.querySelector<HTMLSelectElement>('[data-cc]')!;
+    const ccShow = () => { const o = ccSel.selectedOptions[0]; idle.querySelector<HTMLImageElement>('[data-cc-flag]')!.src = `/flags/${o.value}.svg`; idle.querySelector('[data-cc-code]')!.textContent = o.dataset.code!; const ph = idle.querySelector<HTMLInputElement>('[data-ph]')!; ph.placeholder = o.dataset.eg!; ph.value = limitPhone(ph.value, ccSel.value); };
+    ccShow();
+    // Error box right under the field: slides in + shakes on each new message, red border on the input
+    const phIn = idle.querySelector<HTMLInputElement>('[data-ph]')!;
+    const emIn = idle.querySelector<HTMLInputElement>('[name=email]')!;
+    const errEl = idle.querySelector<HTMLElement>('[data-field-err]')!;
+    const errFix = idle.querySelector<HTMLButtonElement>('[data-err-fix]')!;
+    let suggestion = '';
+    const fieldErr = (input: HTMLInputElement, m: string, suggest = '') => {
+      const same = !errEl.hidden && errEl.querySelector('[data-err-text]')!.textContent === m;
+      errEl.querySelector('[data-err-text]')!.textContent = m;
+      errEl.hidden = !m; input.classList.toggle('bad', !!m); input.setAttribute('aria-invalid', String(!!m));
+      suggestion = suggest; errFix.hidden = !suggest;
+      if (m && !same) { errEl.classList.remove('shake'); void errEl.offsetWidth; errEl.classList.add('shake'); }
+    };
+    (window as any).__clearQuickErr = () => { fieldErr(phIn, ''); fieldErr(emIn, ''); };
+    errFix.addEventListener('click', () => { if (!suggestion) return; emIn.value = suggestion; fieldErr(emIn, ''); emIn.focus(); });
+    bindPhone(phIn, () => ccSel.value, (m) => fieldErr(phIn, m));
+    // email: check when leaving the box; once an error shows, re-check live so it clears as soon as it's fixed
+    emIn.addEventListener('blur', () => { if (!emIn.value.trim()) return; const r = checkEmail(emIn.value); fieldErr(emIn, r.msg, r.suggest); });
+    // while typing: re-check at once if an error is showing; otherwise check after a short pause
+    let emTimer = 0;
+    emIn.addEventListener('input', () => {
+      clearTimeout(emTimer);
+      const run = () => { if (!emIn.value.trim()) { fieldErr(emIn, ''); return; } const r = checkEmail(emIn.value); fieldErr(emIn, r.ok ? '' : r.msg, r.suggest); };
+      if (!errEl.hidden) run(); else emTimer = window.setTimeout(run, 700);
+    });
+    let ccTouched = false;
+    ccSel.addEventListener('change', () => { ccTouched = true; ccShow(); });
+    const ccAuto = (cc: unknown) => { if (ccTouched || typeof cc !== 'string') return; const v = cc.toLowerCase(); if ([...ccSel.options].some((o) => o.value === v)) { ccSel.value = v; ccShow(); } };
+    ccAuto((window as any).__visitorCountry);
+    window.addEventListener('visitor-country', (e) => ccAuto((e as CustomEvent).detail));
+
+    idle.querySelector<HTMLFormElement>('[data-quick]')!.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target as HTMLFormElement);
+      const raw = String(fd.get(mode) ?? '').trim();
+      const msg = idle.querySelector('[data-quick-msg]')!;
+      const slide = title_of(cur);
+      let v = raw;
+      if (mode === 'phone') {
+        const r = checkPhone(ccSel.value, raw);
+        if (!raw) { fieldErr(phIn, 'Please enter your mobile number.'); phIn.focus(); return; }
+        if (!r.ok) { fieldErr(phIn, r.msg); phIn.focus(); return; }
+        v = r.full;
+      } else {
+        const r = checkEmail(raw);
+        if (!r.ok) { fieldErr(emIn, r.msg, r.suggest); emIn.focus(); return; }
+        v = r.email;
+      }
+      fieldErr(mode === 'phone' ? phIn : emIn, '');
+      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(`Hi Danat Fix, I want to book ${slide}. My contact: ${v}`)}`, '_blank', 'noopener');
+      msg.textContent = 'Thanks — opening WhatsApp to send it to our team.';
+      msg.className = 'ig-msg ok';
+    });
+
+    // Opens on arrival too (Popups.astro calls this as the default welcome popup)
+    (window as any).__openSlot = () => openIdle(true);
+
+    // ---- left slide-in ----
+    const showSl = () => {
+      if (ss('sl-shown') || busy()) return;
+      sset('sl-shown');
+      sl.hidden = false;
+      requestAnimationFrame(() => sl.classList.add('in'));
+    };
+    const hideSl = () => { sl.classList.remove('in'); setTimeout(() => (sl.hidden = true), 400); };
+    sl.querySelector('[data-sl-x]')!.addEventListener('click', hideSl);
+    document.addEventListener('mouseout', (e) => { if (!e.relatedTarget && e.clientY <= 0) showSl(); });
+
+    // ---- timers ----
+    let idleT = 0, stillT = 0;
+    const armIdle = () => { clearTimeout(idleT); idleT = window.setTimeout(openIdle, IDLE_MS); };
+    const armStill = () => { clearTimeout(stillT); stillT = window.setTimeout(showSl, STILL_MS); };
+    ['scroll', 'keydown', 'touchstart', 'wheel'].forEach((ev) => addEventListener(ev, armIdle, { passive: true }));
+    addEventListener('mousemove', () => { armIdle(); armStill(); }, { passive: true });
+    armIdle();
+    if (matchMedia('(pointer: fine)').matches) armStill();
+  }
+</script>
+
+<style>
+  .ig { position: fixed; inset: 0; z-index: 88; display: grid; place-items: center; padding: 16px; --g: var(--violet); --g2: var(--deep, #0f6b37); }
+  .ig[hidden] { display: none; }
+  .ig-bg { position: absolute; inset: 0; background: rgba(15, 24, 20, .5); backdrop-filter: blur(8px); opacity: 0; transition: opacity .35s; }
+  .ig.in .ig-bg { opacity: 1; }
+  .ig-card { position: relative; width: min(1180px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: grid; grid-template-columns: 1.55fr 1fr; background: #fff; border-radius: 34px; box-shadow: 0 50px 120px -30px rgba(0,0,0,.55); color: #16211b; transform: translateY(28px) scale(.97); opacity: 0; transition: transform .55s cubic-bezier(.2,1.15,.3,1), opacity .35s; }
+  .ig.in .ig-card { transform: none; opacity: 1; }
+  .ig-x { position: absolute; right: 22px; top: 22px; z-index: 5; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #e3e8e5; border-radius: 50%; background: #fff; color: #16211b; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+  .ig-x svg { width: 20px; height: 20px; }
+
+  /* left */
+  .ig-show { position: relative; display: grid; grid-template-rows: 1fr auto auto; padding: 44px 24px 22px 92px; overflow: hidden; background: radial-gradient(420px 320px at 85% 15%, var(--glow), transparent 70%), linear-gradient(135deg, var(--bg) 0%, var(--accent-soft) 55%, color-mix(in srgb, var(--accent-soft) 60%, var(--violet) 18%) 100%); }
+  .ig-swoosh { position: absolute; right: -18%; top: -30%; width: 75%; height: 160%; border-radius: 50%; background: radial-gradient(closest-side, rgba(47,160,90,.28), rgba(47,160,90,.08) 70%, transparent); transform: rotate(-20deg); pointer-events: none; }
+  .ig-slide { grid-area: 1 / 1; position: relative; display: grid; grid-template-columns: 1.1fr .9fr; align-items: center; gap: 10px; min-height: 430px; opacity: 0; pointer-events: none; transition: opacity .5s; }
+  .ig-slide.on { opacity: 1; pointer-events: auto; }
+  .ig-copy { position: relative; z-index: 2; display: grid; gap: 14px; align-content: center; justify-items: start; }
+  .ig-slide.on .ig-copy > * { animation: igUp .6s cubic-bezier(.2,.8,.2,1) both; }
+  .ig-slide.on .ig-copy > :nth-child(2) { animation-delay: .06s; } .ig-slide.on .ig-copy > :nth-child(3) { animation-delay: .12s; } .ig-slide.on .ig-copy > :nth-child(4) { animation-delay: .18s; } .ig-slide.on .ig-copy > :nth-child(5) { animation-delay: .26s; }
+  @keyframes igUp { from { opacity: 0; transform: translateY(18px); } }
+  .ig-eyebrow { display: inline-flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; color: #16211b; }
+  .ig-eyebrow i { width: 34px; height: 2px; background: var(--g); }
+  .ig-copy h3 { font-family: var(--display); font-size: clamp(34px, 3.4vw, 50px); white-space: nowrap; font-weight: 800; line-height: 1; letter-spacing: -.03em; color: #111a15; }
+  .ig-copy h3 em { font-style: normal; color: var(--g); }
+  .ig-copy p { font-size: 16px; color: #3d4a43; line-height: 1.5; max-width: 34ch; }
+  .ig-checks { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 12px; }
+  .ig-checks li { display: flex; align-items: center; gap: 12px; font-size: 16px; color: #26322b; }
+  .ig-checks span { width: 22px; height: 22px; color: var(--g); flex: none; }
+  .ig-checks svg { width: 100%; height: 100%; }
+  .ig-from { display: grid; margin-top: 12px; padding: 12px 24px; border-radius: 18px; background: rgba(255,255,255,.65); box-shadow: 0 8px 24px -14px rgba(20,80,40,.4); }
+  .ig-from small { font-size: 14px; color: #5b6861; }
+  .ig-from b { font-family: var(--display); font-size: 34px; font-weight: 800; color: var(--g2); line-height: 1.05; }
+
+  .ig-product { position: relative; display: grid; place-items: center; height: 100%; min-height: 400px; }
+  .ig-glow { position: absolute; width: 70%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.9), transparent); filter: blur(6px); }
+  .ig-dev { position: relative; z-index: 2; width: min(300px, 100%); aspect-ratio: 1; margin-bottom: 10px; filter: drop-shadow(0 28px 26px rgba(10,40,20,.28)); }
+  .ig-slide.on .ig-dev { animation: igIn .9s cubic-bezier(.3,1.4,.5,1) both, igFloat 4s ease-in-out .9s infinite; }
+  @keyframes igIn { from { opacity: 0; transform: translateY(30px) scale(.8) rotate(-8deg); } }
+  @keyframes igFloat { 50% { transform: translateY(-10px); } }
+  .ig-pedestal { position: absolute; left: 50%; bottom: 92px; z-index: 1; width: 78%; height: 70px; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(#ffffff, #e7ece9); box-shadow: 0 18px 30px -10px rgba(0,0,0,.2), inset 0 -8px 16px rgba(0,0,0,.05); }
+  .ig-pedestal::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 34px; border-radius: 0 0 50% 50% / 0 0 100% 100%; background: linear-gradient(#eef2ef, #d9e0dc); z-index: -1; }
+  .ig-hand { position: absolute; right: 8px; top: 18px; z-index: 3; font-family: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive; font-size: 24px; line-height: 1.1; color: #1f2d25; transform: rotate(-12deg); text-align: center; }
+  .ig-hand svg { display: block; width: 34px; height: 52px; margin: 4px auto 0; color: var(--g); transform: rotate(8deg); }
+
+  .ig-arrow { position: absolute; top: 44%; z-index: 4; display: grid; place-items: center; width: 52px; height: 52px; border: 0; border-radius: 50%; background: #fff; color: #16211b; box-shadow: 0 8px 24px -8px rgba(0,0,0,.3); transition: transform .2s; }
+  .ig-arrow:hover { transform: scale(1.08); }
+  .ig-arrow svg { width: 22px; height: 22px; }
+  .ig-arrow.prev { left: 20px; } .ig-arrow.next { right: 16px; }
+
+  .ig-thumbs { position: relative; z-index: 3; margin-left: -68px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 14px; }
+  .ig-thumb { position: relative; display: grid; justify-items: center; gap: 6px; padding: 12px 6px 14px; border: 1.5px solid transparent; border-radius: 16px; background: #fff; font-size: 13.5px; font-weight: 600; color: #16211b; box-shadow: 0 6px 18px -12px rgba(0,0,0,.3); transition: border-color .2s, transform .2s; }
+  .ig-thumb:hover { transform: translateY(-3px); }
+  .ig-thumb.on { border-color: var(--g); }
+  .ig-thumb.on::after { content: ''; position: absolute; bottom: 6px; width: 22px; height: 3px; border-radius: 3px; background: var(--g); }
+  .ig-thumb-art { width: 64px; height: 56px; }
+  .ig-dots { display: flex; justify-content: center; gap: 12px; margin: 18px 0 0 -68px; }
+  .ig-dots button { width: 13px; height: 13px; padding: 0; border: 0; border-radius: 50%; background: #d6ddd9; transition: background .3s, transform .3s; }
+  .ig-dots button.on { background: var(--g2); transform: scale(1.1); }
+
+  /* right */
+  .ig-form { display: flex; flex-direction: column; gap: 16px; padding: 40px 36px 30px; }
+  .ig-wa-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; padding: 11px 18px; border-radius: 999px; background: var(--accent-soft); color: var(--g2); font-size: 15px; font-weight: 600; }
+  .ig-wa-pill svg { width: 22px; height: 22px; color: var(--g); }
+  .ig-form h2 { font-family: var(--display); font-size: clamp(32px, 3vw, 44px); font-weight: 800; letter-spacing: -.02em; color: #111a15; margin-top: 8px; }
+  .ig-sub { font-size: 16px; color: #56625b; line-height: 1.5; }
+  .ig-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ig-mode button { display: flex; align-items: center; justify-content: center; gap: 10px; height: 56px; border: 1.5px solid transparent; border-radius: 14px; background: #f1f4f2; color: #26322b; font-size: 15px; font-weight: 600; transition: all .2s; }
+  .ig-mode button svg { width: 20px; height: 20px; }
+  .ig-mode button[aria-selected='true'] { border-color: var(--g); background: var(--accent-soft); color: var(--g2); }
+  .ig-quick { display: grid; gap: 14px; }
+  .ig-row { display: flex; gap: 10px; }
+  .ig-row[hidden] { display: none; }
+  .ig-cc { position: relative; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; height: 56px; border: 1px solid #dfe5e1; border-radius: 12px; font-size: 15px; font-weight: 600; color: #26322b; background: #fff; }
+  .ig-cc .flag { width: 26px; height: 17px; border-radius: 3px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+  .ig-cc select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; font-size: 15px; }
+  .ig-cc:focus-within { border-color: var(--g); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .ig-cc .cc-chev { width: 14px; height: 14px; color: #6d7973; }
+  .ig-row input { flex: 1; min-width: 0; height: 56px; padding: 0 16px; border: 1px solid #dfe5e1; border-radius: 12px; outline: none; font: inherit; font-size: 15.5px; background: #fff; color: #16211b; }
+  .ig-row input:focus { border-color: var(--g); box-shadow: 0 0 0 4px rgba(31,138,76,.12); }
+  .ig-send { position: relative; display: flex; align-items: center; justify-content: center; gap: 14px; height: 66px; border: 0; border-radius: 16px; background: linear-gradient(180deg, var(--violet), var(--deep, #0f6b37)); color: #fff; font-size: 19px; font-weight: 700; box-shadow: 0 16px 30px -14px rgba(15,122,60,.9); overflow: hidden; transition: transform .2s; }
+  .ig-send:hover { transform: translateY(-2px); }
+  .ig-send > svg:first-child { width: 26px; height: 26px; }
+  .ig-send .arr { width: 20px; height: 20px; transition: transform .2s; }
+  .ig-send:hover .arr { transform: translateX(4px); }
+  .ig-send::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent); transform: skewX(-20deg); animation: igShine 3s ease-in-out infinite; }
+  @keyframes igShine { 0%, 55% { left: -60%; } 100% { left: 140%; } }
+  .ig-msg { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: #5b6861; }
+  .ig-msg svg { width: 15px; height: 15px; flex: none; }
+  .ig-msg.err { color: #be123c; }
+  /* field error: sits under the input, slides in and gives a small shake */
+  .ig-err { display: flex; align-items: flex-start; gap: 9px; margin: -6px 0 0; padding: 10px 12px; border-radius: 12px; background: linear-gradient(90deg, #FFF1F2, #FFF7F7); border: 1px solid #FECDD3; box-shadow: inset 3px 0 0 #E11D48; color: #9F1239; font-size: 13.5px; font-weight: 600; line-height: 1.4; animation: igErrIn .28s cubic-bezier(.2,.9,.3,1.2); }
+  .ig-err[hidden] { display: none; }
+  .ig-err > svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: #E11D48; animation: igErrPulse 1.6s ease-in-out infinite; }
+  .ig-err span { flex: 1; }
+  .ig-err.shake { animation: igErrIn .28s cubic-bezier(.2,.9,.3,1.2), igShake .42s .05s ease-in-out; }
+  .ig-fix { flex: none; padding: 3px 10px; border: 0; border-radius: 999px; background: #E11D48; color: #fff; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .ig-fix:hover { background: #BE123C; }
+  .ig-fix[hidden] { display: none; }
+  .ig-row input.bad { border-color: #F43F5E; box-shadow: 0 0 0 4px rgba(244,63,94,.12); }
+  @keyframes igErrIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  @keyframes igShake { 0%, 100% { translate: 0; } 20% { translate: -6px; } 40% { translate: 5px; } 60% { translate: -3px; } 80% { translate: 2px; } }
+  @keyframes igErrPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+  @media (prefers-reduced-motion: reduce) { .ig-err, .ig-err.shake, .ig-err > svg { animation: none; } }
+  .ig-msg.ok { color: var(--g); }
+  .ig-or { display: flex; align-items: center; gap: 14px; font-size: 13px; color: #6d7973; }
+  .ig-or::before, .ig-or::after { content: ''; flex: 1; height: 1px; background: #e3e8e5; }
+  .ig-all { display: flex; align-items: center; gap: 14px; height: 60px; padding: 0 26px; border-radius: 16px; background: #fff; border: 1px solid #edf0ee; box-shadow: 0 10px 24px -14px rgba(0,0,0,.25); font-size: 17px; font-weight: 700; color: #16211b; transition: transform .2s; }
+  .ig-all:hover { transform: translateY(-2px); }
+  .ig-all svg { width: 22px; height: 22px; }
+  .ig-all .arr { margin-left: auto; width: 20px; }
+  .ig-feat { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .ig-feat li { display: grid; justify-items: center; gap: 4px; }
+  .ig-feat span { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; margin-bottom: 4px; }
+  .ig-feat span svg { width: 26px; height: 26px; }
+  .f1 { background: #fdebd6; color: #e8871e; } .f2 { background: var(--accent-soft); color: var(--violet); } .f3 { background: #dfe9fb; color: #2f6fe0; }
+  .ig-feat b { font-size: 14.5px; }
+  .ig-feat small { font-size: 13px; color: #6d7973; }
+
+  @media (max-width: 1000px) {
+    .ig-card { grid-template-columns: 1fr; width: min(560px, 100%); }
+    .ig-show { padding: 34px 20px 18px; }
+    .ig-slide { grid-template-columns: 1fr; min-height: 0; }
+    .ig-product { min-height: 240px; order: -1; }
+    .ig-dev { width: 220px; margin-bottom: 30px; }
+    .ig-hand { display: none; }
+    .ig-thumbs { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .ig-thumb { font-size: 10.5px; padding: 8px 2px 12px; }
+    .ig-thumb-art { width: 44px; height: 38px; }
+    .ig-form { padding: 26px 22px; }
+    /* picture sits on top here — keep the arrows beside it, off the text */
+    .ig-arrow { top: 130px; width: 42px; height: 42px; }
+    .ig-arrow.prev { left: 10px; } .ig-arrow.next { right: 10px; }
+  }
+  .sl { position: fixed; left: 18px; bottom: 110px; z-index: 86; width: min(340px, calc(100% - 36px)); background: #fff; border-radius: 26px; overflow: hidden; box-shadow: 0 30px 70px -20px rgba(0,0,0,.45); color: #16211b; transform: translateX(-120%) rotate(-4deg); transition: transform .6s cubic-bezier(.2,1.15,.3,1); }
+  .sl[hidden] { display: none; }
+  .sl.in { transform: none; }
+  .sl-head { position: relative; display: flex; align-items: center; gap: 12px; padding: 20px 20px 18px; color: #fff; background: linear-gradient(135deg, var(--violet), var(--deep, #0f6b37)); overflow: hidden; }
+  .sl-head::after { content: ''; position: absolute; right: -40px; top: -60px; width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,.1); }
+  .sl-x { position: absolute; right: 12px; top: 12px; z-index: 2; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; }
+  .sl-x svg { width: 15px; height: 15px; }
+  .sl-av { position: relative; flex: none; width: 48px; height: 48px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: 0 0 0 3px rgba(255,255,255,.3); }
+  .sl-av img { display: none; width: 38px; height: 38px; object-fit: contain; }
+  :global(:root[data-brand='danatfix']) .sl-av img[data-for='danatfix'], :global(:root[data-brand='369']) .sl-av img[data-for='369'] { display: block; }
+  .sl-av i { position: absolute; right: 0; bottom: 1px; width: 12px; height: 12px; border-radius: 50%; background: #4ade80; border: 2px solid var(--deep, #0f6b37); }
+  .sl-head b { display: block; font-family: var(--display); font-size: 19px; }
+  .sl-head small { display: flex; align-items: center; gap: 6px; font-size: 12.5px; opacity: .9; }
+  .sl-head .dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: slPulse 1.6s infinite; }
+  @keyframes slPulse { 50% { opacity: .3; } }
+  .sl-body { display: grid; gap: 14px; padding: 18px 18px 20px; }
+  .sl-body p { font-size: 14px; color: #4a5750; }
+  .sl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sl-tile { display: grid; justify-items: center; gap: 6px; padding: 12px 4px 10px; border-radius: 16px; background: #f4f7f5; font-size: 12px; font-weight: 600; text-align: center; line-height: 1.2; color: #26322b; transition: transform .2s, background .2s; }
+  .sl.in .sl-tile { animation: slIn .45s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.25s + var(--i) * .05s); }
+  @keyframes slIn { from { opacity: 0; transform: translateY(10px) scale(.9); } }
+  .sl-tile:hover { transform: translateY(-3px); background: hsl(var(--h) 70% 94%); }
+  .sl-ico { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #fff; color: hsl(var(--h) 60% 40%); box-shadow: 0 4px 10px -6px rgba(0,0,0,.3); }
+  .sl-ico svg { width: 20px; height: 20px; }
+  .sl-cta { display: flex; align-items: center; justify-content: center; gap: 10px; height: 50px; border-radius: 14px; background: #25d366; color: #fff; font-weight: 700; font-size: 15px; box-shadow: 0 12px 24px -12px rgba(37,211,102,.9); transition: transform .2s; }
+  .sl-cta:hover { transform: translateY(-2px); }
+  .sl-cta svg { width: 20px; height: 20px; }
+  .sl-all { justify-self: center; font-size: 13.5px; font-weight: 700; color: var(--violet); }</style>

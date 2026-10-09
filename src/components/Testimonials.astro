@@ -1,0 +1,205 @@
+---
+// "What our clients say" — styles 1–3 (style 4, the deck, lives in index.astro).
+// <html data-reviews="1…4"> picks one; set from Theme › Reviews style or ?reviews=N.
+import { reviews, sample } from '../data/reviews';
+import { site } from '../data/site';
+
+const stars = (r: number) => [1, 2, 3, 4, 5].map((n) => n <= r);
+const star = '<path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"/>';
+const times = ['9:14', '11:02', '13:47', '16:20', '18:05', '20:31'];
+const rowA = reviews.filter((_, i) => i % 2 === 0);
+const rowB = reviews.filter((_, i) => i % 2 === 1);
+// Wall: three columns, each scrolling vertically (middle one reversed).
+const cols = [0, 1, 2].map((k) => reviews.map((r, i) => ({ r, i })).filter(({ i }) => i % 3 === k));
+---
+
+<!-- 1 · Review wall -->
+<div class="rv1 rvs">
+  <div class="wrap">
+    <div class="w-head">
+      <div>
+        <span class="eyebrow">Testimonials</span>
+        <h2 class="h-lg">What our clients say</h2>
+      </div>
+      <div class="w-side">
+        {sample && <span class="pill-sample">Sample reviews — real ones coming soon</span>}
+        <a href="/services#catalog" class="btn btn-primary">Book a repair</a>
+      </div>
+    </div>
+    <div class="wall">
+      {cols.map((col, k) => (
+        <div class:list={['wcol', `wcol-${k}`]}>
+          <div class="wtrack">
+            {[...col, ...col].map(({ r, i }, n) => (
+              <figure class="wc" aria-hidden={n >= col.length ? 'true' : undefined}>
+                <div class="wc-top">
+                  <span class="wc-tag">{r.service}</span>
+                  <span class="st">{stars(r.rating).map((on) => <svg viewBox="0 0 24 24" class:list={[{ off: !on }]} set:html={star} />)}</span>
+                </div>
+                <blockquote>“{r.text}”</blockquote>
+                <figcaption><span class="av">{r.area[0]}</span><span><b>{r.name}</b><small>{r.area}</small></span></figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+
+<!-- 2 · WhatsApp chat -->
+<div class="rv2 rvs">
+  <div class="wrap c-head">
+    <span class="eyebrow">Testimonials</span>
+    <h2 class="h-lg">What our clients say</h2>
+    <p class="lead">Messages from customers across {site.country}, after the job was done.</p>
+    {sample && <span class="pill-sample">Sample reviews — real ones coming soon</span>}
+  </div>
+  {[rowA, rowB].map((row, ri) => (
+    <div class:list={['chat-row', { rev: ri === 1 }]}>
+      <div class="chat-track">
+        {[...row, ...row, ...row].map((r, i) => (
+          <div class="bubble" aria-hidden={i >= row.length ? 'true' : undefined}>
+            <div class="b-who"><span class="av sm">{r.area[0]}</span><b>{r.name}</b><small>{r.area}</small></div>
+            <p>{r.text}</p>
+            <div class="b-meta">
+              <span class="st sm">{stars(r.rating).map((on) => <svg viewBox="0 0 24 24" class:list={[{ off: !on }]} set:html={star} />)}</span>
+              <span class="b-time">{times[(i + ri) % times.length]}</span>
+              <svg class="ticks" viewBox="0 0 24 16" aria-hidden="true"><path d="M1 8l4 4L13 3M9 12l2 0L21 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  ))}
+</div>
+
+<!-- 3 · Spotlight -->
+<div class="rv3 rvs" data-spot>
+  <div class="wrap s-in">
+    <span class="eyebrow">What our clients say</span>
+    {sample && <span class="pill-sample">Sample reviews — real ones coming soon</span>}
+    <div class="s-stage">
+      {reviews.map((r, i) => (
+        <figure class:list={['s-q', { on: i === 0 }]} data-sq={i}>
+          <span class="st lg">{stars(r.rating).map((on) => <svg viewBox="0 0 24 24" class:list={[{ off: !on }]} set:html={star} />)}</span>
+          <blockquote>{r.text}</blockquote>
+          <figcaption><b>{r.name}</b> · {r.area} · <span>{r.service}</span></figcaption>
+        </figure>
+      ))}
+    </div>
+    <div class="s-people" role="tablist" aria-label="Choose a review">
+      {reviews.map((r, i) => (
+        <button type="button" role="tab" class:list={['s-p', { on: i === 0 }]} data-sp={i} aria-label={`${r.area} — ${r.service}`}>
+          <span class="av">{r.area[0]}</span>
+          <small>{r.area}</small>
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .rvs { display: none; }
+  :global(:root:not([data-reviews])) .rv1, :global(:root[data-reviews='1']) .rv1 { display: block; }
+  :global(:root[data-reviews='2']) .rv2 { display: block; }
+  :global(:root[data-reviews='3']) .rv3 { display: block; }
+
+  .pill-sample { display: inline-block; padding: 5px 12px; border-radius: 999px; background: #fff4d6; color: #8a5a00; font-size: 12.5px; font-weight: 600; }
+  .av { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--grad); color: var(--on-accent); font-weight: 800; flex: none; }
+  .av.sm { width: 28px; height: 28px; font-size: 12px; }
+  .st { display: inline-flex; gap: 2px; }
+  .st :global(svg) { width: 16px; height: 16px; fill: #f5b400; }
+  .st :global(svg.off) { fill: var(--line); }
+  .st.sm :global(svg) { width: 13px; height: 13px; }
+  .st.lg :global(svg) { width: 26px; height: 26px; }
+  blockquote { margin: 0; }
+
+  /* 1 · wall */
+  .w-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; margin-bottom: 36px; }
+  .w-head h2 { margin-top: 12px; }
+  .w-side { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .wall {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;
+    height: 640px; overflow: hidden;
+    mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
+  }
+  .wcol { min-width: 0; }
+  .wtrack { display: flex; flex-direction: column; gap: 20px; animation: wUp 32s linear infinite; }
+  .wcol-1 .wtrack { animation-name: wDown; animation-duration: 38s; }
+  .wcol-2 .wtrack { animation-duration: 28s; }
+  .wall:hover .wtrack { animation-play-state: paused; }
+  @keyframes wUp { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 10px)); } }
+  @keyframes wDown { from { transform: translateY(calc(-50% - 10px)); } to { transform: translateY(0); } }
+  @media (max-width: 900px) {
+    .wall { grid-template-columns: 1fr 1fr; height: 560px; }
+    .wcol-2 { display: none; }
+  }
+  @media (max-width: 560px) { .wall { grid-template-columns: 1fr; } .wcol-1 { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .wtrack { animation: none; } .wall { height: auto; mask-image: none; } }
+  .wc { position: relative; overflow: hidden; margin: 0; padding: 26px; display: grid; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow); transition: transform .3s, box-shadow .3s; }
+  .wc:hover { transform: translateY(-5px) rotate(-.4deg); box-shadow: 0 30px 50px -30px rgba(15,27,45,.45); }
+  .wc-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .wc-tag { padding: 5px 11px; border-radius: 999px; background: var(--accent-soft); color: var(--violet); font-size: 12px; font-weight: 700; }
+  .wc blockquote { font-size: 16.5px; line-height: 1.55; font-weight: 500; }
+  .wc figcaption { display: flex; align-items: center; gap: 12px; }
+  .wc figcaption b { display: block; font-size: 14.5px; }
+  .wc figcaption small { font-size: 12.5px; color: var(--ink-3); }
+
+  /* 2 · chat */
+  .c-head { text-align: center; display: grid; justify-items: center; gap: 12px; margin-bottom: 30px; }
+  .chat-row { overflow: hidden; padding: 10px 0; mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+  .chat-track { display: flex; gap: 18px; width: max-content; animation: chat 55s linear infinite; }
+  .chat-row.rev .chat-track { animation-direction: reverse; animation-duration: 65s; }
+  .chat-row:hover .chat-track { animation-play-state: paused; }
+  @keyframes chat { to { transform: translateX(calc(-100% / 3)); } }
+  .bubble { position: relative; width: 340px; padding: 14px 16px 10px; border-radius: 18px 18px 18px 4px; background: #dcf8c6; color: #102a12; box-shadow: 0 1px 1px rgba(0,0,0,.08), 0 10px 24px -18px rgba(0,0,0,.4); }
+  .rev .bubble { border-radius: 18px 18px 4px 18px; background: #fff; color: var(--ink); }
+  .b-who { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .b-who b { font-size: 13px; color: var(--violet); }
+  .rev .b-who b { color: var(--violet); }
+  .b-who small { font-size: 12px; opacity: .6; }
+  .bubble p { font-size: 15px; line-height: 1.5; }
+  .b-meta { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 6px; font-size: 11px; opacity: .75; }
+  .b-meta .st { margin-right: auto; }
+  .ticks { width: 18px; height: 12px; color: #34b7f1; }
+
+  /* 3 · spotlight */
+  .s-in { text-align: center; display: grid; justify-items: center; gap: 16px; }
+  .s-stage { display: grid; width: min(900px, 100%); margin: 10px 0; }
+  .s-q { grid-area: 1 / 1; margin: 0; display: grid; justify-items: center; gap: 22px; opacity: 0; transform: translateY(14px); transition: opacity .5s, transform .6s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+  .s-q.on { opacity: 1; transform: none; pointer-events: auto; }
+  .s-q blockquote { font-family: var(--display); font-size: clamp(28px, 3.6vw, 48px); line-height: 1.18; font-weight: 700; letter-spacing: -.025em; }
+  .s-q blockquote::before { content: '“'; color: var(--violet); }
+  .s-q blockquote::after { content: '”'; color: var(--violet); }
+  .s-q figcaption { font-size: 15px; color: var(--ink-2); }
+  .s-q figcaption span { color: var(--violet); font-weight: 700; }
+  .s-people { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+  .s-p { display: grid; justify-items: center; gap: 6px; padding: 6px; border: 0; background: none; opacity: .5; transition: opacity .2s, transform .2s; }
+  .s-p:hover { opacity: .85; }
+  .s-p.on { opacity: 1; transform: translateY(-3px); }
+  .s-p .av { width: 52px; height: 52px; font-size: 18px; box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px transparent; transition: box-shadow .2s; }
+  .s-p.on .av { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--violet); }
+  .s-p small { font-size: 12px; color: var(--ink-3); }
+  @media (prefers-reduced-motion: reduce) { .chat-track { animation: none; } }
+</style>
+
+<script>
+  const spot = document.querySelector<HTMLElement>('[data-spot]');
+  if (spot) {
+    const qs = [...spot.querySelectorAll<HTMLElement>('[data-sq]')];
+    const ps = [...spot.querySelectorAll<HTMLElement>('[data-sp]')];
+    let cur = 0, t = 0;
+    const show = (i: number) => {
+      cur = (i + qs.length) % qs.length;
+      qs.forEach((q, k) => q.classList.toggle('on', k === cur));
+      ps.forEach((p, k) => { p.classList.toggle('on', k === cur); p.setAttribute('aria-selected', String(k === cur)); });
+      clearTimeout(t);
+      t = window.setTimeout(() => show(cur + 1), 6500);
+    };
+    ps.forEach((p, k) => p.addEventListener('click', () => show(k)));
+    spot.addEventListener('pointerenter', () => clearTimeout(t));
+    spot.addEventListener('pointerleave', () => show(cur));
+    show(0);
+  }
+</script>

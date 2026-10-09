@@ -1,0 +1,129 @@
+---
+// Brand switcher next to the header logo (like alphalize.com's Alphalize / 369AI menu).
+// Same website for both brands; the logo, the brand name (text + WhatsApp links) and the
+// colour theme change (global.css :root[data-brand=…], taken from each logo).
+// Default: Danat Fix on every visit (not remembered). ?brand=369 links straight to 369 ai Fix.
+export const brands = [
+  { id: 'danatfix', name: 'Danat Fix', sub: 'A unit of Danat Group', logo: '/brand/danat-fix-mark.png', icon: '/brand/danat-fix-icon.png', w: 196, h: 200 },
+  { id: '369', name: '369 ai Fix', sub: 'Smart service. Better solutions.', logo: '/brand/369-ai-fix-mark.png', icon: '/brand/369-ai-fix-icon.png', w: 257, h: 200 },
+];
+---
+
+<div class="bs" data-bs data-no-brand>
+  <a href="/" class="logo bs-logo" aria-label="Home">
+    {brands.map((b) => <img class="logo-369" data-for={b.id} src={b.logo} alt={b.name} width={b.w} height={b.h} />)}
+  </a>
+  <button type="button" class="bs-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="Switch brand" data-bs-btn>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <ul class="bs-menu" role="listbox" aria-label="Brands" data-bs-menu hidden>
+    {brands.map((b) => (
+      <li><button type="button" role="option" data-brand-id={b.id} aria-selected="false">
+        <span class="bs-ic"><img src={b.icon} alt="" /></span>
+        <span class="bs-tx"><b>{b.name}</b><small>{b.sub}</small></span>
+        <svg class="bs-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </button></li>
+    ))}
+  </ul>
+</div>
+
+<script is:inline define:vars={{ brands }}>
+(() => {
+  const names = Object.fromEntries(brands.map((b) => [b.id, b.name]));
+  const DEF = 'danatfix', base = names[DEF];
+  let cur = document.documentElement.dataset.brand || DEF;
+
+  // Swap the brand name everywhere: visible text, and attributes like WhatsApp links / alt / aria-label
+  const enc = (s) => encodeURIComponent(s);
+  const swapStr = (s, from, to) => s.split(from).join(to).split(enc(from)).join(enc(to));
+  const ATTRS = ['href', 'alt', 'aria-label', 'title', 'data-base', 'data-wa', 'placeholder'];
+  const fix = (root, from, to) => {
+    if (from === to) return;
+    const skip = (n) => n.parentElement && n.parentElement.closest('[data-no-brand]');
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (skip(n) ? 2 : 1) });
+    while (w.nextNode()) { const n = w.currentNode; if (n.nodeValue.includes(from)) n.nodeValue = swapStr(n.nodeValue, from, to); }
+    (root.querySelectorAll ? root.querySelectorAll('*') : []).forEach((el) => !el.closest('[data-no-brand]') && ATTRS.forEach((a) => {
+      const v = el.getAttribute(a); if (v && (v.includes(from) || v.includes(enc(from)))) el.setAttribute(a, swapStr(v, from, to));
+    }));
+    document.title = swapStr(document.title, from, to);
+  };
+  let shown = base;   // the name currently in the DOM
+  const apply = (id) => {
+    cur = names[id] ? id : DEF;
+    document.documentElement.dataset.brand = cur;
+    fix(document.body, shown, names[cur]); shown = names[cur];
+    document.querySelectorAll('[data-brand-id]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.brandId === cur)));
+  };
+  // Content added later (cart, chat bot, popups) is rendered with the default name
+  new MutationObserver((ms) => { if (shown === base) return; ms.forEach((m) => m.addedNodes.forEach((n) => {
+    if (n.nodeType === 3) { if (n.nodeValue.includes(base)) n.nodeValue = swapStr(n.nodeValue, base, shown); }
+    else if (n.nodeType === 1) fix(n, base, shown);
+  })); }).observe(document.body, { childList: true, subtree: true });
+
+  // Messages built at the moment of sending (booking wizard, pop-up, cart, "someone else")
+  // are written with the default name — swap it on the way out, so 369 customers never
+  // send "Hi Danat Fix".
+  const out = (u) => (shown === base || u == null ? u : swapStr(String(u), base, shown));
+  const nativeOpen = window.open.bind(window);
+  window.open = (u, ...rest) => nativeOpen(out(u), ...rest);
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (a && shown !== base && !a.closest('[data-no-brand]')) { const h = a.getAttribute('href'); const s = out(h); if (s !== h) a.setAttribute('href', s); }
+  }, true);
+
+  const root = document.querySelector('[data-bs]'), btn = root.querySelector('[data-bs-btn]'), menu = root.querySelector('[data-bs-menu]');
+  const toggle = (open) => { menu.hidden = !open; btn.setAttribute('aria-expanded', String(open)); root.classList.toggle('open', open); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); toggle(menu.hidden); if (!menu.hidden) document.dispatchEvent(new CustomEvent('hdr-menu', { detail: 'bs' })); });
+  document.addEventListener('hdr-menu', (e) => { if (e.detail !== 'bs') toggle(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) { toggle(false); btn.focus(); } });
+  menu.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-brand-id]'); if (!b) return;
+    // Switching company starts a fresh visit for that brand: reload so its welcome pop-up and
+    // offer bar show again (they normally appear once per visit).
+    if (b.dataset.brandId === cur) { toggle(false); return; }
+    try { ['offer-seen', 'ann-closed', 'spin-won', 'idle-shown', 'sl-shown'].forEach((k) => sessionStorage.removeItem(k)); } catch {}
+    const u = new URL(location.href); u.searchParams.set('brand', b.dataset.brandId); location.href = u.toString();
+  });
+  document.addEventListener('click', (e) => { if (!root.contains(e.target)) toggle(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle(false); });
+  apply(cur);
+})();
+</script>
+
+<style>
+  .bs { position: relative; display: flex; align-items: center; gap: 6px; }
+  .bs-logo { display: block; }
+  /* logo inside the header bar, no tagline (like 369ai.biz) */
+  .bs-logo .logo-369 { display: none; height: 52px; width: auto; margin-block: -4px; }
+  @media (max-width: 560px) { .bs-logo .logo-369 { height: 42px; } }
+  /* wide screens: logo + chevron stand together in the empty space left of the bar (like 369ai.biz) */
+  @media (min-width: 1480px) {
+    .bs { position: absolute; right: calc(100% + 20px); top: -11px; bottom: -11px; width: max-content; flex-wrap: nowrap; gap: 4px; padding: 0 10px 0 14px; background: transparent; box-shadow: none; }
+    .bs-logo .logo-369 { height: 80px; width: auto; max-width: none; flex: none; margin: 0; }
+    .bs-logo .logo-369[data-for='369'] { height: 58px; } /* wider mark: smaller so it matches Danat's visual size */
+    .bs-menu { left: 0; }
+    /* after scrolling, the sticky header sits over the dark hero — tuck the logo inside the white bar */
+    :global(.nav.scrolled) .bs { position: relative; right: auto; top: auto; bottom: auto; padding: 0; }
+    :global(.nav.scrolled) .bs-logo .logo-369 { height: 52px; margin-block: -4px; }
+    :global(.nav.scrolled) .bs-logo .logo-369[data-for='369'] { height: 48px; }
+  }
+
+  :global(:root[data-brand='danatfix']) .bs-logo [data-for='danatfix'],
+  :global(:root[data-brand='369']) .bs-logo [data-for='369'],
+  :global(:root:not([data-brand])) .bs-logo [data-for='danatfix'] { display: block; }
+  .bs-btn { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); transition: all .2s; }
+  .bs-btn:hover, .bs.open .bs-btn { border-color: var(--violet); color: var(--violet); background: var(--accent-soft); }
+  .bs-btn svg { width: 15px; height: 15px; transition: transform .25s; }
+  .bs.open .bs-btn svg { transform: rotate(180deg); }
+  .bs-menu { position: absolute; left: 0; top: calc(100% + 12px); z-index: 70; list-style: none; margin: 0; padding: 8px; width: 310px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 24px 50px -20px rgba(0,0,0,.35); animation: bsIn .2s ease; }
+  .bs-menu[hidden] { display: none; }
+  @keyframes bsIn { from { opacity: 0; transform: translateY(-6px); } }
+  .bs-menu button { display: grid; grid-template-columns: 44px 1fr 20px; align-items: center; gap: 12px; width: 100%; padding: 10px; border: 0; border-radius: 12px; background: none; text-align: left; color: var(--ink); }
+  .bs-menu button:hover { background: var(--tint-2); }
+  .bs-ic { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: #fff; overflow: hidden; }
+  .bs-ic img { max-width: 38px; max-height: 32px; object-fit: contain; }
+  .bs-tx b { display: block; font-size: 15px; }
+  .bs-tx small { font-size: 12.5px; color: var(--ink-3); }
+  .bs-ok { width: 18px; height: 18px; color: var(--violet); opacity: 0; }
+  .bs-menu [aria-selected='true'] .bs-ok { opacity: 1; }
+</style>

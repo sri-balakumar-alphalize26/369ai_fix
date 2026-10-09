@@ -1,0 +1,197 @@
+---
+// One media preview in the lab. `format` fixed = renders only that format;
+// omitted = renders all three and the nearest [data-format] ancestor picks one.
+import { statSync } from 'node:fs';
+import { site, price } from '../data/site';
+
+// Re-rendered media keeps the same filename, so stamp the URL with the file's
+// modified time — browsers then fetch the new video instead of a cached one.
+const v = (file: string) => {
+  try { return `/media/${file}?v=${Math.floor(statSync(`public/media/${file}`).mtimeMs / 1000)}`; } catch { return `/media/${file}`; }
+};
+const IMG = v('hero.jpg');
+// Video option: the Kling AI clip (source: ~/Downloads/kling_20260928_VIDEO_3D_isometr_5718_0.mp4,
+// re-encoded silent at 1600px). The rendered hero.mp4 is kept but not shown.
+const VID = v('kling.mp4');
+const VID_POSTER = v('kling.jpg');
+
+type Format = 'image' | 'post' | 'video';
+interface Props {
+  format?: Format;
+  angle?: 'flat' | 'tilt' | 'iso';
+  label?: string;
+}
+const { format, angle, label } = Astro.props;
+const show = (f: Format) => !format || format === f;
+---
+
+<figure class="frame" data-format={format} data-angle={angle} data-combo={format && angle ? `${format}:${angle}` : undefined}>
+  <div class="space">
+    <div class="tilt">
+      {show('image') && (
+        <div class="media m-image" data-kind="image">
+          <img src={IMG} alt={`Electronics repaired at the doorstep, estimate ${price()}`} width="1280" height="720" loading="lazy" decoding="async" />
+        </div>
+      )}
+      {show('post') && (
+        <div class="media m-post" data-kind="post">
+          <div class="post-head">
+            <span class="post-av">{site.name[0]}</span>
+            <span class="post-who"><b>{site.handle}</b><small>{site.city} · Sponsored</small></span>
+            <span class="post-dots">•••</span>
+          </div>
+          <div class="post-img"><img src={IMG} alt="" loading="lazy" decoding="async" /></div>
+          <div class="post-actions">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9.2C1 8.3 3.3 5 6.6 5c2 0 3.6 1.1 4.4 2.6h2C13.8 6.1 15.4 5 17.4 5 20.7 5 23 8.3 21.5 11.8 19.5 16.4 12 21 12 21z" fill="#f472b6"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3L11 13M22 3l-7 19-4-9-9-4z"/></svg>
+            <span class="post-cta">Book now</span>
+          </div>
+          <p class="post-cap"><b>{site.handle}</b> Phone, laptop, printer or CCTV? We come to you. Estimate {price()}.</p>
+        </div>
+      )}
+      {show('video') && (
+        <div class="media m-video" data-kind="video">
+          <video data-src={VID} poster={VID_POSTER} muted loop playsinline preload="none" aria-label="3D isometric repair showcase"></video>
+        </div>
+      )}
+    </div>
+    <div class="shadow" aria-hidden="true"></div>
+  </div>
+  {label && <figcaption>{label}</figcaption>}
+</figure>
+
+<style>
+  .frame { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+  .space {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    display: grid;
+    place-items: center;
+    perspective: 1600px;
+  }
+  .tilt {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    transform-style: preserve-3d;
+    transition: transform .9s cubic-bezier(.2, .8, .2, 1);
+    z-index: 1;
+  }
+  .shadow {
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    bottom: 4%;
+    height: 12%;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(var(--a1), .45), transparent);
+    filter: blur(14px);
+    transition: transform .9s cubic-bezier(.2, .8, .2, 1), opacity .9s;
+    opacity: .5;
+  }
+
+  /* Angles — set on the frame or inherited from the lab root */
+  :global([data-angle='tilt']) .tilt {
+    transform: rotateY(-15deg) rotateX(6deg) scale(.92);
+  }
+  :global([data-angle='iso']) .tilt {
+    transform: rotateX(52deg) rotateZ(-34deg) scale(.8) translateZ(30px);
+    animation: hover 5s ease-in-out infinite;
+  }
+  :global([data-angle='iso']) .shadow { opacity: .9; transform: translate(-6%, -30%) scale(1.25, 2.4) rotate(-20deg); }
+  :global([data-angle='tilt']) .shadow { opacity: .75; transform: translateX(4%) scale(1.05); }
+  @keyframes hover {
+    50% { transform: rotateX(52deg) rotateZ(-34deg) scale(.8) translateZ(52px); }
+  }
+
+  /* Only one format visible when the frame renders all three */
+  .media { display: none; }
+  :global([data-format='image']) .m-image,
+  :global([data-format='post']) .m-post,
+  :global([data-format='video']) .m-video { display: block; }
+
+  .m-image, .m-video {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow:
+      0 0 0 1px rgba(20, 22, 60, .12),
+      0 30px 80px -20px rgba(15, 27, 45, .22),
+      0 0 60px -20px rgba(var(--a1), .6);
+  }
+  :global([data-angle='iso']) .m-image,
+  :global([data-angle='iso']) .m-video,
+  :global([data-angle='iso']) .m-post {
+    box-shadow:
+      0 0 0 1px rgba(20, 22, 60, .16),
+      1px 1px 0 rgba(20, 22, 60, .1), 2px 2px 0 rgba(120,100,200,.5), 3px 3px 0 rgba(90,70,170,.5),
+      4px 4px 0 rgba(70,50,150,.5), 5px 5px 0 rgba(50,35,120,.5), 6px 6px 0 rgba(35,25,90,.6),
+      30px 40px 60px rgba(0, 0, 0, .6);
+  }
+  .m-image img, .m-video video { width: 100%; height: 100%; object-fit: cover; }
+
+  .live {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    background: rgba(0, 0, 0, .5);
+    color: #fff;
+    backdrop-filter: blur(8px);
+  }
+  .live i { width: 7px; height: 7px; border-radius: 50%; background: #f43f5e; animation: blink 1.4s infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+
+  /* Social post */
+  .m-post {
+    height: 100%;
+    width: auto;
+    aspect-ratio: 4 / 5.2;
+    display: none;
+    flex-direction: column;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--surface);
+    box-shadow:
+      0 0 0 1px rgba(20, 22, 60, .12),
+      0 30px 80px -20px rgba(15, 27, 45, .22),
+      0 0 60px -20px rgba(var(--a2), .5);
+    font-size: 12px;
+  }
+  :global([data-format='post']) .m-post { display: flex; }
+  .post-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+  .post-av {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--grad); color: var(--on-accent); font-weight: 700; font-size: 12px;
+  }
+  .post-who { display: flex; flex-direction: column; line-height: 1.2; }
+  .post-who small { color: var(--ink-3); font-size: 10px; }
+  .post-dots { margin-left: auto; color: var(--ink-3); letter-spacing: 1px; }
+  .post-img { flex: 1; min-height: 0; }
+  .post-img img { width: 100%; height: 100%; object-fit: cover; object-position: 74% 50%; }
+  .post-actions { display: flex; align-items: center; gap: 12px; padding: 8px 10px 4px; }
+  .post-actions svg { width: 18px; height: 18px; }
+  .post-cta { margin-left: auto; padding: 4px 10px; border-radius: 999px; background: var(--grad); color: var(--on-accent); font-weight: 600; font-size: 11px; }
+  .post-cap { padding: 0 10px 10px; color: var(--ink-2); line-height: 1.4; }
+  .post-cap b { color: var(--ink); margin-right: 4px; }
+
+  figcaption {
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+</style>

@@ -1,0 +1,107 @@
+---
+import Base from '../layouts/Base.astro';
+import { teams } from '../data/team';
+
+const initials = (n: string) => n.split(' ').map((p) => p[0]).join('').slice(0, 2);
+const total = teams.reduce((n, t) => n + t.members.length, 0);
+---
+
+<Base title="Our Team" description="The technicians, riders and support staff behind every doorstep repair.">
+  <section class="page-head">
+    <div class="wrap">
+      <span class="eyebrow" data-reveal>Our team</span>
+      <h1 class="h-xl" data-reveal style="--d:.06s">The people who <span class="grad-text">come to your door.</span></h1>
+      <p class="lead" data-reveal style="--d:.12s">
+        Technicians who repair, engineers who install printers, CCTV and Wi-Fi, riders who carry your devices safely, and a support desk that keeps you posted.
+      </p>
+      <div class="jump" data-reveal style="--d:.18s">
+        {teams.map((t) => <a href={`#${t.id}`} class="chip">{t.title} · {t.members.length}</a>)}
+        <span class="chip">{total} people</span>
+      </div>
+    </div>
+  </section>
+
+  {teams.map((t) => (
+    <section class="section team" id={t.id}>
+      <div class="wrap">
+        <div class="team-head">
+          <h2 class="h-lg" data-reveal>{t.title}</h2>
+          <p class="lead" data-reveal style="--d:.06s">{t.blurb}</p>
+        </div>
+        <ul class="grid">
+          {t.members.map((m, i) => (
+            <li class="card glass" style={`--h:${m.hue}; --d:${i * .06}s`} data-reveal>
+              <div class="avatar" aria-hidden="true">
+                <span class="ring"></span>
+                <span class="face">{initials(m.name)}</span>
+              </div>
+              <h3>{m.name}</h3>
+              <p class="role">{m.role}</p>
+              <ul class="skills">
+                {m.skills.map((s) => <li>{s}</li>)}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  ))}
+
+  <section class="section">
+    <div class="wrap">
+      <p class="note">Profiles above are placeholders until team photos and details are confirmed.</p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .page-head { padding: clamp(48px, 8vw, 100px) 0 0; }
+  .page-head h1 { margin: 18px 0 20px; max-width: 15ch; }
+  .jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+  .jump a:hover { color: var(--ink); border-color: rgba(20, 22, 60, .25); }
+  .team { padding: clamp(48px, 7vw, 80px) 0 0; scroll-margin-top: 90px; }
+  .team-head { display: flex; justify-content: space-between; align-items: end; gap: 16px 40px; flex-wrap: wrap; margin-bottom: 28px; }
+  .grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+  .card {
+    position: relative;
+    padding: 28px 22px 24px;
+    text-align: center;
+    overflow: hidden;
+    transition: transform .35s, border-color .35s;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(300px circle at 50% 0%, hsl(var(--h) 85% 60% / .14), transparent 60%);
+    pointer-events: none;
+  }
+  .card:hover { transform: translateY(-6px); border-color: hsl(var(--h) 85% 65% / .5); }
+  .avatar { position: relative; width: 96px; height: 96px; margin: 0 auto 18px; }
+  .ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, hsl(var(--h) 90% 65%), var(--cyan), hsl(var(--h) 90% 65% / .1), hsl(var(--h) 90% 65%));
+    animation: spin 6s linear infinite;
+  }
+  .card:hover .ring { animation-duration: 1.6s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .face {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle at 30% 25%, var(--surface), hsl(var(--h) 60% var(--chip-l)) 75%);
+    color: hsl(var(--h) 65% var(--chip-ink-l));
+    font-family: var(--display);
+    font-size: 30px;
+    font-weight: 700;
+  }
+  .card h3 { font-size: 20px; }
+  .role { color: hsl(var(--h) 65% var(--chip-ink-l)); font-size: 14px; font-weight: 500; margin-top: 4px; }
+  .skills { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  .skills li { padding: 4px 10px; border-radius: 999px; background: rgba(20, 22, 60, .06); font-size: 12px; color: var(--ink-2); }
+  .note { font-size: 13px; color: var(--ink-3); text-align: center; }
+</style>

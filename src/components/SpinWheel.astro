@@ -1,0 +1,294 @@
+---
+// "Spin & Win" offer popup. PLACEHOLDER PRIZES — replace with the client's
+// real offers. Every slice wins; the result is remembered (?offer=spin resets it).
+import { site } from '../data/site';
+
+const I = {
+  diag: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M9 11h4M11 9v4"/>',
+  pick: '<circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/>',
+  clean: '<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8zM19 15l.8 1.9L22 18l-2.2.9L19 21l-.8-2.1L16 18l2.2-1.1z"/>',
+  fast: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+  data: '<path d="M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-1 9zM12 11v6M9.5 14.5L12 17l2.5-2.5"/>',
+  guard: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
+};
+const prizes = [
+  { top: 'Free', label: 'Diagnosis', full: 'Free diagnosis', code: 'SPIN-DIAG', icon: I.diag },
+  { top: 'Free', label: 'Pickup', full: 'Free pickup & drop', code: 'SPIN-PICK', icon: I.pick },
+  { top: 'Free', label: 'Cleaning', full: 'Free device cleaning', code: 'SPIN-CLEAN', icon: I.clean },
+  { top: 'Priority', label: 'Slot', full: 'Priority same-day slot', code: 'SPIN-FAST', icon: I.fast },
+  { top: 'Free', label: 'Backup', full: 'Free data backup', code: 'SPIN-DATA', icon: I.data },
+  { top: 'Free', label: 'Guard', full: 'Free screen guard', code: 'SPIN-GUARD', icon: I.guard },
+];
+const n = prizes.length;
+const seg = 360 / n;
+const R = 148;
+const pt = (deg: number, r = R) => {
+  const a = ((deg - 90) * Math.PI) / 180;
+  return [160 + r * Math.cos(a), 160 + r * Math.sin(a)].map((v) => v.toFixed(2)).join(' ');
+};
+const wa = (msg: string) => `https://wa.me/${site.phone.tel.replace('+', '')}?text=${encodeURIComponent(msg)}`;
+---
+
+<div class="sw" data-sw hidden data-prizes={JSON.stringify(prizes.map(({ full, code }) => ({ full, code })))}>
+  <div class="sw-bg" data-sw-x></div>
+  <div class="sw-card" role="dialog" aria-modal="true" aria-labelledby="sw-title">
+    <button type="button" class="sw-x" data-sw-x aria-label="Close">×</button>
+
+    <header class="sw-head">
+      <span class="sw-kicker">✦ {site.name} rewards ✦</span>
+      <h2 id="sw-title">Spin &amp; <em>Win</em></h2>
+      <p>Every slice is a free extra on your next repair.</p>
+    </header>
+
+    <div class="sw-stage">
+      <div class="sw-halo" aria-hidden="true"></div>
+      <div class="sw-ring" aria-hidden="true"></div>
+      <svg class="sw-wheel" data-sw-wheel viewBox="0 0 320 320" aria-hidden="true">
+        <defs>
+          <radialGradient id="sw-gloss" cx=".5" cy=".3" r=".7">
+            <stop offset="0" stop-color="#fff" stop-opacity=".35" /><stop offset=".6" stop-color="#fff" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+        {prizes.map((p, i) => {
+          const a0 = i * seg, a1 = (i + 1) * seg, mid = a0 + seg / 2;
+          return (
+            <g class={`s s${i}`}>
+              <path d={`M160 160 L${pt(a0)} A${R} ${R} 0 0 1 ${pt(a1)} Z`} />
+              <g transform={`rotate(${mid} 160 160)`}>
+                <g transform="translate(148 30) scale(1)" class="ico" set:html={`<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p.icon}</g>`} />
+                <text x="160" y="76" class="t1">{p.top}</text>
+                <text x="160" y="93" class="t2">{p.label}</text>
+              </g>
+            </g>
+          );
+        })}
+        {[...Array(n)].map((_, i) => { const [x1, y1] = pt(i * seg, 34).split(' '); const [x2, y2] = pt(i * seg, 148).split(' '); return <line x1={x1} y1={y1} x2={x2} y2={y2} class="div" />; })}
+        <circle cx="160" cy="160" r="148" fill="url(#sw-gloss)" pointer-events="none" />
+        {[...Array(n * 3)].map((_, i) => { const [x, y] = pt(i * (seg / 3), 156).split(' '); return <circle cx={x} cy={y} r="2.6" class="bulb" style={`--i:${i}`} />; })}
+      </svg>
+      <span class="sw-pointer" aria-hidden="true"><i></i></span>
+      <button type="button" class="sw-hub" data-sw-spin aria-label="Spin the wheel"><span>SPIN</span></button>
+    </div>
+
+    <div class="sw-foot" data-sw-before>
+      <button type="button" class="btn btn-primary sw-go" data-sw-spin>Spin the wheel</button>
+      <button type="button" class="sw-later" data-sw-x>Maybe later</button>
+    </div>
+
+    <!-- result sheet -->
+    <div class="sw-win" data-sw-after hidden>
+      <div class="win-ico" data-sw-wico></div>
+      <span class="win-k">🎉 You won</span>
+      <h3 data-sw-prize>—</h3>
+      <button type="button" class="ticket" data-sw-code>
+        <span class="t-l"><small>Your code</small><b data-sw-codetext>—</b></span>
+        <span class="t-r" data-sw-copied>Copy</span>
+      </button>
+      <p>Show this code when you book. Valid on your next repair.</p>
+      <div class="sw-btns">
+        <a href="/services#catalog" class="btn btn-primary" data-sw-book>Book now</a>
+        <a href="#" target="_blank" rel="noopener" class="btn" data-sw-wa data-base={wa('Hello Danat Fix — I won on the spin wheel, code: ')}>WhatsApp us</a>
+      </div>
+    </div>
+    <div class="confetti" data-confetti aria-hidden="true"></div>
+  </div>
+</div>
+
+<template data-sw-icons>{prizes.map((p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={p.icon} />)}</template>
+
+<script>
+  const sw = document.querySelector<HTMLElement>('[data-sw]');
+  if (sw) {
+    const prizes: { full: string; code: string }[] = JSON.parse(sw.dataset.prizes!);
+    const icons = [...(document.querySelector<HTMLTemplateElement>('[data-sw-icons]')!.content.children)];
+    const wheel = sw.querySelector<SVGElement>('[data-sw-wheel]')!;
+    const get = (k: string) => { try { return sessionStorage.getItem(k); } catch { return null; } };
+    const put = (k: string, v: string) => { try { sessionStorage.setItem(k, v); } catch {} };
+    let spinning = false;
+    const seg = 360 / prizes.length;
+    const angleFor = (i: number) => 360 - (i * seg + seg / 2);
+    if (new URLSearchParams(location.search).get('offer') === 'spin') { try { sessionStorage.removeItem('spin-won'); } catch {} }
+
+    const show = (i: number, instant = false) => {
+      const p = prizes[i];
+      if (instant) { wheel.style.transition = 'none'; wheel.style.transform = `rotate(${angleFor(i)}deg)`; }
+      sw.querySelector('[data-sw-before]')!.setAttribute('hidden', '');
+      const win = sw.querySelector<HTMLElement>('[data-sw-after]')!;
+      win.removeAttribute('hidden');
+      requestAnimationFrame(() => win.classList.add('up'));
+      sw.querySelector('[data-sw-prize]')!.textContent = p.full;
+      sw.querySelector('[data-sw-codetext]')!.textContent = p.code;
+      sw.querySelector('[data-sw-wico]')!.replaceChildren(icons[i].cloneNode(true));
+      const wa = sw.querySelector<HTMLAnchorElement>('[data-sw-wa]')!;
+      wa.href = wa.dataset.base! + encodeURIComponent(p.code);
+      sw.classList.add('won');
+    };
+    const confetti = () => {
+      const box = sw.querySelector<HTMLElement>('[data-confetti]')!;
+      box.innerHTML = '';
+      for (let k = 0; k < 70; k++) {
+        const s = document.createElement('i');
+        const ang = Math.random() * Math.PI * 2, dist = 160 + Math.random() * 220;
+        s.style.cssText = `--dx:${Math.cos(ang) * dist}px;--dy:${Math.sin(ang) * dist - 120}px;--r:${Math.random() * 720 - 360}deg;--c:${['#f5b400', '#ffffff', 'var(--violet)', '#ff7a45', '#4ade80'][k % 5]};animation-delay:${Math.random() * .15}s`;
+        box.appendChild(s);
+      }
+    };
+
+    const reset = () => {
+      if (spinning) return;
+      wheel.style.transition = 'none'; wheel.style.transform = 'rotate(0deg)';
+      const win = sw.querySelector<HTMLElement>('[data-sw-after]')!;
+      win.classList.remove('up'); win.setAttribute('hidden', '');
+      sw.querySelector('[data-sw-before]')!.removeAttribute('hidden');
+      sw.querySelector('[data-sw-copied]')!.textContent = 'Copy';
+      sw.classList.remove('won');
+    };
+    (window as any).__openSpin = () => {
+      reset(); // always open on a fresh wheel, ready to spin
+      sw.hidden = false;
+      requestAnimationFrame(() => sw.classList.add('in'));
+      document.documentElement.style.overflow = 'hidden';
+    };
+    const close = () => {
+      sw.classList.remove('in');
+      document.documentElement.style.overflow = '';
+      setTimeout(() => (sw.hidden = true), 350);
+      (window as any).__offerClosed?.();
+    };
+    sw.querySelectorAll('[data-sw-x]').forEach((b) => b.addEventListener('click', close));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sw.hidden) close(); });
+
+    sw.querySelectorAll('[data-sw-spin]').forEach((btn) => btn.addEventListener('click', () => {
+      if (spinning || sw.classList.contains('won')) return;
+      spinning = true;
+      const i = Math.floor(Math.random() * prizes.length);
+      const target = 360 * 7 + angleFor(i) + (Math.random() * seg * .5 - seg * .25);
+      wheel.style.transition = 'transform 5s cubic-bezier(.1,.75,.08,1)';
+      wheel.style.transform = `rotate(${target}deg)`;
+      sw.classList.add('spinning');
+      setTimeout(() => {
+        sw.classList.remove('spinning');
+        put('spin-won', String(i));
+        show(i);
+        confetti();
+      }, 5100);
+    }));
+    sw.querySelector('[data-sw-code]')!.addEventListener('click', async () => {
+      const code = sw.querySelector('[data-sw-codetext]')!.textContent!;
+      try { await navigator.clipboard.writeText(code); sw.querySelector('[data-sw-copied]')!.textContent = 'Copied ✓'; }
+      catch { sw.querySelector('[data-sw-copied]')!.textContent = code; }
+    });
+  }
+</script>
+
+<style>
+  .sw { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; }
+  .sw[hidden] { display: none; }
+  .sw-bg { position: absolute; inset: 0; background: rgba(6, 10, 9, .7); backdrop-filter: blur(6px); opacity: 0; transition: opacity .35s; }
+  .sw.in .sw-bg { opacity: 1; }
+  .sw-card {
+    position: relative; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: hidden;
+    display: grid; justify-items: center; gap: 6px; padding: 30px 28px 26px; text-align: center; color: #fff;
+    border-radius: 32px;
+    background:
+      radial-gradient(420px circle at 50% 0%, color-mix(in srgb, var(--violet) 55%, transparent), transparent 70%),
+      radial-gradient(300px circle at 100% 100%, rgba(245, 180, 0, .18), transparent 70%),
+      #0c1712;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 50px 120px -30px rgba(0,0,0,.8);
+    transform: translateY(40px) scale(.9); opacity: 0; transition: transform .6s cubic-bezier(.2,1.25,.3,1), opacity .35s;
+  }
+  .sw.in .sw-card { transform: none; opacity: 1; }
+  .sw-x { position: absolute; right: 16px; top: 16px; z-index: 5; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(255,255,255,.1); color: #fff; font-size: 20px; line-height: 1; }
+
+  .sw-head { display: grid; gap: 4px; }
+  .sw-kicker { font-size: 11px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: #f5b400; }
+  .sw-head h2 { font-size: 40px; line-height: 1; color: #fff; letter-spacing: -.02em; }
+  .sw-head h2 em { font-style: normal; background: linear-gradient(120deg, #ffd96a, #f5b400); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sw-head p { font-size: 14px; color: rgba(255,255,255,.65); }
+
+  /* stage */
+  .sw-stage { position: relative; width: min(330px, 78vw, 44vh); aspect-ratio: 1; margin: 14px 0 8px; transition: width .6s cubic-bezier(.2,.8,.2,1), margin .6s; }
+  .won .sw-stage { width: min(190px, 50vw, 26vh); margin: 18px 0 4px; }
+  .won .sw-head p { display: none; }
+  .sw-halo { position: absolute; inset: -12%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--violet) 60%, transparent), transparent); filter: blur(16px); animation: halo 3s ease-in-out infinite; }
+  @keyframes halo { 50% { opacity: .55; transform: scale(.94); } }
+  .sw-ring { position: absolute; inset: -9px; border-radius: 50%; background: conic-gradient(from 0deg, #f5b400, #fff3c4, var(--violet), #f5b400, #fff3c4, var(--violet), #f5b400); animation: ring 6s linear infinite; }
+  .sw-ring::after { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #0c1712; }
+  @keyframes ring { to { transform: rotate(360deg); } }
+  .spinning .sw-ring { animation-duration: .9s; }
+  .sw-wheel { position: relative; display: block; width: 100%; height: 100%; }
+
+  .s path { stroke: none; }
+  .s0 path { fill: var(--violet); }
+  .s1 path { fill: #f5b400; }
+  .s2 path { fill: #16241d; }
+  .s3 path { fill: #ff7a45; }
+  .s4 path { fill: color-mix(in srgb, var(--violet) 55%, #fff); }
+  .s5 path { fill: #fff; }
+  .s { color: #fff; }
+  .s1, .s4, .s5 { color: #10241a; }
+  .ico :global(g) { transform: scale(1); }
+  .t1 { font: 700 9.5px var(--body); text-anchor: middle; letter-spacing: .14em; text-transform: uppercase; fill: currentColor; opacity: .75; }
+  .t2 { font: 800 15px var(--display); text-anchor: middle; fill: currentColor; letter-spacing: -.01em; }
+  .div { stroke: rgba(12,23,18,.35); stroke-width: 1.5; }
+  .bulb { fill: #fff6d6; animation: bulb 1.2s infinite; animation-delay: calc(var(--i) * .07s); }
+  .spinning .bulb { animation-duration: .3s; }
+  @keyframes bulb { 50% { fill: #f5b400; opacity: .5; } }
+
+  .sw-pointer { position: absolute; left: 50%; top: -18px; z-index: 3; transform: translateX(-50%); width: 34px; height: 44px; }
+  .sw-pointer i { position: absolute; inset: 0; background: linear-gradient(180deg, #fff, #ffd96a 45%, #f5b400); clip-path: polygon(50% 100%, 0 30%, 18% 0, 82% 0, 100% 30%); filter: drop-shadow(0 4px 6px rgba(0,0,0,.5)); }
+  .spinning .sw-pointer i { animation: tick .1s infinite alternate; transform-origin: 50% 20%; }
+  @keyframes tick { to { transform: rotate(-14deg); } }
+
+  .sw-hub {
+    position: absolute; left: 50%; top: 50%; z-index: 3; width: 23%; aspect-ratio: 1; transform: translate(-50%, -50%);
+    border: 0; border-radius: 50%; color: #0c1712; font: 800 15px var(--display); letter-spacing: .06em;
+    background: radial-gradient(circle at 35% 30%, #fff, #ffe38a 40%, #f5b400 75%);
+    box-shadow: 0 0 0 5px #0c1712, 0 0 0 8px rgba(255,255,255,.25), 0 10px 26px rgba(0,0,0,.5);
+    transition: transform .2s;
+  }
+  .sw-hub::before { content: ''; position: absolute; inset: -14px; border-radius: 50%; border: 2px solid rgba(245,180,0,.6); animation: pulse 1.8s ease-out infinite; }
+  @keyframes pulse { from { transform: scale(.8); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+  .sw-hub:hover { transform: translate(-50%, -50%) scale(1.07); }
+  .spinning .sw-hub::before, .won .sw-hub::before { display: none; }
+  .won .sw-hub { font-size: 10px; box-shadow: 0 0 0 3px #0c1712, 0 6px 14px rgba(0,0,0,.5); }
+
+  .sw-foot { display: grid; justify-items: center; gap: 10px; margin-top: 6px; }
+  .sw-foot[hidden] { display: none; }
+  .sw-go { padding: 15px 34px; font-size: 16px; background: linear-gradient(120deg, #ffd96a, #f5b400); color: #0c1712; box-shadow: 0 14px 30px -10px rgba(245,180,0,.7); }
+  .sw-later { border: 0; background: none; padding: 0; font-size: 13px; color: rgba(255,255,255,.55); text-decoration: underline; }
+
+  /* result sheet */
+  .sw-win {
+    position: relative; width: 100%; margin-top: 30px;
+    display: grid; justify-items: center; gap: 10px; padding: 44px 20px 20px;
+    background: var(--surface); color: var(--ink); border-radius: 24px;
+    box-shadow: 0 20px 50px -20px rgba(0,0,0,.6);
+    opacity: 0; transform: translateY(30px); transition: transform .6s cubic-bezier(.2,1.1,.3,1), opacity .4s;
+  }
+  .sw-win[hidden] { display: none; }
+  .sw-win.up { transform: none; opacity: 1; }
+  .win-ico { position: absolute; top: -34px; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(140deg, #ffd96a, #f5b400); color: #0c1712; box-shadow: 0 0 0 6px var(--surface), 0 12px 24px rgba(0,0,0,.3); }
+  .win-ico :global(svg) { width: 32px; height: 32px; }
+  .win-k { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #b47d00; }
+  .sw-win h3 { font-size: 28px; line-height: 1.1; }
+  .ticket {
+    position: relative; display: flex; align-items: stretch; width: 100%; max-width: 330px; padding: 0; border: 0; border-radius: 14px; overflow: hidden;
+    background: var(--accent-soft); color: var(--ink); text-align: left;
+  }
+  .ticket::before, .ticket::after { content: ''; position: absolute; top: 50%; width: 18px; height: 18px; margin-top: -9px; border-radius: 50%; background: var(--surface); }
+  .ticket::before { left: -9px; } .ticket::after { right: -9px; }
+  .t-l { flex: 1; display: grid; padding: 10px 18px; border-right: 2px dashed color-mix(in srgb, var(--violet) 40%, transparent); }
+  .t-l small { font-size: 11px; color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase; }
+  .t-l b { font-family: var(--display); font-size: 22px; letter-spacing: .08em; color: var(--violet); }
+  .t-r { display: grid; place-items: center; padding: 0 20px; font-size: 13px; font-weight: 800; color: var(--violet); }
+  .sw-win p { font-size: 13px; color: var(--ink-3); }
+  .sw-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .sw-btns .btn { padding: 12px 22px; font-size: 14px; }
+
+  .confetti { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; z-index: 6; }
+  .confetti :global(i) { position: absolute; width: 8px; height: 12px; border-radius: 2px; background: var(--c); animation: burst 1.6s cubic-bezier(.2,.7,.4,1) forwards; }
+  @keyframes burst { to { transform: translate(var(--dx), calc(var(--dy) + 260px)) rotate(var(--r)); opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) { .sw-ring, .sw-halo, .bulb, .sw-hub::before { animation: none; } }
+</style>

@@ -1,0 +1,164 @@
+---
+// Hidden admin pop-up on Home: only the link ?admin=danatfix1 opens it (the key is checked on the
+// server, so it isn't in this page's code). It then asks for the
+// admin ID + password. The check happens on the server (/api/admin/login); once signed in it
+// shows the location-based switch (Automatic Currency Conversion) right here.
+---
+<div class="ag" data-ag hidden role="dialog" aria-modal="true" aria-labelledby="ag-title">
+  <div class="ag-card">
+    <button type="button" class="ag-x" data-ag-x aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="ag-logo"><span class="ag-ring"></span><img src="/brand/danat-fix-mark.png" alt="Danat Fix" width="196" height="200" /></div>
+
+    <!-- step 1: sign in -->
+    <form class="ag-form" data-ag-login novalidate>
+      <h2 id="ag-title">Admin access</h2>
+      <p class="ag-sub">Only the site admin can continue.</p>
+      <label class="ag-field"><span>Admin ID</span>
+        <input name="id" autocomplete="username" placeholder="Enter admin ID" required />
+      </label>
+      <label class="ag-field"><span>Password</span>
+        <span class="ag-pw">
+          <input name="password" type="password" autocomplete="current-password" placeholder="Enter password" required />
+          <button type="button" class="ag-eye" data-ag-eye aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        </span>
+      </label>
+      <p class="ag-err" data-ag-err role="alert" hidden></p>
+      <button type="submit" class="ag-go">Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+    </form>
+
+    <!-- step 2: controls -->
+    <div class="ag-panel" data-ag-panel hidden>
+      <h2>Welcome, admin</h2>
+      <p class="ag-sub">Changes apply to every visitor straight away.</p>
+      <div class="ag-row">
+        <span class="ag-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
+        <span class="ag-txt"><b>Location-based currency</b><small data-ag-state>Loading…</small></span>
+        <button type="button" class="ag-sw" role="switch" aria-checked="false" data-ag-sw aria-label="Location-based currency"><i></i></button>
+      </div>
+      <p class="ag-ok" data-ag-saved hidden>Saved ✓</p>
+      <div class="ag-links">
+        <a href="/admin" class="ag-full">Open full dashboard</a>
+        <button type="button" class="ag-out" data-ag-out>Sign out</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ag = document.querySelector<HTMLElement>('[data-ag]');
+  const key = new URLSearchParams(location.search).get('admin');
+  if (ag && key) fetch(`/api/admin/login?key=${encodeURIComponent(key)}`, { credentials: 'same-origin' }).then((r) => r.json()).then((d) => { if (d.gate) startGate(ag, !!d.admin); }).catch(() => {});
+
+  function startGate(ag: HTMLElement, signedIn: boolean) {
+    document.body.appendChild(ag);
+    const loginF = ag.querySelector<HTMLFormElement>('[data-ag-login]')!;
+    const panel = ag.querySelector<HTMLElement>('[data-ag-panel]')!;
+    const err = ag.querySelector<HTMLElement>('[data-ag-err]')!;
+    const sw = ag.querySelector<HTMLButtonElement>('[data-ag-sw]')!;
+    const state = ag.querySelector<HTMLElement>('[data-ag-state]')!;
+    const saved = ag.querySelector<HTMLElement>('[data-ag-saved]')!;
+    const post = (url: string, body: unknown, method = 'POST') => fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' });
+
+    const paint = (on: boolean) => {
+      sw.setAttribute('aria-checked', String(on));
+      state.textContent = on ? 'ON — prices follow the visitor’s country' : 'OFF — everyone sees OMR';
+    };
+    const showPanel = async () => {
+      loginF.hidden = true; panel.hidden = false;
+      const r = await fetch('/api/admin/settings', { credentials: 'same-origin' });
+      if (!r.ok) { loginF.hidden = false; panel.hidden = true; return; }
+      paint(!!(await r.json()).autoCurrency);
+    };
+    const open = () => { ag.hidden = false; requestAnimationFrame(() => ag.classList.add('on')); document.documentElement.style.overflow = 'hidden'; };
+    const close = () => {
+      ag.classList.remove('on'); document.documentElement.style.overflow = '';
+      setTimeout(() => (ag.hidden = true), 250);
+      const u = new URL(location.href); u.searchParams.delete('admin'); history.replaceState(null, '', u);
+    };
+
+    open();
+    if (signedIn) showPanel(); else loginF.querySelector('input')!.focus();
+
+    ag.querySelector('[data-ag-eye]')!.addEventListener('click', (e) => {
+      const i = loginF.querySelector<HTMLInputElement>('[name=password]')!; const show = i.type === 'password';
+      i.type = show ? 'text' : 'password'; (e.currentTarget as HTMLElement).setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
+    const fail = (m: string) => { err.textContent = m; err.hidden = false; loginF.classList.remove('shake'); void loginF.offsetWidth; loginF.classList.add('shake'); };
+    loginF.addEventListener('input', () => (err.hidden = true));
+    loginF.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(loginF), id = String(f.get('id') || '').trim(), pw = String(f.get('password') || '');
+      if (!id || !pw) return fail('Enter the admin ID and password.');
+      const btn = loginF.querySelector<HTMLButtonElement>('.ag-go')!; btn.disabled = true;
+      try {
+        const r = await post('/api/admin/login', { id, password: pw });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.ok) { loginF.reset(); await showPanel(); } else fail(d.error || 'Wrong ID or password.');
+      } catch { fail('Could not reach the server. Try again.'); }
+      btn.disabled = false;
+    });
+    sw.addEventListener('click', async () => {
+      const next = sw.getAttribute('aria-checked') !== 'true';
+      paint(next); saved.hidden = true;
+      const r = await post('/api/admin/settings', { autoCurrency: next }).catch(() => null);
+      if (!r || !r.ok) { paint(!next); state.textContent = 'Could not save — please sign in again.'; return; }
+      try { localStorage.removeItem('fx-last'); } catch {} // so this browser picks up the change on next load
+      saved.hidden = false; setTimeout(() => (saved.hidden = true), 2000);
+    });
+    ag.querySelector('[data-ag-out]')!.addEventListener('click', async () => { await post('/api/admin/login', {}, 'DELETE').catch(() => {}); panel.hidden = true; loginF.hidden = false; });
+    ag.querySelector('[data-ag-x]')!.addEventListener('click', close);
+    ag.addEventListener('click', (e) => { if (e.target === ag) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !ag.hidden) close(); });
+  }
+</script>
+
+<style>
+  .ag { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgba(240, 246, 252, .72); backdrop-filter: blur(10px); opacity: 0; transition: opacity .25s; }
+  .ag[hidden] { display: none; }
+  .ag.on { opacity: 1; }
+  .ag-card { position: relative; width: min(400px, 100%); padding: 30px 28px 26px; border-radius: 26px; background: #fff; border: 1px solid #E6ECF3; box-shadow: 0 30px 70px -30px rgba(30, 60, 110, .35); transform: translateY(14px) scale(.97); transition: transform .35s cubic-bezier(.2,.9,.3,1.15); }
+  .ag.on .ag-card { transform: none; }
+  .ag-x { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #E6ECF3; border-radius: 50%; background: #fff; color: #5B6B7E; cursor: pointer; }
+  .ag-x svg { width: 16px; height: 16px; }
+  .ag-logo { position: relative; display: grid; place-items: center; width: 92px; height: 92px; margin: 0 auto 14px; }
+  .ag-logo img { position: relative; width: 70px; height: auto; animation: agBob 3.2s ease-in-out infinite; }
+  .ag-ring { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, #8EC5FF, #C7A6FF, #FFC38A, #8EC5FF); opacity: .45; filter: blur(10px); animation: agSpin 6s linear infinite; }
+  @keyframes agBob { 50% { transform: translateY(-4px); } }
+  @keyframes agSpin { to { transform: rotate(360deg); } }
+  .ag h2 { margin: 0; text-align: center; font-size: 22px; color: #26364A; }
+  .ag-sub { margin: 6px 0 18px; text-align: center; font-size: 14px; color: #6B7A8C; }
+  .ag-form { display: grid; gap: 12px; }
+  .ag-form.shake { animation: agShake .4s ease-in-out; }
+  @keyframes agShake { 20% { translate: -7px; } 40% { translate: 6px; } 60% { translate: -4px; } 80% { translate: 2px; } }
+  .ag-field { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: #4A5A6E; }
+  .ag-field input { width: 100%; height: 48px; padding: 0 14px; border: 1px solid #DCE4EE; border-radius: 12px; background: #F8FAFD; font: inherit; font-size: 15px; font-weight: 500; color: #26364A; outline: none; transition: border-color .2s, box-shadow .2s, background .2s; }
+  .ag-field input:focus { border-color: #7DB6F5; background: #fff; box-shadow: 0 0 0 4px rgba(125, 182, 245, .2); }
+  .ag-pw { position: relative; display: block; }
+  .ag-pw input { padding-right: 46px; }
+  .ag-eye { position: absolute; top: 50%; right: 8px; translate: 0 -50%; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: #7A8899; cursor: pointer; }
+  .ag-eye svg { width: 18px; height: 18px; }
+  .ag-err { margin: 0; padding: 9px 12px; border-radius: 10px; background: #FFF1F2; border: 1px solid #FECDD3; color: #B4233A; font-size: 13.5px; font-weight: 600; }
+  .ag-err[hidden] { display: none; }
+  .ag-go { display: flex; align-items: center; justify-content: center; gap: 8px; height: 50px; margin-top: 4px; border: 0; border-radius: 14px; background: linear-gradient(180deg, #FFB25C, #FF8A2A); color: #fff; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 12px 26px -14px rgba(255, 138, 42, .55); transition: transform .2s, filter .2s; }
+  .ag-go:hover { transform: translateY(-2px); filter: brightness(1.04); }
+  .ag-go:disabled { opacity: .7; cursor: wait; }
+  .ag-go svg { width: 18px; height: 18px; }
+  .ag-panel[hidden], .ag-form[hidden] { display: none; }
+  .ag-row { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; background: #F5F9FE; border: 1px solid #E3ECF6; }
+  .ag-ico { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: #E3F0FF; color: #3D8BE0; }
+  .ag-ico svg { width: 20px; height: 20px; }
+  .ag-txt { display: grid; flex: 1; min-width: 0; }
+  .ag-txt b { font-size: 14.5px; color: #26364A; }
+  .ag-txt small { font-size: 12.5px; color: #6B7A8C; }
+  .ag-sw { position: relative; flex: none; width: 52px; height: 30px; border: 0; border-radius: 999px; background: #CBD5E1; cursor: pointer; transition: background .25s; }
+  .ag-sw i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); transition: transform .25s cubic-bezier(.3,1.4,.5,1); }
+  .ag-sw[aria-checked='true'] { background: #34D399; }
+  .ag-sw[aria-checked='true'] i { transform: translateX(22px); }
+  .ag-ok { margin: 10px 0 0; text-align: center; font-size: 13px; font-weight: 700; color: #16A34A; }
+  .ag-ok[hidden] { display: none; }
+  .ag-links { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; font-size: 13.5px; }
+  .ag-full { font-weight: 700; color: #3D8BE0; }
+  .ag-out { border: 0; background: none; font: inherit; color: #6B7A8C; cursor: pointer; }
+  .ag-out:hover, .ag-full:hover { text-decoration: underline; }
+  @media (prefers-reduced-motion: reduce) { .ag-logo img, .ag-ring { animation: none; } }
+</style>

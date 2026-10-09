@@ -1,0 +1,405 @@
+---
+// Services mega menu — six styles from the client's mockup sheet.
+// All six render; <html data-menu="1…6"> decides which one shows
+// (picked from the Theme widget, or ?menu=N). Hover/tab switching for the
+// styles with a device list is wired in Base.astro via [data-d] / [data-dp].
+import DeviceArt from './DeviceArt.astro';
+import { price } from '../data/site';
+import { categories, iconPaths } from '../data/devices';
+import { note, brandColor, quickLinks, artFor } from '../data/menu';
+
+const ids = ['mobile', 'laptop', 'printer', 'cctv', 'network', 'data', 'itsupport'];
+const cats = ids.map((id) => categories.find((c) => c.id === id)!);
+const label: Record<string, string> = { mobile: 'Mobile Phone', laptop: 'Laptop', printer: 'Printer', cctv: 'CCTV', network: 'Network', data: 'Data Recovery', itsupport: 'IT Support' };
+const tabName: Record<string, string> = { cctv: 'CCTV & Security' };
+const catHref = (id: string) => `/services?cat=${id}#catalog`;
+const brandHref = (id: string, name: string) => `/services?cat=${id}&q=${encodeURIComponent(name)}#catalog`;
+const phoneBrands = categories.find((c) => c.id === 'mobile')!.brands;
+
+// Small line icons for repair items
+const ri: Record<string, string> = {
+  screen: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M9 6l6 6M9 11l3 3"/>',
+  battery: '<rect x="7" y="4" width="10" height="17" rx="2"/><path d="M10 2h4M12 9l-2 4h4l-2 4"/>',
+  plug: '<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  drop: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
+  gear: iconPaths.support,
+  wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/>',
+  back: '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="7" r="1.6"/><circle cx="14" cy="7" r="1.6"/>',
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6"/>',
+  paper: '<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+  print: iconPaths.printer,
+  wifi: iconPaths.network,
+  drive: iconPaths.drive,
+  cloud: '<path d="M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-1 9z"/>',
+  key: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h1M11 10h1M15 10h1M7 14h10"/>',
+  hinge: '<path d="M4 18h16M6 18l4-12h4l4 12"/>',
+  chip: '<rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/>',
+  fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7s2 5-2 7M14 12c4 0 7 1 7 4s-5 2-7-2M12 14c0 4-1 7-4 7s-2-5 2-7M10 12c-4 0-7-1-7-4s5-2 7 2"/>',
+  alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+  shield: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+};
+const issueIcon = (s: string) => {
+  const t = s.toLowerCase();
+  const rules: [RegExp, string][] = [
+    [/back glass|back panel/, ri.back], [/screen|glass|display/, ri.screen], [/battery/, ri.battery],
+    [/charg|power supply|not powering/, ri.plug], [/camera|cctv|viewing|dvr|nvr/, ri.camera], [/water|fire/, ri.drop],
+    [/speaker|micro|sound/, ri.sound], [/paper|toner|cartridge|roller|fuser/, ri.paper], [/print|head clean/, ri.print],
+    [/wi-?fi|router|mesh|network|lan|cabling|switch/, ri.wifi], [/drive|ssd|ram|storage|hard disk|deleted|formatted|recover/, ri.drive],
+    [/keyboard|trackpad|button/, ri.key], [/hinge/, ri.hinge], [/motherboard|board|graphics|chip/, ri.chip],
+    [/overheat|fan/, ri.fan], [/error|not connecting|slow/, ri.alert], [/virus|malware|security|maintenance/, ri.shield],
+    [/email|365|workspace|outlook/, ri.mail], [/software|os |setup|install|update/, ri.gear],
+  ];
+  return rules.find(([re]) => re.test(t))?.[1] ?? ri.wrench;
+};const svg = (paths: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+const arrow = svg('<path d="M5 12h14M13 6l6 6-6 6"/>');
+const chev = svg('<path d="M9 6l6 6-6 6"/>');
+const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
+---
+
+<div class="mm" role="region" aria-label="Services menu">
+
+  <!-- 1 · Classic mega menu (images and icons) -->
+  <div class="mv mv-1" data-mv>
+    <ul class="side">
+      {cats.map((c, i) => (
+        <li><a href={catHref(c.id)} class:list={['side-item', { on: i === 0 }]} data-d={c.id} style={`--h:${c.hue}`}>
+          <span class="ci" set:html={svg(iconPaths[c.icon])} />{c.name}<span class="chev" set:html={chev} />
+        </a></li>
+      ))}
+    </ul>
+    <div class="panels">
+      {cats.map((c, i) => (
+        <div class:list={['p1', { on: i === 0 }]} data-dp={c.id}>
+          <div class="p1-art"><DeviceArt kind={artFor[c.id]} /></div>
+          <div class="p1-body">
+            <h3>{label[c.id]} Services</h3>
+            <p class="desc">Complete repair and service for {c.short.toLowerCase()}.</p>
+            <ul class="icon-grid">
+              {c.issues.slice(0, 6).map((iss) => (
+                <li><a href={catHref(c.id)}><span class="ig" set:html={svg(issueIcon(iss))} />{iss}</a></li>
+              ))}
+            </ul>
+          </div>
+          <div class="p1-brands">
+            <h4>Popular Brands</h4>
+            <div class="chips">
+              {c.brands.slice(0, 5).map((b) => <a href={brandHref(c.id, b.name)} class="bchip"><i style={`background:${brandColor[b.name] ?? `hsl(${b.hue} 60% 45%)`}`}>{b.name[0]}</i>{b.name}</a>)}
+              <a href={catHref(c.id)} class="view">View all <span set:html={arrow} /></a>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+    <div class="promo">
+      {cats.map((c, i) => (
+        <div class:list={['promo-in', { on: i === 0 }]} data-dp={c.id}>
+          <h4>Need a repair?</h4>
+          <p>Get your device fixed by experts.</p>
+          <div class="promo-art"><DeviceArt kind={artFor[c.id]} /></div>
+          <a href="/services#catalog" class="btn-b">Book {label[c.id]} Repair <span set:html={arrow} /></a>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <!-- 2 · Tabbed mega menu -->
+  <div class="mv mv-2" data-mv>
+    <div class="tabs">
+      {cats.map((c, i) => (
+        <a href={catHref(c.id)} class:list={['tab', { on: i === 0 }]} data-d={c.id}>
+          <span set:html={svg(iconPaths[c.icon])} />{tabName[c.id] ?? c.name}
+        </a>
+      ))}
+    </div>
+    {cats.map((c, i) => (
+      <div class:list={['p2', { on: i === 0 }]} data-dp={c.id}>
+        <div class="p2-art"><DeviceArt kind={artFor[c.id]} /></div>
+        <ul class="rows">
+          {c.issues.slice(0, 6).map((iss) => (
+            <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} /><span><b>{iss}</b><small>{note(iss)}</small></span></a></li>
+          ))}
+        </ul>
+        <div class="p2-brands">
+          <div class="h-row"><h4>Popular Brands</h4><a href={catHref(c.id)}>View all <span set:html={arrow} /></a></div>
+          <ul>
+            {c.brands.slice(0, 8).map((b) => <li><a href={brandHref(c.id, b.name)}><i style={`background:${brandColor[b.name] ?? `hsl(${b.hue} 60% 45%)`}`}>{b.name[0]}</i>{b.name}</a></li>)}
+          </ul>
+        </div>
+        <div class="card-blue">
+          <small>Faster. Reliable.</small>
+          <h4>Fast, Reliable {label[c.id]} Repairs</h4>
+          <ul class="ticks">
+            <li><span set:html={check} />Genuine parts</li>
+            <li><span set:html={check} />Skilled technicians</li>
+            <li><span set:html={check} />Same-day service</li>
+            <li><span set:html={check} />All major brands</li>
+          </ul>
+          <div class="cb-art"><DeviceArt kind={artFor[c.id]} /></div>
+          <a href="/services#catalog" class="btn-w">Book a Repair <span set:html={arrow} /></a>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <!-- 3 · Image grid style -->
+  <div class="mv mv-3" data-mv>
+    {cats.slice(0, 6).map((c) => (
+      <a href={catHref(c.id)} class="g3" style={`--h:${c.hue}`}>
+        <span class="g3-text"><b>{c.name}</b><small>{c.short}</small></span>
+        <span class="circle" set:html={arrow} />
+        <span class="g3-art"><DeviceArt kind={artFor[c.id]} /></span>
+      </a>
+    ))}
+    <a href={catHref('itsupport')} class="g3-wide">
+      <span class="ci big" style="--h:205" set:html={svg(iconPaths.support)} />
+      <span><b>IT Support</b><small>Software installation, troubleshooting and more</small></span>
+      <span class="circle" set:html={arrow} />
+    </a>
+  </div>
+
+  <!-- 4 · Split banner style -->
+  <div class="mv mv-4" data-mv>
+    <div class="side-wrap">
+      <h4>Our Services</h4>
+      <ul class="side">
+        {cats.map((c, i) => (
+          <li><a href={catHref(c.id)} class:list={['side-item', { on: i === 0 }]} data-d={c.id} style={`--h:${c.hue}`}>
+            <span class="ci" set:html={svg(iconPaths[c.icon])} />{tabName[c.id] ?? c.name}<span class="chev" set:html={chev} />
+          </a></li>
+        ))}
+      </ul>
+    </div>
+    <div class="panels">
+      {cats.map((c, i) => (
+        <div class:list={['p4', { on: i === 0 }]} data-dp={c.id}>
+          <h3>{label[c.id]} Services</h3>
+          <p class="desc">Professional repair and service for {c.short.toLowerCase()}.</p>
+          <ul class="lines">
+            {c.issues.slice(0, 6).map((iss) => (
+              <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} />{iss}<span class="chev" set:html={chev} /></a></li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+    <div class="banner">
+      {cats.map((c, i) => (
+        <div class:list={['banner-in', { on: i === 0 }]} data-dp={c.id}>
+          <h4>Your {label[c.id].replace(' Phone', '')}<br />Our Expertise</h4>
+          <ul class="ticks dark">
+            <li><span set:html={check} />Genuine parts</li>
+            <li><span set:html={check} />Certified technicians</li>
+            <li><span set:html={check} />Same-day service</li>
+          </ul>
+          <div class="banner-art"><DeviceArt kind={artFor[c.id]} /></div>
+          <a href="/services#catalog" class="btn-b">Book {label[c.id]} Repair <span set:html={arrow} /></a>
+        </div>
+      ))}
+    </div>
+    <div class="strip">
+      {phoneBrands.slice(0, 7).map((b) => <a href={brandHref('mobile', b.name)}><i style={`background:${brandColor[b.name] ?? '#555'}`}>{b.name[0]}</i>{b.name}</a>)}
+      <a href={catHref('mobile')} class="view"><span set:html={arrow} /></a>
+    </div>
+  </div>
+
+  <!-- 5 · Compact elegant style (with quick links) -->
+  <div class="mv mv-5" data-mv>
+    <div>
+      <h4>Device Repairs</h4>
+      <ul class="side compact">
+        {cats.map((c, i) => (
+          <li><a href={catHref(c.id)} class:list={['side-item', { on: i === 0 }]} data-d={c.id} style={`--h:${c.hue}`}>
+            <span class="ci" set:html={svg(iconPaths[c.icon])} />{tabName[c.id] ?? c.name}<span class="chev" set:html={chev} />
+          </a></li>
+        ))}
+      </ul>
+    </div>
+    <div class="panels">
+      <h4>Popular Repairs</h4>
+      {cats.map((c, i) => (
+        <ul class:list={['rows', 'p5', { on: i === 0 }]} data-dp={c.id}>
+          {c.issues.slice(0, 6).map((iss) => (
+            <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} /><span><b>{iss}</b><small>{note(iss)}</small></span></a></li>
+          ))}
+        </ul>
+      ))}
+    </div>
+    <div>
+      <h4>Quick Links</h4>
+      <ul class="quick">
+        {quickLinks.map((q) => <li><a href={q.href}><span set:html={quickIcon} />{q.label}</a></li>)}
+      </ul>
+    </div>
+    <div class="card-soft">
+      <h4>Need a Repair?</h4>
+      <p>Get expert service today.</p>
+      <div class="cs-art"><DeviceArt kind="phone" /></div>
+      <a href="/services#catalog" class="btn-d">Book a Repair <span set:html={arrow} /></a>
+    </div>
+    <div class="strip">
+      <span class="strip-label">Popular Brands</span>
+      {phoneBrands.slice(0, 7).map((b) => <a href={brandHref('mobile', b.name)}><i style={`background:${brandColor[b.name] ?? '#555'}`}>{b.name[0]}</i>{b.name}</a>)}
+      <a href={catHref('mobile')} class="view">View all <span set:html={arrow} /></a>
+    </div>
+  </div>
+
+  <!-- 6 · Visual cards with descriptions -->
+  <div class="mv mv-6" data-mv>
+    {cats.slice(0, 6).map((c) => (
+      <a href={catHref(c.id)} class="v6" style={`--h:${c.hue}`}>
+        <span class="v6-text"><b>{c.name}</b><small>{c.short}</small></span>
+        <span class="circle" set:html={arrow} />
+        <span class="v6-art"><DeviceArt kind={artFor[c.id]} /></span>
+      </a>
+    ))}
+  </div>
+
+  <p class="mm-foot">All estimates {price()} · Doorstep or pickup</p>
+</div>
+
+<style>
+  .mm { padding: 18px; }
+  .mv { display: none; }
+  :global(:root[data-menu='1']) .mv-1, :global(:root:not([data-menu])) .mv-1 { display: grid; }
+  :global(:root[data-menu='2']) .mv-2 { display: block; }
+  :global(:root[data-menu='3']) .mv-3 { display: grid; }
+  :global(:root[data-menu='4']) .mv-4 { display: grid; }
+  :global(:root[data-menu='5']) .mv-5 { display: grid; }
+  :global(:root[data-menu='6']) .mv-6 { display: grid; }
+  .mm-foot { display: none; }
+
+  h3 { font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+  h4 { font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
+  .desc { font-size: 13px; color: var(--ink-3); margin: 4px 0 16px; max-width: 42ch; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  [data-dp]:not(.on) { display: none !important; }
+  .ci { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: hsl(var(--h) 85% 95%); color: hsl(var(--h) 65% 45%); flex: none; }
+  .ci :global(svg) { width: 17px; height: 17px; }
+  .ci.big { width: 44px; height: 44px; border-radius: 12px; }
+  .ci.big :global(svg) { width: 24px; height: 24px; }
+  .chev { margin-left: auto; width: 14px; height: 14px; color: var(--ink-3); opacity: 0; transition: opacity .15s; }
+  .chev :global(svg), .circle :global(svg), .view :global(svg), .btn-b :global(svg), .btn-w :global(svg), .btn-d :global(svg) { width: 100%; height: 100%; }
+  .view span, .btn-b span, .btn-w span, .btn-d span { display: inline-block; width: 14px; height: 14px; vertical-align: -2px; }
+
+  /* shared: side list */
+  .side { display: grid; gap: 2px; align-content: start; }
+  .side-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; transition: background .15s, color .15s; }
+  .side-item:hover { background: var(--tint); }
+  .side-item.on { background: var(--accent-soft); color: var(--violet); }
+  .side-item.on .chev { opacity: 1; color: var(--violet); }
+
+  /* shared: rows with caption */
+  .rows { display: grid; gap: 4px; }
+  .rows a { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 10px; transition: background .15s; }
+  .rows a:hover { background: var(--tint); }
+  .rows b { display: block; font-size: 13.5px; }
+  .rows small { display: block; font-size: 12px; color: var(--ink-3); }
+  .ri { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); color: var(--ink-2); flex: none; background: var(--surface); }
+  .ri :global(svg) { width: 17px; height: 17px; }
+
+  /* shared: buttons + ticks + chips */
+  .btn-b, .btn-w, .btn-d { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .btn-b { background: var(--violet); color: var(--on-accent); }
+  .btn-w { background: #fff; color: var(--violet); }
+  .btn-d { background: var(--navy); color: #fff; }
+  .ticks { display: grid; gap: 7px; font-size: 12.5px; }
+  .ticks li { display: flex; align-items: center; gap: 8px; }
+  .ticks span { display: grid; place-items: center; width: 17px; height: 17px; padding: 3px; border-radius: 50%; background: #fff; color: var(--violet); }
+  .ticks.dark span { background: var(--violet); color: #fff; }
+  .ticks span :global(svg) { width: 100%; height: 100%; }
+  .chips, .strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .bchip, .strip a:not(.view) { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); font-size: 12.5px; font-weight: 600; }
+  i { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; color: #fff; font-style: normal; font-size: 10px; font-weight: 800; flex: none; }
+  .view { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink); margin-left: auto; }
+  .circle { display: grid; place-items: center; width: 30px; height: 30px; padding: 7px; border-radius: 50%; background: var(--surface); color: var(--ink); box-shadow: 0 2px 6px rgba(15,27,45,.12); }
+
+  /* ---------- 1 · classic ---------- */
+  .mv-1 { grid-template-columns: 210px minmax(0, 1fr) 230px; gap: 20px; }
+  .mv-1 .panels, .mv-4 .panels { min-width: 0; }
+  .p1 { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 4px 22px; }
+  .p1-art { grid-row: span 1; background: linear-gradient(160deg, var(--accent-soft), transparent); border-radius: 16px; padding: 8px; height: 190px; }
+  .icon-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
+  .icon-grid a { display: grid; justify-items: center; gap: 6px; text-align: center; font-size: 12px; font-weight: 600; color: var(--ink-2); line-height: 1.25; }
+  .ig { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--violet); transition: transform .2s; }
+  .ig :global(svg) { width: 21px; height: 21px; }
+  .icon-grid a:hover .ig { transform: translateY(-2px); }
+  .p1-brands { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid var(--line); margin-top: 8px; }
+  .promo { background: linear-gradient(170deg, var(--accent-soft), color-mix(in srgb, var(--accent-soft) 40%, var(--surface))); border-radius: 18px; padding: 18px; }
+  .promo-in { display: flex; flex-direction: column; height: 100%; }
+  .promo p { font-size: 12.5px; color: var(--ink-3); }
+  .promo-art { flex: 1; min-height: 140px; margin: 6px 0; }
+
+  /* ---------- 2 · tabbed ---------- */
+  .tabs { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .tab { display: grid; justify-items: center; gap: 6px; padding: 8px 4px 12px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); text-align: center; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s; }
+  .tab span { width: 24px; height: 24px; }
+  .tab span :global(svg) { width: 100%; height: 100%; }
+  .tab:hover { color: var(--ink); }
+  .tab.on { color: var(--violet); border-bottom-color: var(--violet); }
+  .p2 { display: grid; grid-template-columns: 170px minmax(0, 1.2fr) minmax(0, .8fr) 240px; gap: 18px; align-items: start; }
+  .p2-art { height: 230px; }
+  .p2-brands { border-left: 1px solid var(--line); padding-left: 18px; }
+  .h-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .h-row a { font-size: 12px; font-weight: 700; color: var(--violet); display: inline-flex; gap: 4px; align-items: center; }
+  .h-row a span { width: 12px; height: 12px; display: inline-block; }
+  .h-row a span :global(svg) { width: 100%; height: 100%; }
+  .p2-brands ul { display: grid; gap: 4px; }
+  .p2-brands a { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: 8px; font-size: 13px; }
+  .p2-brands a:hover { background: var(--tint); }
+  .card-blue { display: flex; flex-direction: column; gap: 8px; padding: 18px; border-radius: 18px; color: #fff; background: linear-gradient(160deg, var(--violet), var(--blue)); min-height: 270px; }
+  .card-blue small { font-size: 11px; opacity: .8; }
+  .card-blue h4 { color: #fff; font-size: 18px; line-height: 1.2; margin: 0; }
+  .cb-art { height: 96px; }
+
+  /* ---------- 3 · image grid ---------- */
+  .mv-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .g3, .v6 { position: relative; display: grid; grid-template-columns: 1fr 44%; align-items: end; min-height: 128px; padding: 16px; border-radius: 16px; overflow: hidden; transition: transform .25s, box-shadow .25s; }
+  .g3 { background: linear-gradient(150deg, hsl(var(--h) 60% 97%), hsl(var(--h) 60% 91%)); }
+  .g3:hover, .v6:hover { transform: translateY(-3px); box-shadow: 0 16px 30px -18px rgba(15,27,45,.4); }
+  .g3-text, .v6-text { align-self: start; display: grid; gap: 3px; }
+  .g3-text b, .v6-text b { font-size: 14.5px; }
+  .g3-text small, .v6-text small { font-size: 12px; color: var(--ink-3); line-height: 1.3; }
+  .g3 .circle, .v6 .circle { position: absolute; left: 16px; bottom: 14px; }
+  .g3-art, .v6-art { grid-column: 2; grid-row: 1; height: 110px; margin: -6px -8px -12px 0; }
+  .g3-wide { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; background: linear-gradient(150deg, var(--tint), var(--accent-soft)); }
+  .g3-wide b { display: block; font-size: 14.5px; }
+  .g3-wide small { font-size: 12px; color: var(--ink-3); }
+  .g3-wide .circle { margin-left: auto; }
+
+  /* ---------- 4 · split banner ---------- */
+  .mv-4 { grid-template-columns: 210px minmax(0, 1fr) 330px; gap: 22px; }
+  .lines { display: grid; }
+  .lines a { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--line); font-size: 13.5px; font-weight: 600; }
+  .lines a:hover { color: var(--violet); }
+  .lines a:hover .chev { opacity: 1; }
+  .lines .ri { width: 28px; height: 28px; border: 0; background: var(--tint); }
+  .lines .chev { opacity: .5; }
+  .banner { border-radius: 18px; padding: 22px; background: linear-gradient(150deg, var(--accent-soft), color-mix(in srgb, var(--blue) 18%, var(--surface))); overflow: hidden; }
+  .banner-in { display: grid; grid-template-columns: 1fr 45%; grid-template-rows: auto auto 1fr auto; height: 100%; gap: 10px; }
+  .banner h4 { grid-column: 1 / -1; font-size: 24px; line-height: 1.1; margin: 0; }
+  .banner .ticks { color: var(--ink-2); }
+  .banner-art { grid-column: 2; grid-row: 2 / 4; }
+  .banner .btn-b { justify-self: start; align-self: end; }
+  .mv-4 .strip, .mv-5 .strip { grid-column: 1 / -1; padding-top: 14px; border-top: 1px solid var(--line); }
+
+  /* ---------- 5 · compact ---------- */
+  .mv-5 { grid-template-columns: 200px minmax(0, 1fr) 190px 220px; gap: 24px; }
+  .side.compact .side-item { padding: 7px 8px; }
+  .quick { display: grid; gap: 4px; }
+  .quick a { display: flex; align-items: center; gap: 8px; padding: 6px 4px; font-size: 13px; color: var(--ink-2); transition: color .15s; }
+  .quick a:hover { color: var(--violet); }
+  .quick span { width: 14px; height: 14px; color: var(--ink-3); }
+  .quick span :global(svg) { width: 100%; height: 100%; }
+  .card-soft { display: flex; flex-direction: column; padding: 18px; border-radius: 18px; background: linear-gradient(170deg, var(--accent-soft), var(--tint)); }
+  .card-soft p { font-size: 12.5px; color: var(--ink-3); }
+  .cs-art { flex: 1; min-height: 120px; }
+  .strip-label { font-size: 12px; font-weight: 700; color: var(--ink-3); margin-right: 6px; }
+
+  /* ---------- 6 · visual cards ---------- */
+  .mv-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .v6 { min-height: 150px; background: hsl(var(--h) 75% 95%); }
+  .v6-art { height: 124px; }
+</style>

@@ -1,0 +1,242 @@
+---
+// First-visit layer: announcement bar, cookie notice, flash-offer popup.
+// PLACEHOLDER OFFER: edit `promo` below with the client's real offer.
+// Each piece remembers being dismissed (localStorage), so returning visitors
+// are not shown it again.
+import { site, price } from '../data/site';
+import SpinWheel from './SpinWheel.astro';
+
+const whatsappLink = (msg: string) => `https://wa.me/${site.phone.tel.replace('+', '')}?text=${encodeURIComponent(msg)}`;
+
+const promo = {
+  badge: 'Flash offer',
+  title: 'Free diagnosis this week',
+  body: `Book a doorstep visit or pickup and the check-up is on us — visit fee ${price()}.`,
+  code: '369FIX',
+  showAfterMs: 4000,
+};
+const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis this week`;
+---
+
+<!-- 1 · Announcement bar -->
+<div class="ann" data-ann hidden>
+  <div class="ann-track">
+    {[0, 1, 2].map(() => (
+      <span class="ann-item"><i>●</i>{bar}<a href="/services#catalog">Book now →</a></span>
+    ))}
+  </div>
+  <button type="button" class="ann-x" data-ann-x aria-label="Close announcement">×</button>
+</div>
+
+<!-- 2 · Cookie notice -->
+<div class="ck" data-ck role="region" aria-label="Cookie notice" hidden>
+  <div class="ck-ico" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9 3 3 0 0 1-3-3 3 3 0 0 1-3-3 3 3 0 0 1-3-3z"/><circle cx="8.5" cy="11" r="1"/><circle cx="12" cy="16" r="1"/><circle cx="15.5" cy="13" r="1"/></svg>
+  </div>
+  <div class="ck-text">
+    <b>We use cookies</b>
+    <p>Only to remember your theme, area and choices on this site. No ads, no tracking.</p>
+  </div>
+  <div class="ck-btns">
+    <button type="button" class="ck-no" data-ck-set="declined">Decline</button>
+    <button type="button" class="ck-yes" data-ck-set="accepted">Accept</button>
+  </div>
+</div>
+
+<!-- 3 · Flash offer popup -->
+<div class="po" data-po hidden>
+  <div class="po-backdrop" data-po-x></div>
+  <div class="po-card" role="dialog" aria-modal="true" aria-labelledby="po-title">
+    <button type="button" class="po-x" data-po-x aria-label="Close offer">×</button>
+    <div class="po-art" aria-hidden="true">
+      <span class="po-ring r1"></span><span class="po-ring r2"></span>
+      <span class="po-big">{price()}</span>
+      <span class="po-sub">visit fee</span>
+      {[...Array(10)].map((_, i) => <span class="po-spark" style={`--i:${i}`}></span>)}
+    </div>
+    <div class="po-body">
+      <span class="po-badge"><i></i>{promo.badge}</span>
+      <h2 id="po-title">{promo.title}</h2>
+      <p>{promo.body}</p>
+      <div class="po-timer" aria-label="Offer ends in">
+        <span><b data-t="h">00</b><small>hrs</small></span>
+        <span><b data-t="m">00</b><small>min</small></span>
+        <span><b data-t="s">00</b><small>sec</small></span>
+      </div>
+      <button type="button" class="po-code" data-po-code>
+        <span>Code</span><b>{promo.code}</b><em data-po-copied>Tap to copy</em>
+      </button>
+      <div class="po-btns">
+        <a href="/services#catalog" class="btn btn-primary" data-po-go>Book with offer</a>
+        <a href={whatsappLink(`Hello Danat Fix — I'd like to use code ${promo.code}`)} target="_blank" rel="noopener" class="btn" data-po-go>WhatsApp us</a>
+      </div>
+      <button type="button" class="po-later" data-po-x>No thanks</button>
+    </div>
+  </div>
+</div>
+
+<SpinWheel />
+
+<!-- Always-available entry to the wheel -->
+<button type="button" class="gift" data-gift aria-label="Spin and win">
+  <span class="gift-ico" aria-hidden="true">🎁</span>
+  <span class="gift-t">Spin &amp; Win</span>
+</button>
+
+<script define:vars={{ delay: promo.showAfterMs }} is:inline>
+  window.__poDelay = delay;
+</script>
+
+<script>
+  const get = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const put = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch {} };
+  // Offer popup and announcement bar come back on every new visit (browser session).
+  const sget = (k: string) => { try { return sessionStorage.getItem(k); } catch { return null; } };
+  const sput = (k: string, v: string) => { try { sessionStorage.setItem(k, v); } catch {} };
+  const q = <T extends HTMLElement>(s: string) => document.querySelector<T>(s)!;
+
+  // 1 · announcement bar
+  const ann = q('[data-ann]');
+  if (!sget('ann-closed')) { ann.hidden = false; document.body.classList.add('has-ann'); }
+  q('[data-ann-x]').addEventListener('click', () => { ann.hidden = true; document.body.classList.remove('has-ann'); sput('ann-closed', '1'); });
+
+  // 2 · cookie notice (slides in shortly after load)
+  const ck = q('[data-ck]');
+  if (!get('cookie-choice')) setTimeout(() => { ck.hidden = false; requestAnimationFrame(() => ck.classList.add('in')); }, 1200);
+  document.querySelectorAll<HTMLElement>('[data-ck-set]').forEach((b) => b.addEventListener('click', () => {
+    put('cookie-choice', b.dataset.ckSet!);
+    ck.classList.remove('in');
+    setTimeout(() => (ck.hidden = true), 400);
+  }));
+
+  // 3 · flash offer — once per visitor per day, never on top of the cookie notice for long
+  const po = q('[data-po]');
+  const today = new Date().toDateString();
+  const open = () => { po.hidden = false; requestAnimationFrame(() => po.classList.add('in')); document.documentElement.style.overflow = 'hidden'; };
+  const close = () => { po.classList.remove('in'); document.documentElement.style.overflow = ''; setTimeout(() => (po.hidden = true), 350); sput('offer-seen', today); };
+  // Which offer popup: 'spin' (default) or 'flash' — ?offer=… or Theme › Offer popup
+  const qOffer = new URLSearchParams(location.search).get('offer');
+  if (qOffer === 'slot' || qOffer === 'spin' || qOffer === 'flash') put('welcome-popup', qOffer);
+  const offerType = () => { const t = get('welcome-popup'); return t === 'spin' || t === 'flash' ? t : 'slot'; };
+  (window as any).__offerClosed = () => sput('offer-seen', today);
+  (window as any).__openOffer = () => { const t = offerType(); if (t === 'slot') (window as any).__openSlot?.(); else if (t === 'spin') (window as any).__openSpin?.(); else open(); };
+  const adminGate = new URLSearchParams(location.search).has('admin'); // ?admin= pop-up gets the screen to itself
+  if (!adminGate && (sget('offer-seen') !== today || qOffer)) setTimeout(() => (window as any).__openOffer(), offerType() === 'slot' ? 1500 : ((window as any).__poDelay ?? 4000));
+  po.querySelectorAll('[data-po-x]').forEach((b) => b.addEventListener('click', close));
+  po.querySelectorAll('[data-po-go]').forEach((b) => b.addEventListener('click', () => sput('offer-seen', today)));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !po.hidden) close(); });
+
+  // side tab: opens the wheel any time
+  document.querySelector('[data-gift]')!.addEventListener('click', () => (window as any).__openSpin?.());
+
+  // countdown to the end of today
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const tick = () => {
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    let s = Math.max(0, Math.floor((end.getTime() - Date.now()) / 1000));
+    q('[data-t="h"]').textContent = pad(Math.floor(s / 3600)); s %= 3600;
+    q('[data-t="m"]').textContent = pad(Math.floor(s / 60));
+    q('[data-t="s"]').textContent = pad(s % 60);
+  };
+  tick(); setInterval(tick, 1000);
+
+  // copy code
+  q('[data-po-code]').addEventListener('click', async () => {
+    const code = q('[data-po-code] b').textContent!;
+    try { await navigator.clipboard.writeText(code); q('[data-po-copied]').textContent = 'Copied ✓'; }
+    catch { q('[data-po-copied]').textContent = code; }
+  });
+</script>
+
+<style>
+  /* always-visible Spin & Win tab (left edge) */
+  .gift {
+    position: fixed; left: 0; top: 50%; z-index: 65; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 10px;
+    border: 0; border-radius: 0 16px 16px 0; background: var(--violet); color: var(--on-accent);
+    box-shadow: 0 14px 30px -12px rgba(0,0,0,.45); transition: padding .2s;
+  }
+  .gift:hover { padding-left: 16px; }
+  .gift-ico { font-size: 22px; animation: giftShake 2.4s ease-in-out infinite; }
+  .gift-t { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13px; font-weight: 800; letter-spacing: .06em; }
+  @keyframes giftShake { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-16deg) scale(1.15); } 82% { transform: rotate(14deg) scale(1.15); } 88% { transform: rotate(-8deg); } }
+
+  /* 1 · announcement bar */
+  .ann { position: relative; z-index: 55; overflow: hidden; background: var(--navy); color: #fff; font-size: 13.5px; font-weight: 600; }
+  .ann[hidden] { display: none; }
+  .ann-track { display: flex; width: max-content; animation: annMove 30s linear infinite; }
+  .ann:hover .ann-track { animation-play-state: paused; }
+  .ann-item { display: inline-flex; align-items: center; gap: 12px; padding: 10px 40px; white-space: nowrap; }
+  .ann-item i { font-style: normal; color: var(--lime); font-size: 9px; animation: annBlink 1.4s infinite; }
+  .ann-item a { color: var(--on-accent); background: var(--violet); padding: 3px 10px; border-radius: 999px; font-size: 12px; }
+  .ann-x { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 18px; line-height: 1; }
+  @keyframes annMove { to { transform: translateX(-33.333%); } }
+  @keyframes annBlink { 50% { opacity: .2; } }
+
+  /* 2 · cookie notice */
+  .ck {
+    position: fixed; left: 18px; bottom: 18px; z-index: 80; width: min(440px, calc(100% - 36px));
+    display: grid; grid-template-columns: auto 1fr; gap: 12px 14px; padding: 18px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+    box-shadow: 0 24px 60px -20px rgba(15, 27, 45, .4);
+    transform: translateY(24px); opacity: 0; transition: transform .45s cubic-bezier(.2,.8,.2,1), opacity .35s;
+  }
+  .ck[hidden] { display: none; }
+  .ck.in { transform: none; opacity: 1; }
+  .ck-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--accent-soft); color: var(--violet); animation: ckWobble 2.6s ease-in-out infinite; }
+  .ck-ico svg { width: 24px; height: 24px; }
+  @keyframes ckWobble { 0%, 70%, 100% { transform: rotate(0); } 80% { transform: rotate(-12deg); } 90% { transform: rotate(10deg); } }
+  .ck-text b { font-size: 15px; }
+  .ck-text p { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+  .ck-btns { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+  .ck-btns button { padding: 9px 18px; border-radius: 999px; font-size: 13.5px; font-weight: 700; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+  .ck-btns .ck-yes { background: var(--violet); border-color: var(--violet); color: var(--on-accent); }
+
+  /* 3 · flash offer */
+  .po { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; }
+  .po[hidden] { display: none; }
+  .po-backdrop { position: absolute; inset: 0; background: rgba(8, 14, 12, .55); backdrop-filter: blur(4px); opacity: 0; transition: opacity .35s; }
+  .po.in .po-backdrop { opacity: 1; }
+  .po-card {
+    position: relative; width: min(760px, 100%); display: grid; grid-template-columns: 1fr 1.15fr;
+    background: var(--surface); border-radius: 28px; overflow: hidden; box-shadow: 0 40px 100px -30px rgba(0,0,0,.6);
+    transform: translateY(30px) scale(.94); opacity: 0; transition: transform .5s cubic-bezier(.2,1.2,.3,1), opacity .35s;
+  }
+  .po.in .po-card { transform: none; opacity: 1; }
+  .po-x { position: absolute; right: 14px; top: 14px; z-index: 2; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--tint-2); color: var(--ink); font-size: 22px; line-height: 1; }
+  .po-art { position: relative; display: grid; place-content: center; justify-items: center; min-height: 340px; overflow: hidden; color: #fff; background: linear-gradient(150deg, var(--violet), color-mix(in srgb, var(--violet) 45%, #000)); }
+  .po-big { position: relative; font-family: var(--display); font-size: 64px; font-weight: 800; letter-spacing: -.03em; line-height: 1; animation: poPulse 2.2s ease-in-out infinite; }
+  .po-sub { position: relative; font-size: 14px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; opacity: .8; margin-top: 6px; }
+  @keyframes poPulse { 50% { transform: scale(1.06); } }
+  .po-ring { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 2px solid rgba(255,255,255,.18); transform: translate(-50%, -50%); animation: poRing 3s ease-out infinite; }
+  .r1 { width: 180px; height: 180px; }
+  .r2 { width: 180px; height: 180px; animation-delay: 1.5s; }
+  @keyframes poRing { from { opacity: 1; transform: translate(-50%, -50%) scale(.8); } to { opacity: 0; transform: translate(-50%, -50%) scale(2); } }
+  .po-spark { position: absolute; left: calc(8% + var(--i) * 9%); bottom: -10px; width: 6px; height: 6px; border-radius: 2px; background: rgba(255,255,255,.7); animation: poFloat calc(3s + var(--i) * .3s) linear infinite; animation-delay: calc(var(--i) * -.45s); }
+  @keyframes poFloat { to { transform: translateY(-380px) rotate(360deg); opacity: 0; } }
+  .po-body { display: grid; gap: 12px; align-content: center; padding: 34px 32px 26px; }
+  .po-badge { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: #ffe9e6; color: #d0342c; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .po-badge i { width: 8px; height: 8px; border-radius: 50%; background: #e0362c; animation: annBlink 1s infinite; }
+  .po-body h2 { font-size: clamp(26px, 3vw, 34px); line-height: 1.1; }
+  .po-body p { color: var(--ink-2); font-size: 15px; }
+  .po-timer { display: flex; gap: 8px; }
+  .po-timer span { display: grid; justify-items: center; min-width: 62px; padding: 8px 6px; border-radius: 14px; background: var(--navy); color: #fff; }
+  .po-timer b { font-family: var(--display); font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .po-timer small { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+  .po-code { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 2px dashed var(--violet); border-radius: 14px; background: var(--accent-soft); color: var(--ink); text-align: left; }
+  .po-code span { font-size: 12px; color: var(--ink-3); }
+  .po-code b { font-family: var(--display); font-size: 18px; letter-spacing: .08em; color: var(--violet); }
+  .po-code em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 700; color: var(--violet); }
+  .po-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .po-btns .btn { padding: 12px 20px; font-size: 14px; }
+  .po-later { justify-self: start; border: 0; background: none; padding: 0; font-size: 13px; color: var(--ink-3); text-decoration: underline; }
+  @media (max-width: 680px) {
+    .po-card { grid-template-columns: 1fr; max-height: calc(100vh - 32px); overflow-y: auto; }
+    .po-art { min-height: 150px; }
+    .po-big { font-size: 44px; }
+    .po-body { padding: 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ann-track, .po-big, .po-ring, .po-spark, .ck-ico { animation: none; }
+  }
+</style>

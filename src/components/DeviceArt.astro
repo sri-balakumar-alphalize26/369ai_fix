@@ -1,0 +1,154 @@
+---
+// Product-style SVG illustrations for the Services menu (no photos available).
+// Every instance gets unique gradient ids so many can share a page.
+interface Props { kind: string; class?: string }
+const { kind, class: cls } = Astro.props;
+const u = Math.random().toString(36).slice(2, 8);
+const id = (n: string) => `${n}-${u}`;
+const url = (n: string) => `url(#${id(n)})`;
+---
+
+<svg class:list={['art', cls]} viewBox="0 0 200 200" role="img" aria-hidden="true">
+  <defs>
+    <linearGradient id={id('scr')} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d5dfc" /><stop offset=".55" stop-color="#2b6cf6" /><stop offset="1" stop-color="#0c1b4d" />
+    </linearGradient>
+    <linearGradient id={id('back')} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9b8ff" /><stop offset=".5" stop-color="#8f7df0" /><stop offset="1" stop-color="#5a4bd0" />
+    </linearGradient>
+    <linearGradient id={id('blue')} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bfe0ff" /><stop offset="1" stop-color="#6aa6ee" />
+    </linearGradient>
+    <linearGradient id={id('metal')} x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef1f6" /><stop offset="1" stop-color="#aab3c2" />
+    </linearGradient>
+    <linearGradient id={id('dark')} x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3f4b" /><stop offset="1" stop-color="#15181e" />
+    </linearGradient>
+    <radialGradient id={id('dome')} cx=".35" cy=".3" r=".8">
+      <stop offset="0" stop-color="#ffffff" /><stop offset=".6" stop-color="#dfe4ec" /><stop offset="1" stop-color="#a8b1bf" />
+    </radialGradient>
+    <radialGradient id={id('lens')} cx=".4" cy=".35" r=".7">
+      <stop offset="0" stop-color="#5b6b8c" /><stop offset=".5" stop-color="#1b2230" /><stop offset="1" stop-color="#05070b" />
+    </radialGradient>
+    <radialGradient id={id('platter')} cx=".45" cy=".4" r=".7">
+      <stop offset="0" stop-color="#ffffff" /><stop offset=".6" stop-color="#c9ced8" /><stop offset="1" stop-color="#8d95a3" />
+    </radialGradient>
+    <filter id={id('sh')} x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#0b1f3a" flood-opacity=".28" /></filter>
+  </defs>
+
+  {kind === 'phone' && (
+    <g filter={url('sh')}>
+      <g transform="rotate(-10 80 110)">
+        <rect x="38" y="26" width="78" height="156" rx="16" fill="#1c1f26" />
+        <rect x="42" y="30" width="70" height="148" rx="13" fill={url('scr')} />
+        <rect x="64" y="36" width="26" height="7" rx="3.5" fill="#0a0c10" />
+        <path d="M42 120 C70 95 90 140 112 110 L112 178 L42 178 Z" fill="#ffffff" opacity=".08" />
+      </g>
+      <g transform="rotate(8 130 110)">
+        <rect x="92" y="34" width="78" height="156" rx="16" fill={url('back')} />
+        <rect x="100" y="42" width="40" height="40" rx="11" fill="#ffffff" opacity=".35" />
+        <circle cx="111" cy="53" r="8" fill="#1c1f2a" stroke="#d8d2ff" stroke-width="2" />
+        <circle cx="129" cy="53" r="8" fill="#1c1f2a" stroke="#d8d2ff" stroke-width="2" />
+        <circle cx="111" cy="71" r="8" fill="#1c1f2a" stroke="#d8d2ff" stroke-width="2" />
+        <circle cx="129" cy="71" r="3" fill="#f5f0ff" />
+        <path d="M92 50 L170 50 L170 60 L92 110 Z" fill="#ffffff" opacity=".12" />
+      </g>
+    </g>
+  )}
+
+  {kind === 'tablet' && (
+    <g filter={url('sh')} transform="rotate(-8 100 100)">
+      <rect x="40" y="30" width="120" height="150" rx="14" fill="#1c1f26" />
+      <rect x="46" y="36" width="108" height="138" rx="9" fill={url('scr')} />
+      <circle cx="100" cy="33" r="1.6" fill="#555" />
+      <path d="M46 120 C80 90 110 150 154 100 L154 174 L46 174 Z" fill="#fff" opacity=".08" />
+    </g>
+  )}
+
+  {kind === 'laptop' && (
+    <g filter={url('sh')}>
+      <path d="M44 40 h112 a8 8 0 0 1 8 8 v78 h-128 v-78 a8 8 0 0 1 8 -8z" fill="#2a2e37" />
+      <rect x="42" y="46" width="116" height="76" rx="3" fill={url('scr')} />
+      <path d="M42 100 C80 70 110 120 158 80 L158 122 L42 122 Z" fill="#fff" opacity=".1" />
+      <path d="M22 132 L178 132 L168 150 L32 150 Z" fill={url('metal')} />
+      <path d="M22 132 L178 132 L176 136 L24 136 Z" fill="#fff" opacity=".7" />
+      <rect x="84" y="140" width="32" height="6" rx="2" fill="#9aa3b2" />
+    </g>
+  )}
+
+  {kind === 'desktop' && (
+    <g filter={url('sh')}>
+      <rect x="30" y="34" width="140" height="96" rx="8" fill="#20242c" />
+      <rect x="36" y="40" width="128" height="84" rx="4" fill={url('scr')} />
+      <path d="M36 104 C80 80 120 120 164 90 L164 124 L36 124 Z" fill="#fff" opacity=".1" />
+      <path d="M88 130 h24 l6 26 h-36z" fill={url('metal')} />
+      <rect x="66" y="154" width="68" height="8" rx="4" fill={url('metal')} />
+    </g>
+  )}
+
+  {kind === 'printer' && (
+    <g filter={url('sh')}>
+      <rect x="62" y="34" width="76" height="30" rx="3" fill="#ffffff" stroke="#d6dbe3" />
+      <path d="M68 42 h64 M68 50 h50" stroke="#c7ced9" stroke-width="3" stroke-linecap="round" />
+      <rect x="28" y="62" width="144" height="70" rx="12" fill={url('dark')} />
+      <rect x="28" y="62" width="144" height="16" rx="10" fill="#4a505e" />
+      <rect x="140" y="84" width="22" height="12" rx="3" fill="#5c6474" />
+      <circle cx="146" cy="104" r="3" fill="#35e07a" />
+      <rect x="44" y="118" width="112" height="30" rx="4" fill="#2b3039" />
+      <rect x="54" y="128" width="92" height="22" rx="2" fill="#fff" />
+      <path d="M62 136 h60 M62 142 h40" stroke="#c7ced9" stroke-width="2.5" stroke-linecap="round" />
+    </g>
+  )}
+
+  {kind === 'cctv' && (
+    <g filter={url('sh')}>
+      <rect x="54" y="38" width="92" height="16" rx="5" fill={url('metal')} />
+      <path d="M40 60 h120 a10 10 0 0 1 -6 9 h-108 a10 10 0 0 1 -6 -9z" fill="#e4e8ef" />
+      <path d="M46 68 a54 54 0 0 0 108 0 z" fill={url('dome')} />
+      <circle cx="100" cy="98" r="24" fill={url('lens')} />
+      <circle cx="100" cy="98" r="13" fill="#0b0e14" stroke="#4d5b77" stroke-width="2" />
+      <circle cx="94" cy="92" r="4" fill="#9fb4de" opacity=".8" />
+      <circle cx="120" cy="84" r="2.2" fill="#ff4d4d" />
+    </g>
+  )}
+
+  {kind === 'router' && (
+    <g filter={url('sh')}>
+      <rect x="44" y="30" width="7" height="72" rx="3.5" fill="#20242c" transform="rotate(-12 48 100)" />
+      <rect x="96" y="22" width="7" height="80" rx="3.5" fill="#20242c" />
+      <rect x="148" y="30" width="7" height="72" rx="3.5" fill="#20242c" transform="rotate(12 152 100)" />
+      <path d="M26 104 h148 l-10 40 h-128 z" fill={url('dark')} />
+      <path d="M26 104 h148 l-2 6 h-144 z" fill="#5a6070" />
+      <g fill="#37d67a"><circle cx="62" cy="126" r="2.4" /><circle cx="74" cy="126" r="2.4" /><circle cx="86" cy="126" r="2.4" /></g>
+      <circle cx="98" cy="126" r="2.4" fill="#4aa3ff" />
+    </g>
+  )}
+
+  {kind === 'drive' && (
+    <g filter={url('sh')} transform="rotate(-14 100 100)">
+      <rect x="36" y="34" width="128" height="138" rx="10" fill={url('dark')} />
+      <circle cx="96" cy="94" r="48" fill={url('platter')} />
+      <circle cx="96" cy="94" r="12" fill="#6f7888" />
+      <circle cx="96" cy="94" r="5" fill="#dfe3ea" />
+      <path d="M150 150 L110 102" stroke="#c9ced8" stroke-width="7" stroke-linecap="round" />
+      <circle cx="150" cy="150" r="9" fill="#8d95a3" />
+      <path d="M52 158 h40" stroke="#555c6a" stroke-width="4" stroke-linecap="round" />
+    </g>
+  )}
+
+  {kind === 'support' && (
+    <g filter={url('sh')}>
+      <rect x="30" y="40" width="140" height="92" rx="8" fill="#20242c" />
+      <rect x="36" y="46" width="128" height="80" rx="4" fill={url('blue')} />
+      <circle cx="100" cy="86" r="22" fill="none" stroke="#1d4ed8" stroke-width="9" stroke-dasharray="9 6" />
+      <circle cx="100" cy="86" r="9" fill="#1d4ed8" />
+      <path d="M90 132 h20 l5 22 h-30z" fill={url('metal')} />
+      <rect x="70" y="152" width="60" height="8" rx="4" fill={url('metal')} />
+    </g>
+  )}
+</svg>
+
+<style>
+  .art { display: block; width: 100%; height: 100%; }
+</style>

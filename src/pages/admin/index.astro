@@ -1,0 +1,308 @@
+---
+// /admin — owner settings. Server-rendered on every request (never pre-built).
+// Shows a login form until the admin cookie is valid, then the settings dashboard.
+import '../../styles/global.css';
+import { isAdmin, login, logout, sameOrigin } from '../../lib/adminAuth';
+import { getSettings } from '../../lib/settings';
+import { BASE_CURRENCY, resolveDisplayCurrency, formatMoney } from '../../lib/currency';
+import { getRates, rateFor } from '../../lib/currency/rates';
+import { clientIp, countryOfThisMachine, isPublicIp } from '../../lib/currency/geo';
+
+export const prerender = false;
+
+const { request, cookies, url, clientAddress } = Astro;
+let error = '';
+
+if (request.method === 'POST' && sameOrigin(request)) {
+  const f = await request.formData();
+  if (f.get('action') === 'logout') {
+    logout(cookies);
+    return Astro.redirect('/admin', 303);
+  }
+  const r = login(String(f.get('id') ?? ''), String(f.get('password') ?? ''), clientAddress, cookies, url.protocol === 'https:');
+  if (r === 'ok') return Astro.redirect('/admin', 303);
+  error = r === 'locked' ? 'Too many wrong attempts. Try again in 15 minutes.'
+    : r === 'not-configured' ? 'Admin password is not set on the server (ADMIN_PASSWORD).'
+    : 'Wrong ID or password. Please try again.';
+}
+
+const authed = isAdmin(cookies);
+const settings = authed ? await getSettings() : null;
+const saved = url.searchParams.get('saved') === '1';
+Astro.response.headers.set('cache-control', 'no-store');
+
+// Live status for the dashboard (only when signed in)
+let you: Awaited<ReturnType<typeof resolveDisplayCurrency>> | null = null;
+let rates: Awaited<ReturnType<typeof getRates>> = null;
+let preview: { code: string; flag: string; text: string }[] = [];
+if (authed) {
+  const ip = clientIp(request, clientAddress);
+  const dev = import.meta.env.DEV && !isPublicIp(ip) ? await countryOfThisMachine() : null;
+  you = await resolveDisplayCurrency(ip, true, dev).catch(() => null);
+  rates = await getRates(BASE_CURRENCY);
+  preview = [
+    ['OMR', 'om'], ['INR', 'in'], ['AED', 'ae'], ['SAR', 'sa'],
+    ['QAR', 'qa'], ['USD', 'us'], ['GBP', 'gb'], ['EUR', 'eu'],
+  ].map(([code, flag]) => {
+    const r = code === BASE_CURRENCY ? 1 : rateFor(rates, code);
+    return { code, flag, text: r ? formatMoney(50 * r, code) : '—' };
+  });
+}
+const updated = rates ? new Date(rates.fetchedAt) : null;
+const ago = updated ? Math.max(0, Math.round((Date.now() - updated.getTime()) / 60000)) : null;
+const agoText = ago === null ? 'Not loaded yet' : ago < 1 ? 'Just now' : ago < 60 ? `${ago} min ago` : `${Math.round(ago / 60)} h ago`;
+const on = !!settings?.autoCurrency;
+const countryName = (cc?: string | null) => { if (!cc) return 'Unknown'; try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(cc) ?? cc; } catch { return cc; } };
+---
+
+<!doctype html>
+<html lang="en" data-theme="danat" data-brand="danatfix">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin · Danat Fix</title>
+    <link rel="icon" href="/favicon-danat.png" type="image/png" />
+  </head>
+  <body class:list={{ 'is-login': !authed }}>
+    {!authed ? (
+      /* ---------------- Sign in ---------------- */
+      <main class="lg">
+        <section class="lg-art" aria-hidden="true">
+          <span class="lg-orb a"></span><span class="lg-orb b"></span><span class="lg-orb c"></span>
+          <img src="/brand/danat-fix-mark.png" alt="" width="196" height="200" />
+          <h2>Danat Fix</h2>
+          <p>Owner dashboard</p>
+        </section>
+        <form method="post" class="lg-form">
+          <span class="lg-lock" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          </span>
+          <h1>Welcome back</h1>
+          <p class="lg-sub">Sign in to manage the website settings.</p>
+          <label for="aid">Admin ID</label>
+          <div class="lg-field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+            <input id="aid" name="id" autocomplete="username" placeholder="Enter admin ID" required autofocus />
+          </div>
+          <label for="pw">Password</label>
+          <div class="lg-field">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M17 6l3 3M15 8l2 2"/></svg>
+            <input id="pw" type="password" name="password" autocomplete="current-password" placeholder="Enter admin password" required />
+          </div>
+          {error && <p class="lg-err" role="alert">{error}</p>}
+          <button class="lg-btn" type="submit">Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <p class="lg-note">🔒 Only the site owner can access this page.</p>
+        </form>
+      </main>
+    ) : (
+      /* ---------------- Dashboard ---------------- */
+      <>
+        <header class="tb">
+          <div class="tb-in">
+            <a href="/" class="tb-brand" title="Open the website">
+              <img src="/brand/danat-fix-mark.png" alt="Danat Fix" width="196" height="200" />
+              <span><b>Danat Fix</b><small>Admin dashboard</small></span>
+            </a>
+            <div class="tb-right">
+              <a href="/" class="tb-link" target="_blank" rel="noopener">View website ↗</a>
+              <form method="post"><input type="hidden" name="action" value="logout" /><button type="submit" class="tb-out">Sign out</button></form>
+            </div>
+          </div>
+        </header>
+
+        <main class="db">
+          <div class="db-hello">
+            <h1>Settings</h1>
+            <p>Control how prices are shown to visitors around the world.</p>
+          </div>
+
+          {saved && (
+            <div class="toast" role="status">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+              Saved. Visitors see the new setting on their next page load.
+            </div>
+          )}
+
+          <!-- Main setting -->
+          <section class:list={['set', { on }]}>
+            <div class="set-ic" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+            </div>
+            <div class="set-tx">
+              <div class="set-top">
+                <h2>Automatic Currency Conversion</h2>
+                <span class="pill">{on ? '● Enabled' : '○ Disabled'}</span>
+              </div>
+              <p>
+                {on
+                  ? <>Visitors see prices in <b>their own currency</b>, detected from their IP address and converted from <b>{BASE_CURRENCY}</b> with live exchange rates.</>
+                  : <>All visitors see prices in <b>{BASE_CURRENCY}</b>. No conversion happens.</>}
+                {' '}Stored prices are never changed.
+              </p>
+            </div>
+            <form method="post" action="/api/admin/settings" class="set-sw">
+              <input type="hidden" name="autoCurrency" value={on ? 'off' : 'on'} />
+              <button type="submit" class="sw" role="switch" aria-checked={on ? 'true' : 'false'} aria-label="Automatic Currency Conversion">
+                <span class="sw-knob"></span>
+              </button>
+              <small>{on ? 'Click to turn off' : 'Click to turn on'}</small>
+            </form>
+          </section>
+
+          <!-- Live status -->
+          <section class="stats">
+            <article class="st">
+              <span class="st-ic blue">📍</span>
+              <small>Your location</small>
+              <b>{countryName(you?.country)}</b>
+              <em>{you ? `Sees ${you.currency}` : 'Not detected'}</em>
+            </article>
+            <article class="st">
+              <span class="st-ic orange">🏦</span>
+              <small>Base currency</small>
+              <b>{BASE_CURRENCY}</b>
+              <em>Prices are stored in this</em>
+            </article>
+            <article class="st">
+              <span class="st-ic green">🔄</span>
+              <small>Exchange rates</small>
+              <b>{agoText}</b>
+              <em>Refreshed every 6 hours</em>
+            </article>
+            <article class="st">
+              <span class="st-ic purple">🌐</span>
+              <small>Rate provider</small>
+              <b>{rates?.source ?? '—'}</b>
+              <em>{rates ? `${Object.keys(rates.rates).length} currencies` : 'Unavailable — showing OMR'}</em>
+            </article>
+          </section>
+
+          <!-- Preview -->
+          <section class="pv">
+            <div class="pv-h">
+              <h3>What visitors see</h3>
+              <p>A repair priced at <b>{BASE_CURRENCY} 50</b> is shown as:</p>
+            </div>
+            <ul>
+              {preview.map((p) => (
+                <li class:list={{ base: p.code === BASE_CURRENCY, off: !on && p.code !== BASE_CURRENCY }}>
+                  <img src={`https://flagcdn.com/w40/${p.flag}.png`} alt="" width="24" height="18" loading="lazy" />
+                  <span>{p.code}</span>
+                  <b>{on || p.code === BASE_CURRENCY ? p.text : `${BASE_CURRENCY} 50.00`}</b>
+                </li>
+              ))}
+            </ul>
+            {!on && <p class="pv-note">Conversion is off, so every country sees {BASE_CURRENCY}.</p>}
+          </section>
+        </main>
+      </>
+    )}
+  </body>
+</html>
+
+<style>
+  :root { --a-blue: #0757B8; --a-cyan: #18B9E8; --a-purple: #8B2BE2; --a-orange: #FF7A00; --a-ink: #101828; --a-mute: #667085; --a-line: #E4E7EC; }
+  body { min-height: 100vh; margin: 0; background: #F5F7FB; color: var(--a-ink); }
+
+  /* ---------- sign in ---------- */
+  .lg { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+  .lg-art { position: relative; overflow: hidden; display: grid; place-content: center; justify-items: center; gap: 10px; padding: 40px; color: #fff; text-align: center;
+    background: radial-gradient(600px 400px at 20% 10%, rgba(24,185,232,.45), transparent 60%), radial-gradient(500px 400px at 90% 90%, rgba(139,43,226,.55), transparent 60%), linear-gradient(140deg, #0B1630, #10254f 55%, #2a1150); }
+  .lg-art img { width: 150px; height: auto; padding: 18px; border-radius: 32px; background: #fff; box-shadow: 0 30px 60px -20px rgba(0,0,0,.6); animation: lgFloat 6s ease-in-out infinite; position: relative; z-index: 1; }
+  .lg-art h2 { font-size: 34px; margin-top: 16px; position: relative; z-index: 1; }
+  .lg-art p { opacity: .75; font-size: 16px; position: relative; z-index: 1; }
+  .lg-orb { position: absolute; border-radius: 50%; filter: blur(2px); opacity: .5; animation: lgFloat 9s ease-in-out infinite; }
+  .lg-orb.a { width: 120px; height: 120px; left: 12%; top: 18%; background: radial-gradient(circle at 30% 30%, #5fd3ff, #0757B8); }
+  .lg-orb.b { width: 70px; height: 70px; right: 16%; top: 30%; background: radial-gradient(circle at 30% 30%, #ffb15c, #FF7A00); animation-delay: -3s; }
+  .lg-orb.c { width: 160px; height: 160px; right: 10%; bottom: 10%; background: radial-gradient(circle at 30% 30%, #c98bff, #8B2BE2); animation-delay: -6s; }
+  @keyframes lgFloat { 50% { transform: translateY(-14px); } }
+  .lg-form { align-self: center; justify-self: center; width: min(400px, 100% - 48px); display: grid; gap: 10px; }
+  .lg-lock { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: #EAF2FD; color: var(--a-blue); margin-bottom: 6px; }
+  .lg-lock svg { width: 24px; height: 24px; }
+  .lg-form h1 { font-size: 32px; }
+  .lg-sub { color: var(--a-mute); margin-bottom: 14px; }
+  .lg-form label { font-weight: 700; font-size: 14px; }
+  .lg-field { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 16px; border: 1.5px solid var(--a-line); border-radius: 14px; background: #fff; transition: border-color .2s, box-shadow .2s; }
+  .lg-field:focus-within { border-color: var(--a-blue); box-shadow: 0 0 0 4px rgba(7,87,184,.12); }
+  .lg-field svg { width: 20px; height: 20px; color: var(--a-mute); flex: none; }
+  .lg-field input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 16px; background: none; }
+  .lg-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 54px; margin-top: 8px; border: 0; border-radius: 14px; font: inherit; font-weight: 700; font-size: 16px; color: #fff; cursor: pointer;
+    background: linear-gradient(120deg, var(--a-blue), #2f7fe0); box-shadow: 0 14px 28px -14px rgba(7,87,184,.8); transition: transform .2s, filter .2s; }
+  .lg-btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  .lg-btn svg { width: 18px; height: 18px; }
+  .lg-err { padding: 10px 12px; border-radius: 10px; background: #FEF3F2; color: #B42318; font-weight: 600; font-size: 14px; }
+  .lg-warn { padding: 10px 12px; border-radius: 10px; background: #FFF7ED; color: #9A3412; font-size: 14px; }
+  .lg-note { margin-top: 6px; text-align: center; color: var(--a-mute); font-size: 13px; }
+
+  /* ---------- top bar ---------- */
+  .tb { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--a-line); }
+  .tb-in { width: min(1080px, 100% - 32px); margin: 0 auto; height: 72px; display: flex; align-items: center; justify-content: space-between; }
+  .tb-brand { display: flex; align-items: center; gap: 12px; }
+  .tb-brand img { width: 44px; height: auto; }
+  .tb-brand b { display: block; font-size: 17px; }
+  .tb-brand small { color: var(--a-mute); font-size: 13px; }
+  .tb-right { display: flex; align-items: center; gap: 10px; }
+  .tb-link { padding: 9px 14px; border-radius: 10px; font-weight: 600; font-size: 14px; color: var(--a-blue); }
+  .tb-link:hover { background: #EAF2FD; }
+  .tb-out { padding: 9px 16px; border: 1px solid var(--a-line); border-radius: 10px; background: #fff; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .tb-out:hover { border-color: #FDA29B; color: #B42318; background: #FEF3F2; }
+
+  /* ---------- dashboard ---------- */
+  .db { width: min(1080px, 100% - 32px); margin: 0 auto; padding: 36px 0 60px; display: grid; gap: 22px; }
+  .db-hello h1 { font-size: 30px; }
+  .db-hello p { color: var(--a-mute); margin-top: 4px; }
+  .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 14px; background: #ECFDF3; border: 1px solid #ABEFC6; color: #067647; font-weight: 600; animation: toastIn .4s ease; }
+  .toast svg { width: 20px; height: 20px; }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-6px); } }
+
+  .set { position: relative; overflow: hidden; display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: center; padding: 26px; border-radius: 22px; background: #fff; border: 1px solid var(--a-line); box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 20px 40px -28px rgba(16,24,40,.35); }
+  .set::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 5px; background: #D0D5DD; transition: background .3s; }
+  .set.on::before { background: linear-gradient(180deg, var(--a-cyan), var(--a-blue), var(--a-purple)); }
+  .set-ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: #F2F4F7; color: var(--a-mute); }
+  .set.on .set-ic { background: linear-gradient(135deg, #E3F4FD, #F1E7FD); color: var(--a-blue); }
+  .set-ic svg { width: 28px; height: 28px; }
+  .set-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .set-top h2 { font-size: 20px; }
+  .pill { padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 700; background: #F2F4F7; color: #475467; }
+  .set.on .pill { background: #ECFDF3; color: #067647; }
+  .set-tx p { color: #475467; line-height: 1.6; font-size: 15px; max-width: 60ch; }
+  .set-sw { display: grid; justify-items: center; gap: 8px; }
+  .set-sw small { color: var(--a-mute); font-size: 12px; }
+  .sw { position: relative; width: 72px; height: 40px; border: 0; border-radius: 999px; background: #D0D5DD; cursor: pointer; transition: background .3s; }
+  .sw[aria-checked='true'] { background: linear-gradient(120deg, var(--a-blue), var(--a-cyan)); box-shadow: 0 10px 20px -10px rgba(7,87,184,.8); }
+  .sw-knob { position: absolute; top: 4px; left: 4px; width: 32px; height: 32px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: transform .3s cubic-bezier(.3,1.4,.5,1); }
+  .sw[aria-checked='true'] .sw-knob { transform: translateX(32px); }
+  .sw:focus-visible { outline: 3px solid rgba(7,87,184,.35); outline-offset: 3px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .st { display: grid; gap: 4px; padding: 18px; border-radius: 18px; background: #fff; border: 1px solid var(--a-line); }
+  .st-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; font-size: 19px; margin-bottom: 8px; }
+  .st-ic.blue { background: #EAF2FD; } .st-ic.orange { background: #FFF1E3; } .st-ic.green { background: #ECFDF3; } .st-ic.purple { background: #F4EBFF; }
+  .st small { color: var(--a-mute); font-size: 13px; font-weight: 600; }
+  .st b { font-size: 20px; word-break: break-word; }
+  .st em { font-style: normal; color: var(--a-mute); font-size: 13px; }
+
+  .pv { padding: 24px; border-radius: 22px; background: #fff; border: 1px solid var(--a-line); }
+  .pv-h { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+  .pv-h h3 { font-size: 18px; }
+  .pv-h p { color: var(--a-mute); font-size: 14px; }
+  .pv ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .pv li { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 12px 14px; border-radius: 14px; background: #F9FAFB; border: 1px solid var(--a-line); transition: opacity .3s; }
+  .pv li img { grid-row: 1 / 3; width: 28px; height: 21px; border-radius: 4px; object-fit: cover; box-shadow: 0 0 0 1px rgba(0,0,0,.08); }
+  .pv li span { font-size: 12px; font-weight: 700; color: var(--a-mute); letter-spacing: .04em; }
+  .pv li b { font-size: 17px; }
+  .pv li.base { background: #FFF6EC; border-color: #FFD8B0; }
+  .pv li.off { opacity: .55; }
+  .pv-note { margin-top: 12px; color: var(--a-mute); font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .lg { grid-template-columns: 1fr; }
+    .lg-art { min-height: 260px; }
+    .stats, .pv ul { grid-template-columns: repeat(2, 1fr); }
+    .set { grid-template-columns: 1fr; }
+    .set-sw { justify-items: start; }
+  }
+  @media (max-width: 520px) { .tb-link { display: none; } }
+  @media (prefers-reduced-motion: reduce) { .lg-art img, .lg-orb, .toast { animation: none; } }
+</style>

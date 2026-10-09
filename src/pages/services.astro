@@ -1,0 +1,1202 @@
+---
+import Base from '../layouts/Base.astro';
+import { serviceModes, price, site } from '../data/site';
+import { categories, totals, iconPaths } from '../data/devices';
+import { coverage } from '../data/coverage';
+import { DIAL } from '../lib/phone';
+// Brand logo for each wizard brand id: [file in public/brand/makers, colour] — no colour = multi-colour SVG shown as <img>
+const LOGO: Record<string, [string, string?]> = {
+  apple: ['apple', '#1d1d1f'], ipad: ['apple', '#1d1d1f'], macbook: ['apple', '#1d1d1f'], imac: ['apple', '#1d1d1f'], macos: ['apple', '#1d1d1f'],
+  samsung: ['samsung', '#1428A0'], 'galaxy-tab': ['samsung', '#1428A0'], google: ['google', '#4285F4'], oneplus: ['oneplus', '#F5010C'],
+  xiaomi: ['xiaomi', '#FF6900'], vivo: ['vivo', '#415FFF'], oppo: ['oppo', '#2D683D'], realme: ['realme'], iqoo: ['iqoo'],
+  motorola: ['motorola', '#E1140A'], nothing: ['nothing'], dell: ['dell', '#007DB8'], 'dell-pc': ['dell', '#007DB8'],
+  hp: ['hp', '#0096D6'], 'hp-pc': ['hp', '#0096D6'], 'hp-print': ['hp', '#0096D6'], lenovo: ['lenovo', '#E2231A'], 'lenovo-pc': ['lenovo', '#E2231A'],
+  asus: ['asus', '#1d1d1f'], acer: ['acer', '#83B81A'], msi: ['msi', '#FF0000'], canon: ['canon'], epson: ['epson', '#003399'], brother: ['brother'],
+  hikvision: ['hikvision'], dahua: ['dahua'], tplink: ['tplink', '#4ACBD6'], ubiquiti: ['ubiquiti', '#0559C9'], cisco: ['cisco', '#1BA0D7'],
+  dlink: ['dlink'], windows: ['windows', '#0078D4'],
+};
+import BookingPanel from '../components/BookingPanel.astro';
+import { note as issueNote } from '../data/menu';
+const issueSvg = (s: string) => {
+  const t = s.toLowerCase();
+  const I: [RegExp, string][] = [
+    [/back glass/, '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><circle cx="10" cy="7" r="1.6"/><circle cx="14" cy="7" r="1.6"/>'],
+    [/screen|glass|display/, '<rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M9 6l6 6M9 11l3 3"/>'],
+    [/battery/, '<rect x="7" y="4" width="10" height="17" rx="2"/><path d="M10 2h4M12 9l-2 4h4l-2 4"/>'],
+    [/charg|power/, '<path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/>'],
+    [/camera|cctv|viewing|dvr|nvr/, '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'],
+    [/water|fire/, '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>'],
+    [/speaker|micro/, '<path d="M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6"/>'],
+    [/wi-?fi|router|mesh|lan|network|switch|cabling/, '<path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1"/>'],
+    [/drive|ssd|ram|disk|deleted|format|recover|backup/, '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 14h18"/>'],
+    [/paper|toner|cartridge|roller|print|head/, '<path d="M7 9V3.5h10V9"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>'],
+    [/keyboard|trackpad|button/, '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h1M11 10h1M15 10h1M7 14h10"/>'],
+    [/software|os |install|virus|email|365|setup|tune/, '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'],
+  ];
+  return I.find(([re]) => re.test(t))?.[1] ?? '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/>';
+};
+
+// Map centre for each coverage zone, in zone order (Muscat, Sohar/Al Batinah, Salalah/Dhofar).
+const zoneGeo: [number, number][] = [[23.593, 58.556], [24.347, 56.709], [17.019, 54.089]];
+
+// Common questions, answered from how this site's service actually works.
+const faqs = [
+  { q: 'Is there a charge if you only inspect the device?', a: `No. Diagnosis and the visit or pickup are shown as ${price()} — you get an estimate before any work starts.` },
+  { q: 'How long does a repair take?', a: 'Most phone and laptop repairs are done on the spot during a doorstep visit. Pickup repairs come back in 24–48 hours; board-level work can take longer and we tell you upfront.' },
+  { q: 'Which devices can be repaired at my door?', a: 'Phones, tablets, laptops, desktops and printers can be done at your door or picked up. CCTV and networking are always installed on-site.' },
+  { q: 'Is my data safe?', a: 'Your data stays on your device. We only access what the repair needs, and data recovery jobs are handled in our lab.' },
+  { q: 'Which areas do you cover?', a: `Areas around our ${site.branches.length} branches — ${site.branches.join(', ')}. Check your area in the coverage section above.` },
+];
+
+const payload = JSON.stringify({
+  categories: categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    onsiteOnly: !!c.onsiteOnly,
+    issues: c.issues,
+    brands: c.brands.map((b) => ({ id: b.id, name: b.name, models: b.models })),
+  })),
+  coverage,
+});
+---
+
+<Base title="Services" description="Doorstep repair and pickup & service for phones, laptops, desktops, printers, CCTV and networking. Coverage areas across Oman, all brands and models, OMR 0 estimates.">
+  <script type="application/json" id="svc-data" set:html={payload} />
+
+  <section class="page-head">
+    <div class="wrap">
+      <span class="eyebrow" data-reveal>Services</span>
+      <h1 class="h-xl" data-reveal style="--d:.06s">Doorstep repair, <span class="grad-text">or we pick it up.</span></h1>
+      <p class="lead" data-reveal style="--d:.12s">
+        Choose how you want the service done, check that we reach your area, then pick your device.
+        {totals.categories} device types, {totals.brands} brands and {totals.models}+ models, every estimate {price()}.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ OUR SERVICES (booking panel) ============ -->
+  <section class="section tight" id="all">
+    <div class="wrap">
+      <BookingPanel />
+    </div>
+  </section>
+
+  <!-- ============ SERVICE MODE + COVERAGE ============ -->
+  <section class="section tight" id="modes">
+    <div class="wrap">
+      <div class="step-head" data-reveal>
+        <span class="step-no">1</span>
+        <div><span class="eyebrow">Choose your service</span><h2 class="h-lg">How should we reach you?</h2></div>
+      </div>
+
+      <div class="mode-pick" role="radiogroup" aria-label="Service type">
+        {serviceModes.map((m, i) => (
+          <button type="button" role="radio" class="mode-card" data-mode={m.id} aria-checked={i === 0 ? 'true' : 'false'} data-reveal style={`--d:${i * .08}s`}>
+            <span class="mode-radio" aria-hidden="true"></span>
+            <span class="mc-top">
+              <span class="mode-icon" aria-hidden="true">
+                {m.id === 'doorstep' ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/></svg>
+                )}
+              </span>
+              <span class="mc-titles">
+                <span class="mode-title">{m.title}</span>
+                <span class="mode-short">{m.short}</span>
+              </span>
+            </span>
+            <span class="mc-eta">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              {coverage[m.id].eta}
+            </span>
+            <ol class="mc-steps">
+              {m.steps.map((st, n) => <li><b>{n + 1}</b><span>{st}</span></li>)}
+            </ol>
+            <span class="mc-for">
+              <small>Works for</small>
+              <span class="mc-icons">
+                {categories.filter((c) => m.id === 'doorstep' || !c.onsiteOnly).map((c) => (
+                  <span class="mc-ic" title={c.name} aria-label={c.name}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={iconPaths[c.icon]} /></span>
+                ))}
+              </span>
+            </span>
+            <span class="mc-foot">
+              <span>Visit / pickup fee <span class="price-tag">{price()}</span></span>
+              <span class="mc-choose"><span data-choose>{i === 0 ? 'Selected' : 'Choose'}</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div class="step-head sh2" id="coverage" data-reveal>
+        <span class="step-no">2</span>
+        <div><span class="eyebrow">Check your area</span><h2 class="h-lg">Where we cover · <span data-cov-title>Doorstep Service</span></h2></div>
+      </div>
+
+      <div class="coverage" data-reveal>
+        <div class="cov-head">
+          <p class="cov-eta" data-cov-eta>{coverage.doorstep.eta}</p>
+          <label class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="search" placeholder="Type your area, e.g. Qurum" data-area-search autocomplete="off" aria-label="Search your area" />
+          </label>
+        </div>
+        <p class="cov-result" data-cov-result aria-live="polite"></p>
+        {serviceModes.map((m, i) => (
+          <div class="zones" data-zones={m.id} hidden={i !== 0}>
+            <div class="z-tabs" role="tablist" aria-label="Branch area">
+              {coverage[m.id].zones.map((z, k) => (
+                <button type="button" role="tab" class="z-tab" data-ztab={k} aria-selected={k === 0 ? 'true' : 'false'}>
+                  <span class="z-dot" aria-hidden="true"></span>
+                  <span><b>{z.name.replace(/ \(.*\)/, '')}</b><small>{z.areas.length} areas{/\((.*)\)/.test(z.name) ? ` · ${z.name.match(/\((.*)\)/)![1]}` : ''}</small></span>
+                </button>
+              ))}
+            </div>
+            <div class="z-panels">
+              {coverage[m.id].zones.map((z, k) => (
+                <div class="zone" data-zpanel={k} hidden={k !== 0} role="tabpanel">
+                  <h3>{z.name}</h3>
+                  <div class="areas">
+                    {z.areas.map((a) => <button type="button" class="area" data-area={a}>{a}</button>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div class="z-map">
+              {coverage[m.id].zones.map((z, k) => (
+                <iframe
+                  data-zmap={k}
+                  hidden={k !== 0}
+                  title={`Map of ${z.name}`}
+                  loading="lazy"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${zoneGeo[k][1] - .09}%2C${zoneGeo[k][0] - .06}%2C${zoneGeo[k][1] + .09}%2C${zoneGeo[k][0] + .06}&layer=mapnik&marker=${zoneGeo[k][0]}%2C${zoneGeo[k][1]}`}
+                ></iframe>
+              ))}
+            </div>
+          </div>
+        ))}
+        <ul class="trust">
+          <li><span>✓</span>Diagnosis before any work</li>
+          <li><span>✓</span>Visit or pickup {price()}</li>
+          <li><span>✓</span>Updates on WhatsApp</li>
+          <li><span>✓</span>Not listed? Book anyway — we confirm</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+  <!-- ============ BOOKING WIZARD: device → brand & model → issue → estimate ============ -->
+  <section class="section tight" id="catalog">
+    <div class="wrap">
+      <div class="cat-head">
+        <div>
+          <span class="eyebrow" data-reveal>Book a repair</span>
+          <h2 class="h-lg" data-reveal style="--d:.06s">Get your estimate in 4 steps</h2>
+        </div>
+      </div>
+
+      <div class="wz" data-wz data-reveal>
+        <ol class="wz-steps" aria-label="Progress">
+          {['Device', 'Brand & model', 'Service', 'Estimate'].map((t, i) => (
+            <li class:list={['wz-step', { on: i === 0 }]} data-wz-dot={i + 1}><button type="button" data-wz-goto={i + 1}><b>{i + 1}<span class="wz-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></b><span>{t}</span></button></li>
+          ))}
+          <span class="wz-rail" aria-hidden="true"><i data-wz-fill></i></span>
+        </ol>
+
+        <!-- 1 · device -->
+        <div class="wz-panel on" data-wz-panel="1">
+          <h3 class="wz-q">What needs fixing?</h3>
+          <div class="wz-devs">
+            {categories.map((c) => (
+              <button type="button" class="wz-dev" data-wz-cat={c.id} style={`--h:${c.hue}`}>
+                <span class="wz-di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" set:html={iconPaths[c.icon]} /></span>
+                <b>{c.name}</b>
+                <small>{c.brands.length} brands · {c.issues.length} services</small>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <!-- 2 · brand & model -->
+        <div class="wz-panel" data-wz-panel="2" hidden>
+          <h3 class="wz-q">Which <span data-wz-catname>device</span>?</h3>
+          <div class="wz-bm">
+            <div class="wz-brands">
+              {categories.flatMap((c) => c.brands.map((b, k) => {
+                const lg = LOGO[b.id];
+                return (
+                  <button type="button" class="wz-brand" data-wz-brand={b.id} data-wz-brand-cat={c.id} data-name={b.name} style={`--h:${b.hue}; --i:${k}`} hidden>
+                    <span class:list={['wz-mono', { logo: !!lg }]}>
+                      {lg ? (lg[1] ? <i class="wz-lmask" style={`--c:${lg[1]}; -webkit-mask-image:url(/brand/makers/${lg[0]}.svg); mask-image:url(/brand/makers/${lg[0]}.svg)`} aria-hidden="true"></i> : <img src={`/brand/makers/${lg[0]}.svg`} alt="" loading="lazy" />) : b.name[0]}
+                    </span>
+                    <span class="wz-bt"><b>{b.name}</b><small>{b.models.length} {c.id === 'cctv' ? 'types' : 'models'}</small></span>
+                    <span class="wz-bck" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+                  </button>
+                );
+              }))}
+            </div>
+            <div class="wz-models">
+              <label class="wz-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input type="search" data-model-search placeholder="Search model, e.g. S24, LaserJet" autocomplete="off" aria-label="Search models" />
+              </label>
+              <div class="wz-mempty" aria-hidden="true">
+                <span class="wz-mpoint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></span>
+                <b>Pick a brand</b><small>or search your model above</small>
+              </div>
+              <p class="wz-mhint" data-wz-mhint>Pick a brand to see its models.</p>
+              <ul class="wz-mlist" data-wz-mlist>
+                {categories.flatMap((c) => c.brands.flatMap((b) => b.models.map((m) => (
+                  <li hidden><button type="button" class="wz-model" data-model={m} data-model-brand={b.id} data-model-cat={c.id} data-q={`${b.name} ${m}`.toLowerCase()}><span>{m}<small>{b.name}</small></span><i aria-hidden="true">→</i></button></li>
+                ))))}
+              </ul>
+              <button type="button" class="wz-skip" data-wz-skip>I don't know my model — skip →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3 · issue -->
+        <div class="wz-panel" data-wz-panel="3" hidden>
+          <h3 class="wz-q">What's the problem? <small>Choose one or more</small></h3>
+          {categories.map((c) => (
+            <div class="wz-issues" data-wz-issues={c.id} hidden>
+              {c.issues.map((iss) => (
+                <button type="button" class="wz-iss" data-iss={iss} aria-pressed="false" style={`--h:${c.hue}`}>
+                  <span class="wz-ii" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${issueSvg(iss)}</svg>`} />
+                  <span class="wz-in"><b>{iss}</b><small>{issueNote(iss)}</small></span>
+                  <span class="wz-ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <!-- 4 · estimate -->
+        <div class="wz-panel" data-wz-panel="4" hidden>
+          <h3 class="wz-q">Your estimate</h3>
+          <div class="wz-est">
+            <div class="wz-sum">
+              <div class="wz-rhead">
+                <span class="wz-di sm" data-wz-sumico></span>
+                <div><small class="wz-rk">Repair estimate</small><b data-wz-sumdev>—</b><small data-wz-summodel>—</small></div>
+              </div>
+              <ul data-wz-sumlist></ul>
+              <div class="wz-tear" aria-hidden="true"></div>
+              <div class="wz-total"><span>Estimated cost</span><b>{price()}</b></div>
+              <p class="wz-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Price confirmed after diagnosis — before any work starts.</p>
+            </div>
+            <div class="wz-time">
+              <h4>How should we reach you?</h4>
+              <div class="wz-tcards" role="radiogroup" aria-label="Service type">
+                <button type="button" role="radio" class="wz-t" data-wz-mode="doorstep" aria-checked="true">
+                  <span class="wz-ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>
+                  <span class="wz-tt"><b>Doorstep service</b><small>{coverage.doorstep.eta}</small></span>
+                  <span class="wz-tpick"><i></i>Your choice</span>
+                </button>
+                <button type="button" role="radio" class="wz-t" data-wz-mode="pickup" data-wz-pickup aria-checked="false">
+                  <span class="wz-ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/></svg></span>
+                  <span class="wz-tt"><b>Pickup &amp; service</b><small>{coverage.pickup.eta}</small></span>
+                  <span class="wz-tpick"><i></i>Your choice</span>
+                </button>
+              </div>
+              <p class="wz-onsite" data-wz-onsite hidden>This service is done on-site, so it is booked as a doorstep visit.</p>
+            </div>
+          </div>
+
+          <div class="wz-who" data-wz-who>
+            <aside class="wz-prog" aria-live="polite">
+              <span class="wz-ring"><svg viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="bg"/><circle cx="22" cy="22" r="19" class="fg" data-wz-ring/></svg><b data-wz-pn>0/3</b></span>
+              <strong data-wz-pt>3 quick details</strong>
+              <small data-wz-ps>and your booking is ready</small>
+            </aside>
+            <div class="wz-wmain">
+            <h4><span class="wz-hico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 13l2 2 4-4"/></svg></span>Your details <small>so our team can confirm the booking</small></h4>
+            <div class="wz-f">
+              <div class="wz-fl wz-afl"><span>Your area</span>
+                <span class="wz-ic wz-area"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><input data-wz-area autocomplete="off" placeholder="Type your area, e.g. Qurum" aria-label="Your area" role="combobox" aria-expanded="false" aria-autocomplete="list" aria-controls="wz-asug" maxlength="80" />
+                  <button type="button" class="wz-loc" data-wz-loc><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg><span>Use my location</span></button>
+                  <ul class="wz-asug" id="wz-asug" role="listbox" data-wz-asug hidden></ul>
+                </span>
+                <p class="wz-astat" data-wz-astat hidden></p>
+              </div>
+              <label class="wz-fl"><span>Your name</span><span class="wz-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><input data-wz-name autocomplete="name" placeholder="Full name" maxlength="60" /></span></label>
+              <div class="wz-fl"><span>Mobile number</span>
+                <div class="wz-ph">
+                  <select data-wz-cc aria-label="Country code">{DIAL.map((d) => <option value={d.cc} selected={d.cc === 'om'}>{d.code} {d.name}</option>)}</select>
+                  <input data-wz-phone inputmode="tel" maxlength="16" autocomplete="tel-national" placeholder="9123 4567" aria-label="Mobile number" />
+                </div>
+              </div>
+            </div>
+            <p class="wz-warn" data-wz-warn role="status" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><span data-wz-warntx></span></p>
+            <p class="wz-err" data-wz-err role="alert" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg><span data-wz-errtx></span></p>
+            <div class="wz-acts">
+              <button type="button" class="wz-add" data-wz-add><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1l1.8-7.3H6"/><circle cx="9.5" cy="19.8" r="1.4"/><circle cx="17" cy="19.8" r="1.4"/></svg>Add to cart</button>
+              <button type="button" class="wz-now" data-wz-now><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg> Send booking on WhatsApp</button>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wz-foot">
+          <button type="button" class="wz-back" data-wz-back hidden>← Back</button>
+          <span class="wz-crumb" data-wz-crumb></span>
+          <button type="button" class="wz-next" data-wz-next disabled>Continue →</button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+  <!-- ============ FAQ ============ -->
+  <section class="section tight" id="faq">
+    <div class="wrap faq">
+      <div>
+        <span class="eyebrow" data-reveal>FAQ</span>
+        <h2 class="h-lg" data-reveal style="--d:.06s">Frequently asked questions</h2>
+      </div>
+      <div class="faq-list">
+        {faqs.map((f, i) => (
+          <details class="faq-item" open={i === 0} data-reveal style={`--d:${i * .05}s`}>
+            <summary>{f.q}</summary>
+            <p>{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { price, site } from '../data/site';
+  import { checkPhone, bindPhone, limitPhone, dialFor } from '../lib/phone';
+  import { areaGeo, branchGeo, km } from '../lib/areaGeo';
+
+  type Cat = { id: string; name: string; onsiteOnly: boolean; issues: string[]; brands: { id: string; name: string; models: string[] }[] };
+  type Data = {
+    categories: Cat[];
+    coverage: Record<string, { eta: string; zones: { name: string; areas: string[] }[] }>;
+  };
+  const data: Data = JSON.parse(document.getElementById('svc-data')!.textContent!);
+  const $ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s)!;
+  const $$ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => [...r.querySelectorAll<T>(s)];
+  const titles: Record<string, string> = { doorstep: 'Doorstep Service', pickup: 'Pickup & Service' };
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const esc = (s: string) => s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
+
+  const areaSearch = $<HTMLInputElement>('[data-area-search]');
+  // booking details live in the wizard's last step
+  const wzArea = $<HTMLInputElement>('[data-wz-area]');
+  let wzAt: [number, number] | null = null; // set by "Use my location" — sent as a map link
+
+  let mode = 'doorstep';
+
+  // ---------- service mode + coverage ----------
+  // Areas the chosen service covers (for suggestions and the "we serve here" check)
+  let listed: { a: string; z: string }[] = [];
+  const fillAreas = () => {
+    listed = data.coverage[mode].zones.flatMap((z) => z.areas.map((a) => ({ a, z: z.name.replace(/ \(.*\)/, '') })));
+    if (typeof areaStatus === 'function') areaStatus();
+  };
+
+  const filterAreas = () => {
+    const q = norm(areaSearch.value);
+    const panel = $(`[data-zones="${mode}"]`);
+    let hits = 0;
+    $$<HTMLButtonElement>('.area', panel).forEach((b) => {
+      const match = !!q && norm(b.dataset.area!).includes(q);
+      b.classList.toggle('hit', match);
+      b.classList.toggle('dim', !!q && !match);
+      if (match) hits++;
+    });
+    const out = $('[data-cov-result]');
+    if (!q) out.textContent = '';
+    else if (hits) out.innerHTML = `<b>Yes</b> — ${titles[mode]} reaches ${hits === 1 ? 'this area' : hits + ' matching areas'}.`;
+    else {
+      const other = mode === 'doorstep' ? 'pickup' : 'doorstep';
+      const inOther = data.coverage[other].zones.some((z) => z.areas.some((a) => norm(a).includes(q)));
+      out.innerHTML = inOther
+        ? `Not on the ${titles[mode]} list, but <button type="button" class="linkish" data-switch="${other}">${titles[other]}</button> covers it.`
+        : 'Not listed yet — book anyway and we will confirm.';
+    }
+  };
+
+  // Branch tabs inside each mode's coverage
+  const setZone = (box: HTMLElement, k: string) => {
+    box.querySelectorAll<HTMLElement>('[data-ztab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.ztab === k)));
+    box.querySelectorAll<HTMLElement>('[data-zpanel]').forEach((p) => (p.hidden = p.dataset.zpanel !== k));
+    box.querySelectorAll<HTMLElement>('[data-zmap]').forEach((p) => (p.hidden = p.dataset.zmap !== k));
+  };
+  $$('[data-zones]').forEach((box) => box.querySelectorAll<HTMLElement>('[data-ztab]').forEach((t) => t.addEventListener('click', () => setZone(box, t.dataset.ztab!))));
+  areaSearch.addEventListener('input', () => {
+    const box = $(`[data-zones="${mode}"]`);
+    const hit = box.querySelector<HTMLElement>('.area.hit');
+    if (hit) setZone(box, hit.closest<HTMLElement>('[data-zpanel]')!.dataset.zpanel!);
+  });
+
+  const setMode = (m: string) => {
+    if (!data.coverage[m]) return;
+    // CCTV and networking are installed on-site: they can only be doorstep.
+    if (m === 'pickup' && wzCat()?.onsiteOnly) m = 'doorstep';
+    mode = m;
+    $$('[data-mode]').forEach((c) => {
+      c.setAttribute('aria-checked', String(c.dataset.mode === m));
+      const ch = c.querySelector('[data-choose]');
+      if (ch) ch.textContent = c.dataset.mode === m ? 'Selected' : 'Choose';
+    });
+    $$('[data-zones]').forEach((z) => (z.hidden = z.dataset.zones !== m));
+    $('[data-cov-title]').textContent = titles[m];
+    $('[data-cov-eta]').textContent = data.coverage[m].eta;
+    paintWzMode();
+    fillAreas();
+    filterAreas();
+  };
+
+  $$('[data-mode]').forEach((c) => c.addEventListener('click', () => setMode(c.dataset.mode!)));
+  areaSearch.addEventListener('input', filterAreas);
+  $('[data-cov-result]').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-switch]');
+    if (b) setMode(b.dataset.switch!);
+  });
+  $$<HTMLButtonElement>('.area').forEach((b) => b.addEventListener('click', () => {
+    wzArea.value = b.dataset.area!; wzAt = null;
+    areaStatus(); wzProgress();
+    $$('.area').forEach((x) => x.classList.toggle('picked', x === b));
+  }));
+
+
+
+  // ---------- booking wizard: 1 device → 2 brand & model → 3 issues → 4 estimate ----------
+  const wz = $('[data-wz]');
+  const wzState = { step: 1, cat: '', brand: '', model: '', issues: new Set<string>() };
+  const tel = site.phone.tel.replace('+', '');
+  const waUrl = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
+  const wzCat = () => data.categories.find((c) => c.id === wzState.cat);
+  const wzSearch = $<HTMLInputElement>('[data-model-search]', wz);
+  // Service type inside step 4 — same choice as "How should we reach you?" above (setMode keeps both in sync)
+  function paintWzMode() {
+    const onsite = !!wzCat()?.onsiteOnly;
+    $$<HTMLButtonElement>('[data-wz-mode]', wz).forEach((b) => {
+      b.setAttribute('aria-checked', String(b.dataset.wzMode === mode));
+      b.disabled = onsite && b.dataset.wzMode === 'pickup';
+      b.title = b.disabled ? 'Installed on-site, so this is a doorstep visit' : '';
+    });
+  }
+  $$<HTMLButtonElement>('[data-wz-mode]', wz).forEach((b) => b.addEventListener('click', () => setMode(b.dataset.wzMode!)));
+
+  const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? true : wzState.step === 3 ? wzState.issues.size > 0 : false);
+  const wzGo = (n: number) => {
+    if (n > 1 && !wzState.cat) n = 1;
+    if (n > 3 && !wzState.issues.size) n = 3;
+    wzState.step = n;
+    $$('[data-wz-panel]', wz).forEach((p) => { const on = p.dataset.wzPanel === String(n); p.hidden = !on; p.classList.toggle('on', on); });
+    $$('[data-wz-dot]', wz).forEach((d) => { const k = Number(d.dataset.wzDot); d.classList.toggle('on', k === n); d.classList.toggle('done', k < n); });
+    $('[data-wz-fill]', wz).style.width = `${((n - 1) / 3) * 100}%`;
+    $('[data-wz-back]', wz).hidden = n === 1;
+    const next = $<HTMLButtonElement>('[data-wz-next]', wz);
+    next.hidden = n === 4;
+    next.disabled = !canNext();
+    next.textContent = n === 2 && !wzState.model ? 'Skip model →' : 'Continue →';
+    const c = wzCat();
+    $('[data-wz-crumb]', wz).textContent = [c?.name, wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name, wzState.model].filter(Boolean).join(' › ');
+    if (n === 4) renderEstimate();
+    if (wz.getBoundingClientRect().top < 0) wz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // step 1
+  const setWzCat = (id: string) => {
+    if (wzState.cat !== id) { wzState.brand = ''; wzState.model = ''; wzState.issues.clear(); }
+    wzState.cat = id;
+    $$('[data-wz-cat]', wz).forEach((b) => b.classList.toggle('on', b.dataset.wzCat === id));
+    const c = wzCat()!;
+    $('[data-wz-catname]', wz).textContent = c.name.replace(/s( &.*)?$/, '').replace(/ Installation$/, ' system').toLowerCase();
+    $$('[data-wz-brand]', wz).forEach((b) => { b.hidden = b.dataset.wzBrandCat !== id; b.classList.toggle('on', b.dataset.wzBrand === wzState.brand); });
+    $$('[data-wz-issues]', wz).forEach((g) => (g.hidden = g.dataset.wzIssues !== id));
+    $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    wzSearch.value = '';
+    showWzModels();
+    if (c.onsiteOnly && mode === 'pickup') setMode('doorstep'); else paintWzMode();
+  };
+  $$('[data-wz-cat]', wz).forEach((b) => b.addEventListener('click', () => { setWzCat(b.dataset.wzCat!); wzGo(2); }));
+
+  // step 2
+  const showWzModels = () => {
+    const q = norm(wzSearch.value);
+    let n = 0;
+    $$<HTMLElement>('.wz-model', wz).forEach((m) => {
+      const ok = m.dataset.modelCat === wzState.cat && (q ? m.dataset.q!.includes(q) : !!wzState.brand && m.dataset.modelBrand === wzState.brand);
+      m.parentElement!.hidden = !ok;
+      m.classList.toggle('on', ok && m.dataset.model === wzState.model);
+      if (ok) n++;
+    });
+    wz.querySelector('.wz-models')!.classList.toggle('empty', !q && !wzState.brand);
+    $('[data-wz-mhint]', wz).textContent = q ? (n ? `${n} match${n === 1 ? '' : 'es'}` : 'No match — try a shorter word, or skip.') : wzState.brand ? `${n} models` : 'Pick a brand to see its models.';
+  };
+  $$('[data-wz-brand]', wz).forEach((b) => b.addEventListener('click', () => {
+    wzState.brand = b.dataset.wzBrand!; wzState.model = '';
+    wz.style.setProperty('--mh', b.style.getPropertyValue('--h')); // model panel takes the brand's colour
+    $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x === b));
+    wzSearch.value = '';
+    showWzModels(); wzGo(2);
+  }));
+  wzSearch.addEventListener('input', showWzModels);
+  $$('.wz-model', wz).forEach((m) => m.addEventListener('click', () => {
+    wzState.model = m.dataset.model!; wzState.brand = m.dataset.modelBrand!;
+    $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x.dataset.wzBrand === wzState.brand));
+    showWzModels(); wzGo(3);
+  }));
+  $('[data-wz-skip]', wz).addEventListener('click', () => { wzState.model = ''; wzGo(3); });
+
+  // step 3
+  $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.addEventListener('click', () => {
+    const v = b.dataset.iss!;
+    wzState.issues.has(v) ? wzState.issues.delete(v) : wzState.issues.add(v);
+    b.setAttribute('aria-pressed', String(wzState.issues.has(v)));
+    $<HTMLButtonElement>('[data-wz-next]', wz).disabled = !canNext();
+  }));
+
+  // step 4
+  const brandName = () => wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name ?? '';
+  const renderEstimate = () => {
+    const c = wzCat()!;
+    $('[data-wz-sumico]', wz).innerHTML = wz.querySelector(`[data-wz-cat="${c.id}"] .wz-di`)!.innerHTML;
+    $('[data-wz-sumdev]', wz).textContent = c.name;
+    wz.style.setProperty('--eh', wz.querySelector<HTMLElement>(`[data-wz-cat="${c.id}"]`)!.style.getPropertyValue('--h')); // receipt header colour
+    $('[data-wz-summodel]', wz).textContent = [brandName(), wzState.model].filter(Boolean).join(' · ') || 'Model not specified';
+    $('[data-wz-sumlist]', wz).innerHTML = [...wzState.issues].map((i, k) => `<li style="--i:${k}"><span><i class="wz-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>${esc(i)}</span><b>${price()}</b></li>`).join('');
+    $('[data-wz-pickup]', wz).hidden = c.onsiteOnly;
+    $('[data-wz-onsite]', wz).hidden = !c.onsiteOnly;
+    paintWzMode();
+  };
+  const currentItem = () => ({ cat: wzState.cat, device: wzCat()!.name, model: [brandName(), wzState.model].filter(Boolean).join(' '), issues: [...wzState.issues] });
+  $('[data-wz-add]', wz).addEventListener('click', () => {
+    const it = currentItem();
+    (window as any).danatCart?.add({ device: it.device, model: it.model, issues: it.issues }, { open: true });
+    // start again for the next device
+    wzState.cat = ''; wzState.brand = ''; wzState.model = ''; wzState.issues.clear();
+    $$('[data-wz-cat]', wz).forEach((b) => b.classList.remove('on'));
+    $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    wzGo(1);
+  });
+
+  // ---------- step 4 details: name, phone, area → one WhatsApp message ----------
+  const wzName = $<HTMLInputElement>('[data-wz-name]', wz);
+  const wzPhone = $<HTMLInputElement>('[data-wz-phone]', wz);
+  const wzCc = $<HTMLSelectElement>('[data-wz-cc]', wz);
+  const wzErr = $('[data-wz-err]', wz);
+  const wzErrFor = (el: HTMLElement | null, m: string) => {
+    const same = !wzErr.hidden && $('[data-wz-errtx]', wz).textContent === m;
+    $('[data-wz-errtx]', wz).textContent = m; wzErr.hidden = !m;
+    $$('.bad', wz).forEach((x) => x !== el && x.classList.remove('bad'));
+    el?.classList.toggle('bad', !!m);
+    if (m && !same) { wzErr.classList.remove('shake'); void wzErr.offsetWidth; wzErr.classList.add('shake'); }
+  };
+  const ccShow = () => { wzPhone.placeholder = dialFor(wzCc.value).eg; wzPhone.value = limitPhone(wzPhone.value, wzCc.value); };
+  let ccTouched = false;
+  wzCc.addEventListener('change', () => { ccTouched = true; ccShow(); });
+  const ccAuto = (cc: unknown) => { if (ccTouched || typeof cc !== 'string') return; const v = cc.toLowerCase(); if ([...wzCc.options].some((o) => o.value === v)) { wzCc.value = v; ccShow(); } };
+  ccAuto((window as any).__visitorCountry);
+  window.addEventListener('visitor-country', (e) => ccAuto((e as CustomEvent).detail));
+  bindPhone(wzPhone, () => wzCc.value, (m) => wzErrFor(wzPhone, m));
+  wzName.addEventListener('input', () => { if (wzName.classList.contains('bad')) wzErrFor(null, ''); });
+  // ---------- area: type with suggestions, or "Use my location" ----------
+  const asug = $('[data-wz-asug]', wz);
+  const astat = $('[data-wz-astat]', wz);
+  const locBtn = $<HTMLButtonElement>('[data-wz-loc]', wz);
+  let areaState: '' | 'listed' | 'unlisted' | 'far' = '';
+  let sugIdx = -1;
+  const findListed = (v: string) => listed.find((x) => norm(x.a) === norm(v));
+  function areaStatus(extra = '') {
+    const v = wzArea.value.trim();
+    const hit = v && findListed(v);
+    areaState = !v ? '' : hit ? 'listed' : areaState === 'far' && extra !== 'typed' ? 'far' : 'unlisted';
+    if (hit && hit.a !== v) wzArea.value = hit.a;
+    const stat = (cls: string, html: string) => { astat.className = `wz-astat ${cls}`; astat.innerHTML = html; astat.hidden = !html; };
+    if (!v) stat('', '');
+    else if (areaState === 'listed') stat('ok', `<b>We serve ${esc(hit!.a)}</b> · ${esc(hit!.z)} branch · ${esc(data.coverage[mode].eta)}`);
+    else if (areaState === 'far') stat('far', extra);
+    else stat('soon', `<b>Not on our ${titles[mode]} list yet</b> — send the booking and we'll confirm on WhatsApp.`);
+  }
+  const closeSug = () => { asug.hidden = true; wzArea.setAttribute('aria-expanded', 'false'); sugIdx = -1; };
+  const renderSug = () => {
+    const q = norm(wzArea.value);
+    const hits = (q ? listed.filter((x) => norm(x.a).includes(q)) : listed).slice(0, 8);
+    if (!hits.length) { closeSug(); return; }
+    asug.innerHTML = hits.map((x, i) => `<li role="option" id="wz-as-${i}" data-a="${esc(x.a)}"><b>${esc(x.a)}</b><small>${esc(x.z)}</small></li>`).join('');
+    asug.hidden = false; wzArea.setAttribute('aria-expanded', 'true'); sugIdx = -1;
+  };
+  const pick = (a: string) => { wzArea.value = a; wzAt = null; closeSug(); areaStatus(); wzProgress(); if (wzArea.classList.contains('bad')) wzErrFor(null, ''); };
+  wzArea.addEventListener('focus', renderSug);
+  wzArea.addEventListener('input', () => { wzAt = null; renderSug(); areaStatus('typed'); wzProgress(); if (wzArea.classList.contains('bad')) wzErrFor(null, ''); });
+  wzArea.addEventListener('keydown', (e) => {
+    const items = [...asug.querySelectorAll<HTMLElement>('li')];
+    if (asug.hidden || !items.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      sugIdx = (sugIdx + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((li, i) => li.classList.toggle('on', i === sugIdx));
+      wzArea.setAttribute('aria-activedescendant', items[sugIdx].id);
+    } else if (e.key === 'Enter' && sugIdx >= 0) { e.preventDefault(); pick(items[sugIdx].dataset.a!); }
+    else if (e.key === 'Escape') closeSug();
+  });
+  asug.addEventListener('mousedown', (e) => { const li = (e.target as HTMLElement).closest<HTMLElement>('li'); if (li) { e.preventDefault(); pick(li.dataset.a!); } });
+  wzArea.addEventListener('blur', () => setTimeout(closeSug, 120));
+
+  // "Use my location": device GPS first, then the internet connection (city level) as a fallback
+  const ipGuess = async (): Promise<{ at: [number, number]; place: string } | null> => {
+    for (const [url, pickIt] of [
+      ['https://get.geojs.io/v1/ip/geo.json', (j: any) => j.latitude != null && { at: [Number(j.latitude), Number(j.longitude)], place: [j.city, j.country].filter(Boolean).join(', ') }],
+      ['https://ipwho.is/', (j: any) => j.latitude != null && { at: [j.latitude, j.longitude], place: [j.city, j.country].filter(Boolean).join(', ') }],
+    ] as [string, (j: any) => any][]) {
+      try { const v = pickIt(await (await fetch(url, { signal: AbortSignal.timeout(4000) })).json()); if (v) return v; } catch {}
+    }
+    return null;
+  };
+  const placeName = async (at: [number, number]) => {
+    try {
+      const j = await (await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${at[0]}&longitude=${at[1]}&localityLanguage=en`, { signal: AbortSignal.timeout(5000) })).json();
+      return [j.locality || j.city, j.countryName].filter(Boolean).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).join(', ');
+    } catch { return ''; }
+  };
+  const gps = () => new Promise<[number, number] | null>((res) => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition((p) => res([p.coords.latitude, p.coords.longitude]), () => res(null), { enableHighAccuracy: true, timeout: 9000, maximumAge: 0 });
+  });
+  const useLocation = async (at: [number, number], place: string, exact: boolean) => {
+    const near = Object.entries(areaGeo).map(([n, p]) => ({ n, d: km(at, p) })).sort((a, b) => a.d - b.d)[0];
+    const served = near.d <= (exact ? 12 : 40) && listed.some((x) => x.a === near.n);
+    wzAt = at;
+    if (served) { wzArea.value = near.n; areaStatus(); astat.innerHTML += ` <em>· found from your ${exact ? 'device' : 'internet connection'}</em>`; }
+    else {
+      const br = branchGeo.map((b) => ({ ...b, d: km(at, b.at) })).sort((a, b) => a.d - b.d)[0];
+      wzArea.value = place || `${at[0].toFixed(3)}, ${at[1].toFixed(3)}`;
+      areaState = 'far';
+      areaStatus(near.d <= 60
+        ? `<b>Close to ${esc(near.n)}</b> but just outside our list — send it and we'll confirm.`
+        : `<b>Outside our service area</b> — our nearest branch is ${esc(br.name)}, ${Math.round(br.d).toLocaleString()} km away. You can still book for an address in Oman.`);
+    }
+    wzProgress();
+    try { localStorage.setItem('svc-loc', JSON.stringify({ name: served ? near.n : wzArea.value, covered: served })); window.dispatchEvent(new CustomEvent('svc-loc', { detail: { name: served ? near.n : wzArea.value, covered: served } })); } catch {}
+  };
+  locBtn.addEventListener('click', async () => {
+    if (locBtn.classList.contains('busy')) return;
+    locBtn.classList.add('busy'); closeSug();
+    astat.className = 'wz-astat wait'; astat.hidden = false; astat.innerHTML = '<i class="wz-spin"></i> Finding your location…';
+    const at = await gps();
+    if (at) await useLocation(at, await placeName(at), true);
+    else {
+      const ip = await ipGuess();
+      if (ip) await useLocation(ip.at, ip.place, false);
+      else { astat.className = 'wz-astat soon'; astat.innerHTML = "<b>We couldn't find your location</b> — please type your area instead."; wzArea.focus(); }
+    }
+    locBtn.classList.remove('busy');
+  });
+  // Already checked your location in the header? Start with that area.
+  try {
+    const saved = JSON.parse(localStorage.getItem('svc-loc') || 'null');
+    if (saved?.covered && saved.name && !wzArea.value) { wzArea.value = String(saved.name).slice(0, 80); }
+  } catch {}
+  // live progress: ring + ticks + "ready" button as the three details are filled
+  const wzProgress = () => {
+    const ok = [wzArea.value.trim().length >= 2, wzName.value.trim().length >= 2, checkPhone(wzCc.value, wzPhone.value).ok];
+    [wzArea, wzName, wzPhone].forEach((el, k) => el.closest('.wz-fl')!.classList.toggle('ok', ok[k]));
+    // every area we serve is in Oman — a foreign number is allowed (family abroad) but flagged
+    const foreign = ok[2] && wzCc.value !== 'om' && areaState === 'listed';
+    wzPhone.closest('.wz-fl')!.classList.toggle('warn', foreign);
+    wzArea.closest('.wz-fl')!.classList.toggle('warn', ok[0] && (areaState === 'far' || areaState === 'unlisted'));
+    $('[data-wz-warn]', wz).hidden = !foreign;
+    if (foreign) $('[data-wz-warntx]', wz).textContent = `${wzArea.value} is in Oman, so our technician will call this ${dialFor(wzCc.value).name} number (${dialFor(wzCc.value).code}). If you have an Omani +968 number, please use that — or keep this one if you're booking for family in Oman.`;
+    const n = ok.filter(Boolean).length;
+    $('[data-wz-pn]', wz).textContent = `${n}/3`;
+    ($('[data-wz-ring]', wz) as unknown as SVGCircleElement).style.strokeDashoffset = String(119.4 * (1 - n / 3));
+    $('[data-wz-pt]', wz).textContent = n === 3 ? 'All set!' : n === 0 ? '3 quick details' : `${3 - n} more to go`;
+    $('[data-wz-ps]', wz).textContent = n === 3 ? 'tap the green button to send' : 'and your booking is ready';
+    const was = wz.querySelector('.wz-who')!.classList.contains('ready');
+    wz.querySelector('.wz-who')!.classList.toggle('ready', n === 3);
+    if (n === 3 && !was) { const b = $('[data-wz-now]', wz); b.classList.remove('wake'); void b.offsetWidth; b.classList.add('wake'); }
+  };
+  wzCc.addEventListener('change', wzProgress);
+  [wzName, wzPhone].forEach((el) => el.addEventListener('input', wzProgress));
+  $('[data-wz-now]', wz).addEventListener('click', () => {
+    const name = wzName.value.trim().replace(/\s+/g, ' ');
+    if (wzArea.value.trim().length < 2) { wzErrFor(wzArea, 'Please type your area or tap “Use my location”.'); wzArea.focus(); return; }
+    if (name.length < 2) { wzErrFor(wzName, 'Please enter your name.'); wzName.focus(); return; }
+    if (!wzPhone.value.trim()) { wzErrFor(wzPhone, 'Please enter your mobile number.'); wzPhone.focus(); return; }
+    const ph = checkPhone(wzCc.value, wzPhone.value);
+    if (!ph.ok) { wzErrFor(wzPhone, ph.msg); wzPhone.focus(); return; }
+    wzErrFor(null, '');
+    const it = currentItem();
+    const msg = [
+      `Hi Danat Fix, I'd like to book a repair.`,
+      `Service: ${titles[mode]}`,
+      `Area: ${wzArea.value.trim()}${areaState === 'listed' ? '' : areaState === 'far' ? ' (outside listed areas)' : ' (not on the list — please confirm)'}`,
+      ...(wzAt ? [`Location: https://maps.google.com/?q=${wzAt[0].toFixed(5)},${wzAt[1].toFixed(5)}`] : []),
+      `Device: ${it.device}${it.model ? ' — ' + it.model : ''}`,
+      `Needs: ${it.issues.join(', ')}`,
+      `Name: ${name}`,
+      `Phone: ${ph.full}`,
+    ].join('\n');
+    window.open(waUrl(msg), '_blank', 'noopener');
+  });
+
+  // footer + progress
+  $('[data-wz-back]', wz).addEventListener('click', () => wzGo(wzState.step - 1));
+  $('[data-wz-next]', wz).addEventListener('click', () => { if (canNext()) wzGo(wzState.step + 1); });
+  $$('[data-wz-goto]', wz).forEach((b) => b.addEventListener('click', () => { const n = Number(b.dataset.wzGoto); if (n <= wzState.step || canNext()) wzGo(n); }));
+
+  // deep links: ?cat=printer  ?q=Samsung (brand)  ?q=S24 (model search)
+  function wzDeepLink(cat: string | null, q: string | null) {
+    if (cat && data.categories.some((c) => c.id === cat)) { setWzCat(cat); wzGo(2); }
+    if (!q) return;
+    const nq = norm(q);
+    const tile = $$('[data-wz-brand]', wz).find((b) => (!wzState.cat || b.dataset.wzBrandCat === wzState.cat) && norm(b.dataset.name!).startsWith(nq));
+    if (tile) { setWzCat(tile.dataset.wzBrandCat!); tile.click(); return; }
+    const m = $$('.wz-model', wz).find((x) => (!wzState.cat || x.dataset.modelCat === wzState.cat) && x.dataset.q!.includes(nq));
+    if (m) { setWzCat(m.dataset.modelCat!); wzSearch.value = q; showWzModels(); wzGo(2); }
+  }
+  wzGo(1);
+
+
+  // Deep links from the home page and nav menu: ?mode=pickup, ?cat=printer, ?q=Samsung
+  const q = new URLSearchParams(location.search);
+  wzDeepLink(q.get('cat'), q.get('q'));
+  const startMode = q.get('mode');
+  setMode(startMode && data.coverage[startMode] ? startMode : 'doorstep');
+  // ?area= from the home-page location search: pre-check coverage and pre-fill the booking
+  // Links from the menu land on a section; re-scroll once the page has laid out.
+  if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView());
+  // Home 'Check your area' cards land here with the mode already chosen — put the cursor in the area box
+  areaStatus();
+  wzProgress();
+  if (location.hash === '#coverage') setTimeout(() => areaSearch.focus({ preventScroll: true }), 400);
+  const startArea = q.get('area');
+  if (startArea) {
+    areaSearch.value = startArea;
+    filterAreas();
+    wzArea.value = startArea; areaStatus(); wzProgress();
+  }
+</script>
+
+<style>
+  .cart-lead { margin: 12px 0 28px; }
+  #coverage { scroll-margin-top: 110px; }
+
+  .faq { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 40px; align-items: start; }
+  .faq h2 { margin-top: 14px; }
+  .faq-list { display: grid; gap: 10px; }
+  .faq-item { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+  .faq-item summary { padding: 18px 20px; font-weight: 700; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary::after { content: '+'; color: var(--violet); font-size: 20px; line-height: 1; }
+  .faq-item[open] summary::after { content: '−'; }
+  .faq-item p { padding: 0 20px 18px; color: var(--ink-2); }
+  @media (max-width: 860px) { .faq { grid-template-columns: 1fr; } }
+  .page-head { padding: clamp(48px, 8vw, 100px) 0 20px; }
+  .page-head h1 { margin: 18px 0 20px; max-width: 16ch; }
+  .section.tight { padding: clamp(48px, 7vw, 88px) 0; }
+
+
+  /* step headings */
+  .step-head { display: flex; align-items: center; gap: 18px; margin-bottom: 26px; }
+  .step-head h2 { margin-top: 6px; font-size: clamp(28px, 3.4vw, 42px); }
+  .sh2 { margin-top: 64px; }
+  .step-no { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px; background: var(--grad); color: var(--on-accent); font-family: var(--display); font-size: 24px; font-weight: 800; flex: none; box-shadow: 0 14px 30px -14px rgba(var(--a1), .7); }
+
+  /* mode cards */
+  .mode-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .mode-card {
+    position: relative; display: flex; flex-direction: column; gap: 18px; text-align: left;
+    padding: 28px; background: var(--surface); border: 1.5px solid var(--line); border-radius: 26px; box-shadow: var(--shadow);
+    transition: border-color .3s, box-shadow .3s, transform .3s;
+  }
+  .mode-card:hover { transform: translateY(-3px); }
+  .mode-card[aria-checked='true'] { border-color: var(--violet); box-shadow: 0 26px 56px -28px rgba(var(--a1), .6); }
+  .mode-card[aria-checked='true']::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(420px circle at 0% 0%, var(--accent-soft), transparent 60%); pointer-events: none; }
+  .mode-card > * { position: relative; }
+  .mode-card > .mode-radio { position: absolute; top: 26px; right: 26px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ink-3); transition: border-color .2s, box-shadow .2s; }
+  [aria-checked='true'] > .mode-radio { border-color: var(--violet); box-shadow: inset 0 0 0 4px var(--surface), inset 0 0 0 12px var(--violet); }
+  .mc-top { display: flex; align-items: center; gap: 16px; padding-right: 36px; }
+  .mode-icon { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 18px; background: var(--tint-2); flex: none; transition: background .3s, color .3s; }
+  [aria-checked='true'] .mode-icon { background: var(--grad); color: var(--on-accent); }
+  .mode-icon svg { width: 30px; height: 30px; }
+  .mc-titles { display: grid; gap: 2px; }
+  .mode-title { font-family: var(--display); font-size: 24px; font-weight: 800; }
+  .mode-short { color: var(--ink-2); font-size: 15px; }
+  .mc-eta { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--violet); font-size: 13px; font-weight: 700; }
+  .mc-eta svg { width: 16px; height: 16px; }
+  .mc-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); position: relative; }
+  .mc-steps::before { content: ''; position: absolute; left: 16%; right: 16%; top: 15px; height: 2px; background: repeating-linear-gradient(90deg, var(--line) 0 6px, transparent 6px 12px); }
+  [aria-checked='true'] .mc-steps::before { background: repeating-linear-gradient(90deg, var(--violet) 0 6px, transparent 6px 12px); }
+  .mc-steps li { position: relative; display: grid; justify-items: center; gap: 8px; text-align: center; font-size: 13px; color: var(--ink-2); line-height: 1.3; }
+  .mc-steps b { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); font-size: 13px; color: var(--ink-2); }
+  [aria-checked='true'] .mc-steps b { border-color: var(--violet); color: var(--violet); }
+  .mc-for { display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px dashed var(--line); }
+  .mc-for small { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); flex: none; }
+  .mc-icons { display: flex; flex-wrap: wrap; gap: 6px; }
+  .mc-ic { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--tint); color: var(--ink-2); }
+  .mc-ic svg { width: 17px; height: 17px; }
+  .mc-foot { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--ink-3); }
+  .mc-choose { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--violet); }
+  .mc-choose svg { width: 16px; height: 16px; transition: transform .2s; }
+  .mode-card:hover .mc-choose svg { transform: translateX(3px); }
+  @media (max-width: 820px) { .mode-pick { grid-template-columns: 1fr; } }
+
+  /* coverage: branch tabs · areas · map */
+  .coverage { padding: clamp(20px, 3vw, 30px); background: var(--surface); border: 1px solid var(--line); border-radius: 26px; box-shadow: var(--shadow); }
+  .cov-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .cov-eta { color: var(--ink-2); font-weight: 600; }
+  .cov-result { margin: 12px 0 0; color: var(--ink-2); font-size: 14px; }
+  .cov-result:empty { display: none; }
+  .cov-result :global(b) { color: var(--lime); }
+  .cov-result :global(.linkish) { border: 0; background: none; padding: 0; color: var(--violet); text-decoration: underline; }
+  .zones { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr); gap: 22px; margin-top: 22px; animation: fadeUp .5s both; }
+  .zones[hidden] { display: none; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } }
+  .z-tabs { display: grid; gap: 8px; align-content: start; }
+  .z-tab { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); text-align: left; transition: border-color .2s, background .2s; }
+  .z-tab b { display: block; font-size: 15px; }
+  .z-tab small { font-size: 12px; color: var(--ink-3); }
+  .z-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; transition: background .2s, box-shadow .2s; }
+  .z-tab[aria-selected='true'] { border-color: var(--violet); background: var(--accent-soft); }
+  .z-tab[aria-selected='true'] .z-dot { background: var(--violet); box-shadow: 0 0 0 4px rgba(var(--a1), .2); }
+  .zone { animation: fadeUp .35s both; }
+  .zone[hidden] { display: none; }
+  .zone h3 { font-family: var(--body); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 12px; }
+  .areas { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+  .area { justify-self: stretch; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-radius: 10px; background: none; font-size: 14px; color: var(--ink-2); text-align: left; transition: background .15s, color .15s; }
+  .area::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--line); flex: none; }
+  .area:hover { background: var(--tint); color: var(--ink); }
+  .area.hit { background: rgba(18, 161, 80, .1); color: var(--lime); font-weight: 700; }
+  .area.hit::before { background: var(--lime); }
+  .area.picked { background: var(--accent-soft); color: var(--violet); font-weight: 700; }
+  .area.picked::before { background: var(--violet); }
+  .area.dim { opacity: .35; }
+  .z-map iframe { display: block; width: 100%; height: 100%; min-height: 300px; border: 0; border-radius: 18px; background: var(--tint); }
+  .z-map iframe[hidden] { display: none; }
+  .trust { list-style: none; margin: 24px 0 0; padding: 18px 0 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .trust li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--ink-2); }
+  .trust span { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--violet); font-size: 12px; font-weight: 800; flex: none; }
+  @media (max-width: 1000px) { .zones { grid-template-columns: 1fr; } .z-tabs { grid-template-columns: repeat(3, 1fr); } .trust { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .z-tabs { grid-template-columns: 1fr; } .trust { grid-template-columns: 1fr; } }
+
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    height: 48px;
+    min-width: min(340px, 100%);
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    transition: border-color .2s;
+  }
+  .search:focus-within { border-color: var(--violet); }
+  .search svg { width: 18px; height: 18px; color: var(--ink-3); flex: none; }
+  .search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: var(--ink); font: inherit; }
+
+  /* booking wizard */
+  .cat-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
+  .cat-head h2 { margin-top: 14px; }
+  .wz { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); overflow: hidden; }
+  .wz-steps { position: relative; list-style: none; margin: 0; padding: 26px 40px 22px; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); background: var(--tint); }
+  .wz-rail { position: absolute; left: calc(40px + 12.5% - 0px); right: calc(40px + 12.5%); top: 45px; height: 3px; border-radius: 3px; background: var(--line); z-index: 0; }
+  .wz-rail i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--violet); transition: width .5s cubic-bezier(.2,.8,.2,1); }
+  .wz-step { position: relative; z-index: 1; display: grid; justify-items: center; }
+  .wz-step button { display: grid; justify-items: center; gap: 8px; border: 0; background: none; padding: 0; font-size: 13.5px; font-weight: 600; color: var(--ink-3); }
+  .wz-step b { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); font-size: 15px; color: var(--ink-3); transition: all .3s; }
+  .wz-tick { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; }
+  .wz-tick svg { width: 18px; height: 18px; }
+  .wz-step.on b { border-color: var(--violet); color: var(--violet); box-shadow: 0 0 0 5px rgba(var(--a1), .15); }
+  .wz-step.on button { color: var(--ink); }
+  .wz-step.done b { background: var(--violet); border-color: var(--violet); color: transparent; }
+  .wz-step.done .wz-tick { opacity: 1; color: var(--on-accent); }
+  .wz-step.done button { color: var(--ink-2); }
+
+  .wz-panel { padding: 28px 32px; min-height: 380px; animation: wzIn .4s cubic-bezier(.2,.8,.2,1); }
+  .wz-panel[hidden] { display: none; }
+  @keyframes wzIn { from { opacity: 0; transform: translateX(16px); } }
+  .wz-q { font-size: 22px; margin-bottom: 18px; }
+  .wz-q small { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+
+  .wz-devs { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .wz-dev { display: grid; justify-items: center; gap: 8px; padding: 22px 14px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--surface); text-align: center; transition: transform .25s, border-color .25s, box-shadow .25s; }
+  .wz-dev:hover { transform: translateY(-4px); border-color: hsl(var(--h) 60% 50% / .5); box-shadow: 0 18px 30px -20px rgba(0,0,0,.35); }
+  .wz-dev.on { border-color: var(--violet); background: var(--accent-soft); }
+  .wz-di { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 18px; background: hsl(var(--h) 70% var(--chip-l, 94%)); color: hsl(var(--h) 60% var(--chip-ink-l, 40%)); }
+  .wz-di svg { width: 30px; height: 30px; }
+  .wz-di.sm { width: 46px; height: 46px; border-radius: 14px; background: var(--accent-soft); color: var(--violet); }
+  .wz-di.sm :global(svg) { width: 24px; height: 24px; }
+  .wz-dev b { font-size: 15px; }
+  .wz-dev small { font-size: 12.5px; color: var(--ink-3); }
+
+  .wz-bm { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+  .wz-brands { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; align-content: start; }
+  .wz-brand { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); text-align: left; transition: border-color .2s, transform .2s; }
+  .wz-brand:hover { transform: translateY(-2px); }
+  .wz-brand.on { border-color: var(--violet); background: var(--accent-soft); }
+  .wz-brand b { display: block; font-size: 14px; line-height: 1.2; }
+  .wz-brand small { font-size: 12px; color: var(--ink-3); }
+  .wz-mono { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: hsl(var(--h) 70% var(--chip-l, 94%)); color: hsl(var(--h) 60% var(--chip-ink-l, 40%)); font-weight: 800; flex: none; }
+  .wz-models { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px; border-radius: 20px; background: var(--tint); }
+  .wz-search { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .wz-search:focus-within { border-color: var(--violet); }
+  .wz-search svg { width: 18px; height: 18px; color: var(--ink-3); }
+  .wz-search input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: inherit; color: var(--ink); }
+  .wz-mhint { font-size: 12.5px; color: var(--ink-3); padding: 0 4px; }
+  .wz-mlist { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; display: grid; gap: 4px; }
+  .wz-mlist li[hidden] { display: none; }
+  .wz-model { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 0; border-radius: 10px; background: var(--surface); text-align: left; transition: background .15s; }
+  .wz-model span { font-weight: 600; font-size: 14px; }
+  .wz-model small { display: block; font-weight: 500; font-size: 12px; color: var(--ink-3); }
+  .wz-model i { font-style: normal; color: var(--violet); opacity: 0; transition: opacity .15s, transform .15s; }
+  .wz-model:hover i, .wz-model.on i { opacity: 1; transform: translateX(2px); }
+  .wz-model.on { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--violet); }
+  .wz-skip { align-self: flex-start; border: 0; background: none; padding: 4px; font-size: 13px; font-weight: 700; color: var(--violet); }
+
+  .wz-issues { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  .wz-issues[hidden] { display: none; }
+  .wz-iss { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px solid var(--line); border-radius: 18px; background: var(--surface); text-align: left; transition: border-color .2s, background .2s, transform .2s; }
+  .wz-iss:hover { transform: translateY(-2px); }
+  .wz-iss[aria-pressed='true'] { border-color: var(--violet); background: var(--accent-soft); }
+  .wz-ii { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: hsl(var(--h) 70% var(--chip-l, 94%)); color: hsl(var(--h) 60% var(--chip-ink-l, 40%)); flex: none; }
+  .wz-ii :global(svg) { width: 22px; height: 22px; }
+  .wz-in { flex: 1; min-width: 0; }
+  .wz-in b { display: block; font-size: 14.5px; }
+  .wz-in small { font-size: 12.5px; color: var(--ink-3); }
+  .wz-ck { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); color: transparent; flex: none; transition: all .2s; }
+  .wz-ck svg { width: 13px; height: 13px; }
+  .wz-iss[aria-pressed='true'] .wz-ck { background: var(--violet); border-color: var(--violet); color: var(--on-accent); }
+
+  .wz-est { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 20px; }
+  .wz-sum, .wz-time { padding: 22px; border: 1px solid var(--line); border-radius: 20px; }
+  .wz-dev-line { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  .wz-dev-line b { display: block; font-size: 16px; }
+  .wz-dev-line small { font-size: 13px; color: var(--ink-3); }
+  .wz-sum ul { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+  .wz-sum ul :global(li) { display: flex; justify-content: space-between; font-size: 14.5px; }
+  .wz-sum ul :global(b) { color: var(--lime); }
+  .wz-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px dashed var(--line); font-weight: 700; }
+  .wz-total b { font-family: var(--display); font-size: 30px; color: var(--lime); }
+  .wz-note { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
+  .wz-time h4 { font-size: 16px; margin-bottom: 12px; }
+  .wz-t { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
+  .wz-t[hidden] { display: none; }
+  .wz-t b { display: block; font-size: 14.5px; }
+  .wz-t small { font-size: 13px; color: var(--ink-2); }
+  .wz-ti { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--violet); flex: none; }
+  .wz-ti svg { width: 20px; height: 20px; }
+  .wz-onsite { font-size: 12.5px; color: var(--ink-3); }
+  .wz-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .wz-add, .wz-now { display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 14px; font-weight: 700; font-size: 14.5px; transition: transform .2s; }
+  .wz-add { border: 1.5px solid var(--violet); background: var(--surface); color: var(--violet); }
+  .wz-now { background: #25d366; color: #fff; box-shadow: 0 12px 24px -12px rgba(37,211,102,.9); }
+  .wz-now svg { width: 20px; height: 20px; }
+  .wz-add:hover, .wz-now:hover { transform: translateY(-2px); }
+
+  .wz-foot { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 16px 32px; border-top: 1px solid var(--line); }
+  .wz-back { justify-self: start; border: 1px solid var(--line); background: var(--surface); padding: 11px 18px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--ink-2); }
+  .wz-back[hidden] { visibility: hidden; display: block; }
+  .wz-crumb { justify-self: center; font-size: 13.5px; font-weight: 600; color: var(--ink-3); text-align: center; }
+  .wz-next { justify-self: end; border: 0; background: var(--violet); color: var(--on-accent); padding: 12px 24px; border-radius: 999px; font-weight: 700; font-size: 14.5px; transition: opacity .2s; }
+  .wz-next:disabled { opacity: .4; cursor: not-allowed; }
+  .wz-next[hidden] { visibility: hidden; display: block; }
+
+  .wz-cart { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 14px 32px; border-top: 1px solid var(--line); background: var(--accent-soft); }
+  .wz-cart[hidden] { display: none; }
+  .wz-cico { position: relative; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--surface); color: var(--violet); }
+  .wz-cico svg { width: 21px; height: 21px; }
+  .wz-cico b { position: absolute; right: -6px; top: -6px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--violet); color: var(--on-accent); font-size: 11px; }
+  .wz-citems { display: flex; gap: 8px; overflow-x: auto; }
+  .wz-citems :global(.wz-chip) { display: inline-flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+  .wz-citems :global(.wz-chip b) { color: var(--ink); }
+  .wz-citems :global(.wz-chip button) { width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--tint-2); line-height: 1; }
+  .wz-cgo { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; background: #25d366; color: #fff; font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .wz-cgo svg { width: 18px; height: 18px; }
+
+  @media (max-width: 900px) {
+    .wz-steps { padding: 20px 12px 16px; }
+    .wz-rail { left: 12.5%; right: 12.5%; top: 39px; }
+    .wz-step button span:last-child { font-size: 11.5px; }
+    .wz-panel { padding: 22px 18px; }
+    .wz-bm, .wz-est { grid-template-columns: 1fr; }
+    .wz-foot, .wz-cart { padding: 14px 18px; }
+    .wz-cart { grid-template-columns: auto 1fr; }
+    .wz-cgo { grid-column: 1 / -1; justify-content: center; }
+    .wz-crumb { display: none; }
+  }
+
+  /* step 4 · your details */
+  .wz-who { margin-top: 20px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; }
+  .wz-who h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 16px; margin: 0 0 14px; }
+  .wz-who h4 small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+  .wz-f { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+  .wz-fl { display: grid; gap: 6px; min-width: 0; }
+  .wz-fl > span { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .wz-fl select, .wz-fl input { width: 100%; min-width: 0; height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; outline: none; transition: border-color .2s, box-shadow .2s; }
+  .wz-fl select:focus, .wz-fl input:focus { border-color: var(--violet); box-shadow: 0 0 0 4px color-mix(in srgb, var(--violet) 14%, transparent); }
+  .wz-fl .bad { border-color: #F43F5E !important; box-shadow: 0 0 0 4px rgba(244, 63, 94, .12) !important; }
+  .wz-ph { display: flex; gap: 8px; }
+  .wz-ph select { flex: none; width: 128px; padding: 0 8px; font-size: 14px; }
+  .wz-ph input { flex: 1; }
+  .wz-err { display: flex; align-items: flex-start; gap: 9px; margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: linear-gradient(90deg, #FFF1F2, #FFF7F7); border: 1px solid #FECDD3; box-shadow: inset 3px 0 0 #E11D48; color: #9F1239; font-size: 13.5px; font-weight: 600; line-height: 1.4; animation: wzErrIn .28s cubic-bezier(.2,.9,.3,1.2); }
+  .wz-err[hidden] { display: none; }
+  .wz-err svg { width: 18px; height: 18px; flex: none; color: #E11D48; }
+  .wz-err.shake { animation: wzErrIn .28s cubic-bezier(.2,.9,.3,1.2), wzShake .42s .05s ease-in-out; }
+  @keyframes wzErrIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+  @keyframes wzShake { 20% { translate: -6px; } 40% { translate: 5px; } 60% { translate: -3px; } 80% { translate: 2px; } }
+  .wz-now { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
+  @media (max-width: 640px) { .wz-f, .wz-acts { grid-template-columns: 1fr; } .wz-who { padding: 18px; } }
+  /* ===== redesign: step 2 brand & model ===== */
+  .wz-brand { position: relative; padding: 12px 14px; border-radius: 18px; box-shadow: 0 1px 2px rgba(16,24,40,.04); transition: border-color .25s, transform .25s cubic-bezier(.3,1.4,.5,1), box-shadow .25s, background .25s; }
+  .wz-panel.on .wz-brand:not([hidden]) { animation: wzPop .45s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i, 0) * 45ms); }
+  .wz-brand:hover { transform: translateY(-3px); border-color: hsl(var(--h) 70% 60% / .55); box-shadow: 0 14px 26px -18px hsl(var(--h) 60% 40% / .55); }
+  .wz-brand.on { border-color: transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, linear-gradient(135deg, hsl(var(--h) 85% 62%), hsl(calc(var(--h) + 50) 85% 66%)) border-box; box-shadow: 0 14px 28px -18px hsl(var(--h) 70% 45% / .6); }
+  .wz-mono { width: 46px; height: 46px; border-radius: 14px; background: linear-gradient(135deg, hsl(var(--h) 90% 94%), hsl(calc(var(--h) + 40) 90% 90%)); font-size: 18px; transition: transform .3s; }
+  .wz-mono.logo { width: 62px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+  .wz-mono img { max-width: 52px; max-height: 26px; object-fit: contain; }
+  .wz-lmask { display: block; width: 52px; height: 26px; background: var(--c); -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+  .wz-brand:hover .wz-mono { transform: rotate(-6deg) scale(1.06); }
+  .wz-bt { flex: 1; min-width: 0; }
+  .wz-bck { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, hsl(var(--h) 85% 58%), hsl(calc(var(--h) + 50) 85% 62%)); color: #fff; box-shadow: 0 6px 12px -4px hsl(var(--h) 70% 45% / .6); transform: scale(0); transition: transform .35s cubic-bezier(.3,1.8,.5,1); }
+  .wz-bck svg { width: 13px; height: 13px; }
+  .wz-brand.on .wz-bck { transform: scale(1); }
+  .wz-models { position: relative; padding: 16px; border-radius: 22px; background: linear-gradient(160deg, hsl(var(--mh, 210) 90% 97%), hsl(calc(var(--mh, 210) + 40) 85% 95%)); border: 1px solid hsl(var(--mh, 210) 60% 88%); transition: background .4s, border-color .4s; }
+  .wz-models.empty .wz-mhint, .wz-models.empty .wz-mlist { display: none; }
+  .wz-mempty { display: none; }
+  .wz-models.empty .wz-mempty { display: grid; justify-items: center; gap: 4px; padding: 30px 10px 18px; text-align: center; }
+  .wz-mempty b { font-size: 15.5px; color: var(--ink-2); }
+  .wz-mempty small { font-size: 13px; color: var(--ink-3); }
+  .wz-mpoint { display: grid; place-items: center; width: 52px; height: 52px; margin-bottom: 8px; border-radius: 16px; background: #fff; color: hsl(var(--mh, 210) 70% 52%); box-shadow: 0 10px 22px -14px rgba(30,60,110,.45); animation: wzNudge 1.6s ease-in-out infinite; }
+  .wz-mpoint svg { width: 24px; height: 24px; }
+  @keyframes wzNudge { 50% { transform: translateX(-8px); } }
+  .wz-mlist li:not([hidden]) { animation: wzSlide .35s ease both; }
+  .wz-model { border: 1px solid transparent; border-radius: 12px; background: rgba(255,255,255,.85); }
+  .wz-model:hover { border-color: hsl(var(--mh, 210) 70% 80%); background: #fff; }
+  .wz-model.on { background: #fff; border-color: hsl(var(--mh, 210) 75% 60%); box-shadow: 0 8px 18px -14px hsl(var(--mh, 210) 70% 40% / .6); }
+  .wz-skip { margin-top: auto; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,.7); }
+  .wz-skip:hover { background: #fff; }
+  @keyframes wzPop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+  @keyframes wzSlide { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+
+  /* ===== redesign: step 4 receipt, service cards, details ===== */
+  .wz-panel[data-wz-panel="4"].on .wz-sum, .wz-panel[data-wz-panel="4"].on .wz-time, .wz-panel[data-wz-panel="4"].on .wz-who { animation: wzPop .5s cubic-bezier(.2,.9,.3,1.1) both; }
+  .wz-panel[data-wz-panel="4"].on .wz-time { animation-delay: .08s; }
+  .wz-panel[data-wz-panel="4"].on .wz-who { animation-delay: .16s; }
+  .wz-sum { position: relative; padding: 0; overflow: hidden; border-radius: 22px; background: var(--surface); box-shadow: 0 18px 40px -30px rgba(30,60,110,.4); }
+  .wz-rhead { display: flex; align-items: center; gap: 14px; padding: 20px 22px; background: linear-gradient(135deg, hsl(var(--eh, 210) 90% 95%), hsl(calc(var(--eh, 210) + 45) 90% 93%)); }
+  .wz-rhead .wz-di.sm { width: 54px; height: 54px; border-radius: 16px; background: #fff; color: hsl(var(--eh, 210) 65% 48%); box-shadow: 0 10px 22px -14px hsl(var(--eh, 210) 60% 40% / .6); animation: wzFloat 3.2s ease-in-out infinite; }
+  @keyframes wzFloat { 50% { transform: translateY(-4px) rotate(-3deg); } }
+  .wz-rhead b { display: block; font-size: 17px; color: var(--ink); }
+  .wz-rhead small { font-size: 13px; color: var(--ink-2); }
+  .wz-rk { display: block; font-size: 11px !important; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: hsl(var(--eh, 210) 55% 45%) !important; }
+  .wz-sum ul { margin: 0; padding: 16px 22px 6px; gap: 10px; }
+  .wz-sum ul :global(li) { align-items: center; animation: wzSlide .35s ease both; animation-delay: calc(var(--i, 0) * 70ms + .2s); }
+  .wz-sum ul :global(li > span) { display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
+  .wz-sum ul :global(.wz-ok) { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #DCFCE7; color: #16A34A; flex: none; }
+  .wz-sum ul :global(.wz-ok svg) { width: 11px; height: 11px; }
+  .wz-tear { position: relative; height: 18px; margin: 8px 0 0; }
+  .wz-tear::before { content: ''; position: absolute; left: 22px; right: 22px; top: 50%; border-top: 2px dashed var(--line); }
+  .wz-tear::after { content: ''; position: absolute; inset: 0 -9px; background: radial-gradient(circle at 0 50%, var(--tint) 9px, transparent 10px), radial-gradient(circle at 100% 50%, var(--tint) 9px, transparent 10px); }
+  .wz-total { margin: 0; padding: 8px 22px 0; border: 0; }
+  .wz-total b { background: linear-gradient(90deg, var(--violet), hsl(var(--eh, 210) 80% 60%), var(--violet)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: wzShine 3s linear infinite; }
+  @keyframes wzShine { to { background-position: -200% 0; } }
+  .wz-note { display: flex; align-items: center; gap: 8px; margin: 10px 22px 20px; padding: 9px 12px; border-radius: 12px; background: var(--tint); }
+  .wz-note svg { width: 16px; height: 16px; flex: none; color: #16A34A; }
+  .wz-time { border-radius: 22px; background: var(--surface); }
+  .wz-tcards { display: grid; gap: 12px; }
+  .wz-t { position: relative; width: 100%; padding: 14px; border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); text-align: left; font: inherit; cursor: pointer; transition: border-color .25s, background .25s, transform .25s, opacity .25s, box-shadow .25s; }
+  .wz-t:hover:not(:disabled) { transform: translateY(-2px); }
+  .wz-t[aria-checked='false'] { opacity: .72; }
+  .wz-t[aria-checked='true'] { opacity: 1; border-color: color-mix(in srgb, var(--violet) 55%, white); background: color-mix(in srgb, var(--violet) 6%, var(--surface)); box-shadow: 0 14px 28px -22px var(--violet); }
+  .wz-t:disabled { cursor: not-allowed; }
+  .wz-tt { flex: 1; min-width: 0; }
+  .wz-t[aria-checked='true'] .wz-ti { background: linear-gradient(135deg, #7CC4FA, #4A9BEF); color: #fff; box-shadow: 0 8px 16px -10px #4A9BEF; }
+  .wz-ti { transition: background .25s, color .25s; }
+  .wz-tpick { position: absolute; top: -9px; right: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: #DCFCE7; color: #15803D; font-size: 11.5px; font-weight: 800; transform: scale(0); transition: transform .35s cubic-bezier(.3,1.8,.5,1); }
+  .wz-tpick i { width: 7px; height: 7px; border-radius: 50%; background: #22C55E; animation: wzLive 1.4s ease-in-out infinite; }
+  @keyframes wzLive { 50% { box-shadow: 0 0 0 5px rgba(34,197,94,.18); } }
+  .wz-t[aria-checked='true'] .wz-tpick { transform: scale(1); }
+  .wz-who { border-radius: 22px; background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--violet) 3%, var(--surface))); }
+  .wz-who h4 { align-items: center; }
+  .wz-hico { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--violet) 12%, var(--surface)); color: var(--violet); }
+  .wz-hico svg { width: 17px; height: 17px; }
+  .wz-f { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .wz-ic { position: relative; display: block; }
+  .wz-ic > svg { position: absolute; z-index: 2; left: 13px; top: 50%; width: 17px; height: 17px; translate: 0 -50%; color: var(--ink-3); pointer-events: none; transition: color .2s; }
+  .wz-ic select, .wz-ic input { padding-left: 38px !important; }
+  .wz-ic:focus-within > svg { color: var(--violet); }
+  .wz-now { position: relative; overflow: hidden; }
+  .wz-now::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.45), transparent); transform: skewX(-20deg); animation: igShineWz 3.2s ease-in-out infinite; }
+  @keyframes igShineWz { 0%, 55% { left: -60%; } 100% { left: 140%; } }
+  @media (max-width: 900px) { .wz-f { grid-template-columns: 1fr 1fr; } .wz-f > :last-child { grid-column: 1 / -1; } }
+  @media (max-width: 640px) { .wz-f { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .wz-brand, .wz-mlist li, .wz-sum, .wz-time, .wz-who, .wz-sum ul :global(li), .wz-mpoint, .wz-rhead .wz-di.sm, .wz-total b, .wz-now::after, .wz-tpick i { animation: none !important; } }
+  /* ===== details: progress ring, ticks, focus line, ready button ===== */
+  .wz-who { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 22px; align-items: stretch; }
+  .wz-prog { display: grid; align-content: center; justify-items: center; gap: 4px; padding: 18px 12px; border-radius: 18px; text-align: center; background: linear-gradient(160deg, #EEF6FF, #F3EEFF 55%, #FFF3EA); border: 1px solid #E6EDF7; transition: background .5s; }
+  .wz-who.ready .wz-prog { background: linear-gradient(160deg, #ECFDF3, #F0FDF9 60%, #EFF6FF); border-color: #CDEFD9; }
+  .wz-ring { position: relative; display: grid; place-items: center; width: 84px; height: 84px; margin-bottom: 8px; }
+  .wz-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .wz-ring circle { fill: none; stroke-width: 4.5; }
+  .wz-ring .bg { stroke: rgba(120, 140, 170, .18); }
+  .wz-ring .fg { stroke: #7AA7F7; stroke-linecap: round; stroke-dasharray: 119.4; stroke-dashoffset: 119.4; transition: stroke-dashoffset .6s cubic-bezier(.3,1.2,.5,1), stroke .4s; }
+  .wz-who.ready .wz-ring .fg { stroke: #34D399; }
+  .wz-ring b { font-size: 19px; font-weight: 800; color: var(--ink-2); }
+  .wz-who.ready .wz-ring { animation: wzRingPop .6s cubic-bezier(.3,1.8,.5,1); }
+  @keyframes wzRingPop { 40% { transform: scale(1.12); } }
+  .wz-prog strong { font-size: 15.5px; color: var(--ink); }
+  .wz-prog small { font-size: 12.5px; line-height: 1.4; color: var(--ink-3); }
+  .wz-wmain { min-width: 0; }
+  .wz-fl > span:first-child { display: flex; align-items: center; gap: 6px; }
+  .wz-fl > span:first-child::after { content: '✓'; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #22C55E; color: #fff; font-size: 10px; font-weight: 900; transform: scale(0); transition: transform .35s cubic-bezier(.3,1.8,.5,1); }
+  .wz-fl.ok > span:first-child::after { transform: scale(1); }
+  .wz-fl.ok select, .wz-fl.ok input { border-color: #BBE8CC; background: linear-gradient(180deg, #fff, #F6FDF9); }
+  .wz-ic, .wz-ph { position: relative; }
+  .wz-ic::after, .wz-ph::after { content: ''; position: absolute; left: 12px; right: 12px; bottom: 0; height: 3px; border-radius: 3px; background: linear-gradient(90deg, #7CC4FA, #B69CFF, #FFB27A); transform: scaleX(0); transform-origin: left; transition: transform .35s ease; pointer-events: none; }
+  .wz-ic:focus-within::after, .wz-ph:focus-within::after { transform: scaleX(1); }
+  .wz-fl select:focus, .wz-fl input:focus { transform: translateY(-1px); }
+  .wz-fl select, .wz-fl input { transition: border-color .2s, box-shadow .2s, transform .2s, background .3s; }
+  .wz-who:not(.ready) .wz-now { filter: saturate(.55) brightness(1.08); box-shadow: none; }
+  .wz-who.ready .wz-now { animation: wzGlow 2.2s ease-in-out infinite; }
+  .wz-now.wake { animation: wzWake .6s cubic-bezier(.3,1.8,.5,1), wzGlow 2.2s .6s ease-in-out infinite !important; }
+  @keyframes wzWake { 30% { transform: scale(1.06) rotate(-1deg); } 60% { transform: scale(.98) rotate(1deg); } }
+  @keyframes wzGlow { 50% { box-shadow: 0 0 0 7px rgba(37, 211, 102, .16), 0 14px 28px -14px rgba(37, 211, 102, .8); } }
+  @media (max-width: 900px) { .wz-who { grid-template-columns: 1fr; } .wz-prog { grid-template-columns: auto 1fr; justify-items: start; text-align: left; column-gap: 14px; } .wz-ring { grid-row: span 2; width: 64px; height: 64px; margin: 0; } .wz-ring b { font-size: 15px; } }
+  @media (prefers-reduced-motion: reduce) { .wz-who.ready .wz-now, .wz-now.wake, .wz-who.ready .wz-ring { animation: none !important; } }
+  /* details: two roomy rows — name | mobile, then area full width */
+  .wz-f { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-template-areas: "name phone" "area area"; gap: 18px 22px !important; }
+  .wz-f > :nth-child(1) { grid-area: area; }
+  .wz-f > :nth-child(2) { grid-area: name; }
+  .wz-f > :nth-child(3) { grid-area: phone; }
+  .wz-fl select, .wz-fl input { height: 52px !important; font-size: 15.5px !important; }
+  .wz-fl > span:first-child { font-size: 13.5px; }
+  .wz-ph select { width: 140px !important; }
+  .wz-who h4 { margin-bottom: 18px !important; }
+  .wz-acts { margin-top: 20px !important; gap: 14px !important; }
+  .wz-fl.warn > span:first-child::after { content: '!'; background: #F59E0B; }
+  .wz-fl.warn select, .wz-fl.warn input { border-color: #FCD9A0 !important; background: linear-gradient(180deg, #fff, #FFFBF2) !important; }
+  .wz-warn { display: flex; align-items: flex-start; gap: 9px; margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: linear-gradient(90deg, #FFF8EB, #FFFCF5); border: 1px solid #FDE2B3; box-shadow: inset 3px 0 0 #F59E0B; color: #92400E; font-size: 13.5px; font-weight: 600; line-height: 1.45; animation: wzErrIn .3s cubic-bezier(.2,.9,.3,1.2); }
+  .wz-warn[hidden] { display: none; }
+  .wz-warn svg { width: 18px; height: 18px; flex: none; margin-top: 1px; color: #F59E0B; }
+  @media (max-width: 760px) { .wz-f { grid-template-columns: 1fr !important; grid-template-areas: "name" "phone" "area"; } }
+  /* area: type + suggestions + use my location */
+  .wz-area input { padding-right: 168px !important; }
+  .wz-loc { position: absolute; right: 6px; top: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #E6F3FF, #EEE8FF); color: #3D7BD9; font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: transform .2s, box-shadow .2s; }
+  .wz-loc:hover { transform: translateY(-1px); box-shadow: 0 8px 16px -10px #6FA8F5; }
+  .wz-loc svg { position: static !important; translate: none !important; width: 17px !important; height: 17px !important; color: currentColor !important; }
+  .wz-loc.busy svg { animation: wzSpin 1s linear infinite; }
+  @keyframes wzSpin { to { transform: rotate(360deg); } }
+  .wz-asug { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 6px); max-height: 280px; overflow-y: auto; margin: 0; padding: 6px; list-style: none; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: 0 22px 44px -22px rgba(30, 60, 110, .45); animation: wzPop .2s ease both; }
+  .wz-asug[hidden] { display: none; }
+  .wz-asug :global(li) { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-size: 14.5px; }
+  .wz-asug :global(li small) { font-size: 12px; color: var(--ink-3); }
+  .wz-asug :global(li:hover), .wz-asug :global(li.on) { background: color-mix(in srgb, var(--violet) 8%, var(--surface)); }
+  .wz-astat { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 2px 0; font-size: 13px; line-height: 1.45; color: var(--ink-2); animation: wzErrIn .25s ease; }
+  .wz-astat[hidden] { display: none; }
+  .wz-astat.ok { color: #15803D; }
+  .wz-astat.ok::before { content: '✓'; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #22C55E; color: #fff; font-size: 10px; font-weight: 900; margin-right: 4px; }
+  .wz-astat.soon { color: #92400E; }
+  .wz-astat.far { color: #C2410C; }
+  .wz-astat em { font-style: normal; color: var(--ink-3); }
+  .wz-astat .wz-spin, .wz-astat :global(.wz-spin) { display: inline-block; width: 13px; height: 13px; border: 2px solid #BFD7F7; border-top-color: #3D7BD9; border-radius: 50%; animation: wzSpin .8s linear infinite; margin-right: 4px; }
+  @media (max-width: 520px) { .wz-loc span { display: none; } .wz-area input { padding-right: 56px !important; } }
+</style>

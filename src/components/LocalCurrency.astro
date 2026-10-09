@@ -1,0 +1,84 @@
+---
+// Displays prices in the visitor's local currency.
+// All decisions (IP → country → currency → live rate, admin ON/OFF, fallbacks) are made on
+// the server by GET /api/currency (src/lib/currency). This script only *displays*:
+// it rewrites every "OMR n" text on the page (and anything added later, e.g. the cart)
+// as e.g. "₹2,497". Stored amounts are never changed; WhatsApp booking messages keep the
+// base currency. If anything fails, prices stay in OMR.
+//
+// Speed: the request starts as soon as this script runs (not after the page finishes), and
+// the last answer is remembered so repeat visitors see their currency instantly. The fresh
+// answer always wins — after an admin change the page corrects itself in a fraction of a second.
+import { site } from '../data/site';
+const base = site.currency.trim();
+---
+
+<script is:inline define:vars={{ base }}>
+(() => {
+  const KEY = 'fx-last';
+  try { localStorage.removeItem('fx-v1'); sessionStorage.removeItem('fx-v2'); } catch {} // old caches
+
+  const valid = (fx) => fx && /^[A-Z]{3}$/.test(fx.currency) && typeof fx.rate === 'number' && isFinite(fx.rate) && fx.rate > 0
+    && fx.format && typeof fx.format.decimals === 'number';
+  const same = (a, b) => (a ? a.currency + a.rate : base) === (b ? b.currency + b.rate : base);
+
+  // 1. ask the server right away
+  const test = new URLSearchParams(location.search).get('country'); // only honoured by the server in dev/test mode
+  const raw = fetch('/api/currency' + (test ? `?country=${encodeURIComponent(test)}` : ''), { headers: { accept: 'application/json' }, cache: 'no-store' })
+    .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  // share the visitor's country with other parts of the page (e.g. phone country code)
+  raw.then((j) => { const cc = j && /^[A-Z]{2}$/.test(j.visitor || '') ? j.visitor : null; window.__visitorCountry = cc; window.dispatchEvent(new CustomEvent('visitor-country', { detail: cc })); });
+  const fresh = raw.then((fx) => (valid(fx) ? fx : null));
+
+  // 2. last known answer (not used for test overrides)
+  let last = null;
+  if (!test) { try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (valid(v)) last = v; } catch {} }
+
+  // ---- rendering: remember each price's original "OMR n" text so it can be re-rendered ----
+  const RE = new RegExp(`${base}\\s?(\\d[\\d,]*(?:\\.\\d+)?)`, 'g');
+  const orig = new Map(); // text node → original text
+  let current = null;
+  const wrote = new WeakMap(); // text we wrote ourselves, so the observer can ignore it
+  const formatter = (fx) => {
+    try {
+      return new Intl.NumberFormat(fx.format.locale || undefined, {
+        style: 'currency', currency: fx.currency, currencyDisplay: fx.format.display || 'symbol',
+        minimumFractionDigits: fx.format.decimals, maximumFractionDigits: fx.format.decimals,
+      });
+    } catch { return null; }
+  };
+  let fmt = null;
+  const textFor = (s) => (!current || !fmt ? s : s.replace(RE, (_, n) => fmt.format(parseFloat(n.replace(/,/g, '')) * current.rate).replace(/ /g, ' ')));
+  const paint = (n) => { const v = textFor(orig.get(n)); if (n.nodeValue !== v) { wrote.set(n, v); n.nodeValue = v; } };
+  const ok = (n) => n.parentElement && !n.parentElement.closest('script,style,textarea,[data-no-fx]');
+  const track = (n) => { if (ok(n) && n.nodeValue.includes(base)) { orig.set(n, n.nodeValue); paint(n); } };
+  const walk = (root) => {
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const hits = []; while (w.nextNode()) hits.push(w.currentNode);
+    hits.forEach(track);
+  };
+  const use = (fx) => {
+    current = valid(fx) && fx.currency !== base ? fx : null;
+    fmt = current ? formatter(current) : null;
+    if (!fmt) current = null;
+    for (const n of orig.keys()) { if (n.isConnected) paint(n); else orig.delete(n); }
+    if (current) document.documentElement.dataset.currency = current.currency;
+    else delete document.documentElement.dataset.currency;
+  };
+
+  const start = () => {
+    walk(document.body);
+    new MutationObserver((ms) => { ms.forEach((m) => {
+      if (m.type === 'characterData') { const n = m.target; if (wrote.get(n) === n.nodeValue) return; if (n.nodeValue.includes(base) || orig.has(n)) { if (n.nodeValue.includes(base)) track(n); else orig.delete(n); } }
+      m.addedNodes.forEach((n) => (n.nodeType === 3 ? track(n) : n.nodeType === 1 && walk(n)));
+    }); }).observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    if (last) use(last); // instant for repeat visitors
+    fresh.then((fx) => {
+      if (!same(fx, current)) use(fx); // fresh answer always wins (e.g. admin switched it off)
+      if (!test) { try { fx ? localStorage.setItem(KEY, JSON.stringify(fx)) : localStorage.removeItem(KEY); } catch {} }
+    });
+  };
+  document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', start) : start();
+})();
+</script>

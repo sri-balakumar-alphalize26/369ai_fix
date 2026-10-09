@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.astro/
+video/frames/
+.env
+.DS_Store
+.cache/

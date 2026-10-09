@@ -1,0 +1,780 @@
+---
+// Hero actions: "What are you looking for?" search, Find my location (IP address,
+// optional exact GPS → nearest covered area + branch, computed on the device), and
+// Track your repair (sends the reference to Danat on WhatsApp — there is no
+// booking system yet, so no status is shown that we cannot know).
+import { site } from '../data/site';
+import { coverage } from '../data/coverage';
+import { categories } from '../data/devices';
+import { DIAL } from '../lib/phone';
+
+const doorstep = coverage.doorstep.zones.flatMap((z) => z.areas);
+const pickup = coverage.pickup.zones.flatMap((z) => z.areas);
+
+import { areaGeo, branchGeo } from '../lib/areaGeo';
+
+const suggIndex = [
+  ...categories.map((c) => ({ t: c.name, k: 'Device', href: `/services?cat=${c.id}#catalog` })),
+  ...categories.flatMap((c) => c.brands.map((b) => ({ t: b.name, k: `Brand · ${c.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(b.name)}#catalog` }))),
+  ...categories.flatMap((c) => c.brands.flatMap((b) => b.models.map((m) => ({ t: m, k: `Model · ${b.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(m)}#catalog` })))),
+];
+const suggestions = [
+  ...categories.map((c) => c.name),
+  ...new Set(categories.flatMap((c) => c.brands.map((b) => b.name))),
+  ...categories.flatMap((c) => c.brands.flatMap((b) => b.models)),
+];
+const popular = [
+  { label: 'Laptop Repair', href: '/services?cat=laptop#catalog' },
+  { label: 'iPhone Repair', href: '/services?cat=mobile&q=iPhone#catalog' },
+  { label: 'Printer Repair', href: '/services?cat=printer#catalog' },
+  { label: 'CCTV Installation', href: '/services?cat=cctv#catalog' },
+  { label: 'Data Recovery', href: '/services?cat=data#catalog' },
+];
+const catIndex = categories.map((c) => ({ id: c.id, words: [c.name, c.short, ...c.name.split(/[\s&]+/)].map((w) => w.toLowerCase()) }));
+const tel = site.phone.tel.replace('+', '');
+const trackSteps = [
+  { t: 'Booked', d: 'We confirm your slot', icon: '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>' },
+  { t: 'Picked up / visited', d: 'Rider or technician arrives', icon: '<circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/>' },
+  { t: 'Diagnosed', d: 'Estimate shared before work', icon: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>' },
+  { t: 'Repairing', d: 'Genuine parts, tested', icon: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/>' },
+  { t: 'Ready / delivered', d: 'Back in your hands', icon: '<path d="M5 12.5l4.5 4.5L19 7.5"/>' },
+];
+const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>';
+---
+
+<div class="hs" data-hs data-sugg={JSON.stringify(suggIndex)} data-tel={tel} data-cats={JSON.stringify(catIndex)} data-geo={JSON.stringify({ areaGeo, branchGeo, doorstep, pickup, eta: { doorstep: coverage.doorstep.eta, pickup: coverage.pickup.eta } })}>
+  <form class="hs-row" data-hs-find>
+    <label class="hs-field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input name="q" placeholder="What are you looking for?" autocomplete="off" aria-label="What are you looking for" aria-autocomplete="list" aria-controls="hs-sugg" data-hs-q />
+    </label>
+    <button type="button" class="hs-drop" aria-label="Show all devices" aria-expanded="false" data-hs-drop>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <button type="submit" class="hs-btn hs-icon" aria-label="Search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    </button>
+  </form>
+  <div class="hs-sugg" id="hs-sugg" role="listbox" data-hs-sugg hidden></div>
+
+  <div class="hs-actions">
+    <button type="button" class="hs-act" data-hs-locate>
+      <span class="hs-ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
+      <span><b>Check location</b><small>See if we cover an address</small></span>
+    </button>
+    <button type="button" class="hs-act" data-hs-track>
+      <span class="hs-ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/></svg></span>
+      <span><b>Track your repair</b><small>Get your repair status</small></span>
+    </button>
+  </div>
+  <!-- Where is the repair? current location, typed address, or a saved place -->
+  <div class="lp-wrap" data-lp-wrap hidden><div class="lp-bg" data-lp-x></div>
+  <aside class="lp" data-lp role="dialog" aria-modal="true" aria-labelledby="lp-title">
+    <div class="lp-top">
+      <button type="button" class="lp-x" data-lp-x aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="lp-hero" aria-hidden="true"><span class="lp-pin"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5.3 7 13 7 13s7-7.7 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></span><i></i><i></i><i></i></div>
+      <h3 id="lp-title">Choose your location</h3>
+      <p>Select where you need the repair to see doorstep and pickup options.</p>
+    </div>
+    <form class="lp-search" data-lp-form>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input data-lp-q placeholder="Area, street or landmark" autocomplete="off" aria-label="Search for area, street name or landmark" />
+      <button type="submit" class="lp-go">Check</button>
+    </form>
+    <ul class="lp-list" data-lp-list hidden></ul>
+    <button type="button" class="lp-gps" data-lp-current>
+      <span class="lp-gi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg></span>
+      <span class="lp-rt"><b>Get current location</b><small>Using GPS or your internet connection</small></span>
+      <svg class="lp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <div class="lp-saved" data-lp-saved></div>
+    <div class="lp-recent" data-lp-recent></div>
+    <div class="lp-pop">
+      <small class="lp-sec">Popular areas</small>
+      <div class="lp-pills">{['Ruwi', 'Qurum', 'Al Khuwair', 'Seeb', 'Al Mawaleh', 'Sohar', 'Barka', 'Salalah'].map((a) => <button type="button" data-place={a}>{a}</button>)}</div>
+    </div>
+    <p class="lp-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>We serve Muscat, Al Batinah and Dhofar from our Ruwi, Sohar and Salalah branches.</p>
+  </aside></div>
+  <div class="hs-result" data-hs-result aria-live="polite" hidden></div>
+
+  <div class="hs-popular">
+    <span>Popular:</span>
+    {popular.map((p) => <a href={p.href} data-href={p.href} class="hs-chip" data-hs-chip>{p.label}</a>)}
+  </div>
+</div>
+
+<!-- Track your repair -->
+<div class="tr" data-tr hidden>
+  <div class="tr-bg" data-tr-x></div>
+  <div class="tr-card" role="dialog" aria-modal="true" aria-labelledby="tr-title">
+    <button type="button" class="tr-x" data-tr-x aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <div class="tr-side">
+      <span class="tr-kick">Repair journey</span>
+      <h3>Every step, shared with you</h3>
+      <ol class="tr-line">
+        {trackSteps.map((st, i) => (
+          <li style={`--i:${i}`}>
+            <span class="tr-dot" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${st.icon}</svg>`} />
+            <span><b>{st.t}</b><small>{st.d}</small></span>
+          </li>
+        ))}
+        <i class="tr-runner" aria-hidden="true"></i>
+      </ol>
+    </div>
+    <div class="tr-main">
+      <span class="tr-pill"><i></i>Replies on WhatsApp</span>
+      <h2 id="tr-title">Track your repair</h2>
+      <p>Enter your booking ID or the phone number you booked with — our team replies with the latest status.</p>
+      <div class="tr-tabs" role="tablist" aria-label="Track by">
+        <button type="button" role="tab" data-tr-mode="id" aria-selected="true">Booking ID</button>
+        <button type="button" role="tab" data-tr-mode="phone" aria-selected="false">Phone number</button>
+      </div>
+      <form class="tr-form" data-tr-form novalidate>
+        <div class="tr-field" data-tr-fid>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h6M7 14h4"/></svg>
+          <input name="id" placeholder="e.g. DN-10234" autocomplete="off" aria-label="Booking ID" />
+        </div>
+        <div class="tr-field" data-tr-fphone hidden>
+          <label class="tr-cc" title="Country code"><span data-tr-code>+968</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><select name="cc" data-tr-cc aria-label="Country code">{DIAL.map((d) => <option value={d.cc} data-code={d.code} data-eg={d.eg} data-len={d.len} selected={d.cc === "om"}>{d.name} ({d.code})</option>)}</select></label>
+          <input name="phone" inputmode="tel" placeholder="9123 4567" maxlength="16" autocomplete="tel-national" aria-label="Phone number" data-tr-ph />
+        </div>
+        <button type="submit" class="tr-go"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg><span>Check status</span><svg class="arr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        <p class="tr-msg" data-tr-msg aria-live="polite"></p>
+      </form>
+      <a class="tr-help" target="_blank" rel="noopener" href={`https://wa.me/${tel}?text=${encodeURIComponent('Hi Danat Fix, I booked a repair but do not have my booking ID. Can you check the status?')}`}>No booking ID? Chat with us →</a>
+    </div>
+  </div>
+</div>
+<script>
+  import { DIAL, checkPhone, dialFor, bindPhone, limitPhone, earlyPhoneError } from '../lib/phone';
+  const root = document.querySelector<HTMLElement>('[data-hs]');
+  if (root) {
+    const tel = root.dataset.tel!;
+    const cats: { id: string; words: string[] }[] = JSON.parse(root.dataset.cats!);
+    const geo = JSON.parse(root.dataset.geo!) as { areaGeo: Record<string, [number, number]>; branchGeo: { name: string; at: [number, number] }[]; doorstep: string[]; pickup: string[]; eta: { doorstep: string; pickup: string } };
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    const result = root.querySelector<HTMLElement>('[data-hs-result]')!;
+    let area = '';
+    try { area = localStorage.getItem('area') ?? ''; } catch {}
+
+    // Carry the area into Services links.
+    const withArea = (href: string) => {
+      if (!area) return href;
+      const u = new URL(href, location.origin);
+      u.searchParams.set('area', area);
+      return u.pathname + u.search + u.hash;
+    };
+    const linkify = () => root.querySelectorAll<HTMLAnchorElement>('[data-hs-chip]').forEach((a) => (a.href = withArea(a.dataset.href!)));
+
+    // search
+    const findForm = root.querySelector<HTMLFormElement>('[data-hs-find]')!;
+    findForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const raw = (findForm.elements.namedItem('q') as HTMLInputElement).value.trim();
+      const q = norm(raw);
+      const cat = q && cats.find((c) => c.words.some((w) => w === q || (q.length > 3 && w.startsWith(q))));
+      location.href = withArea(!q ? '/services#catalog' : cat ? `/services?cat=${cat.id}#catalog` : `/services?q=${encodeURIComponent(raw)}#catalog`);
+    });
+
+    // Custom suggestions (replaces the browser's datalist ▼ dropdown)
+    const sugg: { t: string; k: string; href: string }[] = JSON.parse(root.dataset.sugg!);
+    const qIn = root.querySelector<HTMLInputElement>('[data-hs-q]')!;
+    const box = root.querySelector<HTMLElement>('[data-hs-sugg]')!;
+    let active = -1;
+    const renderSugg = () => {
+      const q = norm(qIn.value);
+      const hits = (q.length < 1 ? sugg.filter((s) => s.k === 'Device') : sugg.filter((s) => norm(s.t).includes(q))).sort((a, b) => (norm(a.t).startsWith(q) ? 0 : 1) - (norm(b.t).startsWith(q) ? 0 : 1)).slice(0, q.length < 1 ? 12 : 7);
+      active = -1;
+      if (!hits.length) { box.innerHTML = `<p class="hs-none">No match — press Enter to search “${esc(qIn.value.trim())}”</p>`; box.hidden = false; return; }
+      box.innerHTML = hits.map((h, i) => `<a role="option" href="${withArea(h.href)}" data-i="${i}"><span class="hs-st">${esc(h.t).replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'i'), '<mark>$1</mark>')}</span><small>${esc(h.k)}</small></a>`).join('');
+      box.hidden = false;
+    };
+    const drop = root.querySelector<HTMLButtonElement>('[data-hs-drop]')!;
+    new MutationObserver(() => drop.setAttribute('aria-expanded', String(!box.hidden))).observe(box, { attributes: true, attributeFilter: ['hidden'] });
+    drop.addEventListener('click', () => { if (box.hidden) { renderSugg(); qIn.focus(); } else box.hidden = true; });
+    qIn.addEventListener('input', renderSugg);
+    qIn.addEventListener('keydown', (e) => {
+      const items = [...box.querySelectorAll<HTMLAnchorElement>('a')];
+      if (box.hidden || !items.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items.forEach((a, i) => a.classList.toggle('on', i === active));
+      } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.href = items[active].href; }
+      else if (e.key === 'Escape') box.hidden = true;
+    });
+    document.addEventListener('click', (e) => { if (!root.contains(e.target as Node)) box.hidden = true; });
+    // ---- Find my location (IP address → nearest covered area + branch) ----
+    const km = (a: [number, number], b: [number, number]) => {
+      const R = 6371, r = Math.PI / 180;
+      const dLa = (b[0] - a[0]) * r, dLo = (b[1] - a[1]) * r;
+      const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLo / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    };
+    const show = (html: string, cls: string) => { result.hidden = false; result.className = `hs-result ${cls}`; result.innerHTML = html; };
+    const locBtn = root.querySelector<HTMLButtonElement>('[data-hs-locate]')!;
+    // Manager's brief: find the visitor from their IP address (no browser permission pop-up).
+    // IP lookups are city-level, so "covered" uses a wider radius than an exact GPS fix.
+    const ipLookup = async (): Promise<{ at: [number, number]; city: string; country: string; cc: string } | null> => {
+      const tries: [string, (j: any) => any][] = [
+        ['https://get.geojs.io/v1/ip/geo.json', (j) => j.latitude != null && { at: [Number(j.latitude), Number(j.longitude)], city: j.city || j.region || '', country: j.country || '', cc: j.country_code || '' }],
+        ['https://ipinfo.io/json', (j) => typeof j.loc === 'string' && { at: j.loc.split(',').map(Number), city: j.city || j.region || '', country: j.country || '', cc: j.country || '' }],
+        ['https://ipapi.co/json/', (j) => j.latitude != null && { at: [j.latitude, j.longitude], city: j.city || j.region || '', country: j.country_name || '', cc: j.country_code || '' }],
+        ['https://ipwho.is/', (j) => j.success !== false && j.latitude != null && { at: [j.latitude, j.longitude], city: j.city || j.region || '', country: j.country || '', cc: j.country_code || '' }],
+      ];
+      for (const [url, pick] of tries) {
+        try {
+          const j = await Promise.race([fetch(url).then((r) => r.json()), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3500))]);
+          const v = pick(j); if (v) return v;
+        } catch {}
+      }
+      return null;
+    };
+    let lastIp: { city: string; country: string } | null = null;
+    let lastGps = '';
+    // GPS position → real place name (free, no key). Empty string if it can't be found.
+    const placeName = async (at: [number, number]) => {
+      try {
+        const r = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${at[0]}&longitude=${at[1]}&localityLanguage=en`, { signal: AbortSignal.timeout(5000) });
+        const j = await r.json();
+        return [j.locality || j.city, j.principalSubdivision, j.countryName].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ');
+      } catch { return ''; }
+    };
+    const runCurrent = async () => {
+      locBtn.classList.add('busy');
+      show('<span class="spin"></span> Finding your location from your internet connection…', 'wait');
+      const ip = await ipLookup();
+      locBtn.classList.remove('busy');
+      if (!ip) { show('<b>We couldn\'t detect your location</b><span>Your connection didn\'t share a location. <button type="button" class="hs-exact" data-hs-exact>Use exact location instead</button></span>', 'warn'); return; }
+      lastIp = ip;
+      showFor(ip.at, 'ip');
+    };
+    // Optional precise check with the device's GPS (asks the browser for permission)
+    result.addEventListener('click', (ev) => {
+      if (!(ev.target as HTMLElement).closest('[data-hs-exact]')) return;
+      if (!navigator.geolocation) { show('<b>Your browser can\'t share exact location</b><span>Message us on WhatsApp and we\'ll confirm.</span>', 'warn'); return; }
+      show('<span class="spin"></span> Getting your exact location…', 'wait');
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const me: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        lastGps = await placeName(me);
+        lastPlace = '';
+        showFor(me, 'gps');
+      }, (err) => {
+        const why = err.code === 1 ? 'Location is blocked for this site (click the location icon in the address bar to allow it).' : 'Your device couldn\'t find its location.';
+        show(`<b>We couldn't get your exact location</b><span>${why}</span>`, 'warn');
+      }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    });
+
+    // Location result card
+    const I = {
+      pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+      ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+      globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+      gps: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/>',
+      wa: '<path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2z"/>',
+      arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    };
+    const svg = (k: keyof typeof I, fill = false) => `<svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[k]}</svg>`;
+    const card = (o: { tone: 'ok' | 'warn'; kicker: string; title: string; route?: [string, string, string]; branches?: string; text: string; chips?: string[]; lines?: [boolean, string, string][]; actions: string; foot: string }) => `
+      <button type="button" class="lr-x" data-lr-x aria-label="Close">×</button>
+      <div class="lr-head">
+        <span class="lr-ic">${svg(o.tone === 'ok' ? 'ok' : 'globe')}</span>
+        <div><small class="lr-kick">${o.kicker}</small><b class="lr-title">${o.title}</b></div>
+      </div>
+      ${o.branches ?? ''}
+      ${o.route && !o.branches ? `<div class="lr-route"><span class="lr-dot you">${o.route[0]}</span><span class="lr-line"><i>${o.route[1]}</i></span><span class="lr-dot hq">${o.route[2]}</span></div>` : ''}
+      ${o.lines?.length ? `<ul class="lr-lines">${o.lines.map(([ok, a, b]) => `<li class="${ok ? 'y' : 'n'}"><i>${ok ? '✓' : '✕'}</i><span><b>${a}</b>${b ? `<small>${b}</small>` : ''}</span></li>`).join('')}</ul>` : ''}
+      ${o.chips?.length ? `<div class="lr-chips">${o.chips.map((c) => `<span>${c}</span>`).join('')}</div>` : ''}
+      <p class="lr-text">${o.text}</p>
+      <div class="lr-acts">${o.actions}</div>
+      ${extras()}
+      <div class="lr-foot">${o.foot}</div>`;
+    const waBtn = (msg: string, label: string, primary = false) => `<a class="lr-btn wa${primary ? ' pri' : ''}" href="https://wa.me/${tel}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">${svg('wa', true)}${label}</a>`;
+
+    // ---------- typed address, saved places, booking for someone else ----------
+    let lastPlace = '';
+    let check: { name: string; at: [number, number]; covered: boolean; branch: string } | null = null;
+    const lp = root.querySelector<HTMLElement>('[data-lp]')!;
+    const lpQ = lp.querySelector<HTMLInputElement>('[data-lp-q]')!;
+    const lpList = lp.querySelector<HTMLElement>('[data-lp-list]')!;
+    const SAVE_KEY = 'saved-places';
+    const LABELS: [string, string][] = [['Home', 'home'], ['Work', 'work'], ['Other', 'pin']];
+    type Saved = { label: string; kind: string; name: string; at: [number, number] };
+    const saved = (): Saved[] => { try { const v = JSON.parse(localStorage.getItem(SAVE_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+    const putSaved = (v: Saved[]) => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(v.slice(0, 8))); } catch {} };
+    const ICON: Record<string, string> = {
+      home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+      work: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
+      pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    };
+    const ico = (k: string) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] ?? ICON.pin}</svg>`;
+    const renderSaved = () => {
+      const s = saved();
+      lp.querySelector('[data-lp-saved]')!.innerHTML = s.length
+        ? `<small class="lp-sec">Saved addresses</small>` + s.map((v, i) => `<div class="lp-row lp-sv"><button type="button" class="lp-sv-go" data-place-saved="${i}"><span class="lp-ri">${ico(v.kind)}</span><span class="lp-rt"><b>${esc(v.label)}</b><small>${esc(v.name)}</small></span></button><button type="button" class="lp-del" data-place-del="${i}" aria-label="Remove ${esc(v.label)}">×</button></div>`).join('')
+        : `<p class="lp-tip">${ico('pin')}Check an address once, then save it as Home, Work or any name for next time.</p>`;
+    };
+    const lpWrap = root.querySelector<HTMLElement>('[data-lp-wrap]')!;
+    document.body.append(lpWrap); // modal lives at page level (works from the header on any scroll position)
+    const openPanel = () => { renderSaved(); renderRecent(); lpWrap.hidden = false; requestAnimationFrame(() => lpWrap.classList.add('in')); document.documentElement.style.overflow = 'hidden'; lpQ.value = ''; lpList.hidden = true; setTimeout(() => lpQ.focus(), 80); };
+    const closePanel = () => { lpWrap.classList.remove('in'); document.documentElement.style.overflow = ''; setTimeout(() => (lpWrap.hidden = true), 220); };
+    (window as any).__openLocation = openPanel;
+    if (location.hash === '#check-location') setTimeout(openPanel, 300);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !lpWrap.hidden) closePanel(); });
+    const areas = Object.keys(geo.areaGeo);
+    const matches = (q: string) => { const n = norm(q); return n ? areas.filter((a) => norm(a).includes(n)).sort((a, b) => (norm(a).startsWith(n) ? 0 : 1) - (norm(b).startsWith(n) ? 0 : 1)).slice(0, 6) : []; };
+    const RECENT = 'recent-places';
+    const recent = (): { name: string; at: [number, number] }[] => { try { const v = JSON.parse(localStorage.getItem(RECENT) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+    const renderRecent = () => {
+      const r = recent();
+      lp.querySelector('[data-lp-recent]')!.innerHTML = r.length ? `<small class="lp-sec">Recent searches</small>` + r.map((v, i) => `<button type="button" class="lp-rec" data-place-recent="${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${esc(v.name)}</button>`).join('') : '';
+    };
+    const checkPlace = (name: string, at: [number, number]) => {
+      lastPlace = name; closePanel(); showFor(at, 'typed');
+      try { localStorage.setItem(RECENT, JSON.stringify([{ name, at }, ...recent().filter((v) => v.name !== name)].slice(0, 4))); } catch {}
+    };
+    lpQ.addEventListener('input', () => {
+      const m = matches(lpQ.value);
+      lpList.innerHTML = m.map((a) => `<li><button type="button" data-place="${esc(a)}">${svg('pin')}<span><b>${esc(a)}</b><small>${geo.doorstep.includes(a) ? 'Doorstep & pickup' : 'Pickup'} area</small></span></button></li>`).join('');
+      lpList.hidden = !m.length;
+    });
+    lp.querySelector('[data-lp-form]')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = lpQ.value.trim(); if (!q) { lpQ.focus(); return; }
+      const m = matches(q); if (m.length) { checkPlace(m[0], geo.areaGeo[m[0]]); return; }
+      // not one of our area names: look the place up on the map (OpenStreetMap, no key)
+      closePanel(); show(`<span class="spin"></span> Looking up “${esc(q)}”…`, 'wait');
+      try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(6000), headers: { 'accept-language': 'en' } });
+        const j = await r.json();
+        if (j?.[0]) { const at: [number, number] = [Number(j[0].lat), Number(j[0].lon)]; lastPlace = q; showFor(at, 'typed'); try { localStorage.setItem(RECENT, JSON.stringify([{ name: q, at }, ...recent().filter((v) => v.name !== q)].slice(0, 4))); } catch {} return; }
+      } catch {}
+      show(`<b>We couldn't find “${esc(q)}”</b><span>Try the area or town name, or <button type="button" class="hs-exact" data-lp-open>search again</button>.</span>`, 'warn');
+    });
+    lpWrap.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('[data-lp-x]')) closePanel();
+      if (t.closest('[data-lp-current]')) { closePanel(); runCurrent(); }
+      const p = t.closest<HTMLElement>('[data-place]'); if (p) checkPlace(p.dataset.place!, geo.areaGeo[p.dataset.place!]);
+      const s = t.closest<HTMLElement>('[data-place-saved]'); if (s) { const v = saved()[Number(s.dataset.placeSaved)]; if (v) checkPlace(v.name, v.at); }
+      const rc = t.closest<HTMLElement>('[data-place-recent]'); if (rc) { const v = recent()[Number(rc.dataset.placeRecent)]; if (v) checkPlace(v.name, v.at); }
+      const d = t.closest<HTMLElement>('[data-place-del]'); if (d) { const all = saved(); all.splice(Number(d.dataset.placeDel), 1); putSaved(all); renderSaved(); }
+    });
+    locBtn.addEventListener('click', openPanel);
+
+    // extra blocks under every result: save this place, and book for someone else
+    // someone-else phone defaults to the visitor's country (or Oman)
+    const ofCc = () => { const v = String((window as any).__visitorCountry || 'om').toLowerCase(); return DIAL.some((d) => d.cc === v) ? v : 'om'; };
+    const extras = () => !check ? '' : `
+      <div class="lr-more">
+        <button type="button" class="lr-tg" data-tg="save" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Save address</button>
+        <button type="button" class="lr-tg" data-tg="other" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M17 8v6M14 11h6"/></svg>Book for someone else</button>
+      </div>
+      <div class="lr-pane" data-pane="save" hidden>
+        <div class="lr-save" data-save-row>${LABELS.map(([l, k]) => `<button type="button" data-save="${esc(l)}" data-kind="${k}">${ico(k)}${esc(l)}</button>`).join('')}<span class="lr-other-name" hidden><input placeholder="Name this place" maxlength="24" data-save-name /><button type="button" data-save-ok>Save</button></span></div>
+      </div>
+      <div class="lr-pane" data-pane="other" hidden>
+        <p class="lr-pane-t">We'll contact them directly — they don't need to use the website.</p>
+        <form data-other class="lr-of">
+          <label><span>Name</span><input name="n" placeholder="Full name" required autocomplete="off" /></label>
+          <label><span>Phone</span><span class="lr-ph"><select name="cc" aria-label="Country code" data-of-cc>${DIAL.map((d) => `<option value="${d.cc}" data-eg="${d.eg}" data-len="${d.len}"${d.cc === ofCc() ? ' selected' : ''}>${d.code}</option>`).join('')}</select><input name="p" inputmode="tel" maxlength="16" placeholder="${dialFor(ofCc()).eg}" required autocomplete="off" /></span></label>
+          <p class="lr-err" data-of-err hidden></p>
+          <label class="full"><span>Address</span><input name="a" placeholder="House / building, street, landmark" value="${esc(check.name)}" required autocomplete="off" /></label>
+          <button type="submit" class="lr-btn wa pri full">${svg('wa', true)}Send booking on WhatsApp</button>
+        </form>
+      </div>`;
+    result.addEventListener('click', (e) => {
+      const t = e.target as HTMLElement;
+      if (t.closest('[data-lp-open]')) openPanel();
+      const tg = t.closest<HTMLButtonElement>('[data-tg]');
+      if (tg) {
+        const open = tg.getAttribute('aria-expanded') !== 'true';
+        result.querySelectorAll<HTMLButtonElement>('[data-tg]').forEach((b) => b.setAttribute('aria-expanded', String(b === tg && open)));
+        result.querySelectorAll<HTMLElement>('[data-pane]').forEach((p) => (p.hidden = !(open && p.dataset.pane === tg.dataset.tg)));
+        if (open) result.querySelector<HTMLInputElement>(`[data-pane="${tg.dataset.tg}"] input`)?.focus();
+      }
+      const doSave = (label: string, kind: string) => {
+        if (!check || !label.trim()) return;
+        const all = saved().filter((v) => v.label.toLowerCase() !== label.trim().toLowerCase());
+        all.unshift({ label: label.trim(), kind, name: check.name, at: check.at }); putSaved(all);
+        const row = result.querySelector('[data-save-row]')!;
+        row.innerHTML = `<small class="lr-saved-ok">${ico(kind)}Saved as “${esc(label.trim())}” — find it under Saved addresses</small>`;
+        const b = result.querySelector('[data-tg="save"]'); if (b) b.innerHTML = `${ico(kind)}Saved`;
+      };
+      const sv = t.closest<HTMLButtonElement>('[data-save]');
+      if (sv) {
+        if (sv.dataset.kind === 'pin') { const box = result.querySelector<HTMLElement>('.lr-other-name')!; box.hidden = false; box.querySelector('input')!.focus(); }
+        else doSave(sv.dataset.save!, sv.dataset.kind!);
+      }
+      if (t.closest('[data-save-ok]')) doSave(result.querySelector<HTMLInputElement>('[data-save-name]')!.value || 'Other', 'pin');    });
+    result.addEventListener('change', (e) => { const s = (e.target as HTMLElement).closest<HTMLSelectElement>('[data-of-cc]'); if (s) { const o = s.selectedOptions[0]; const i = s.parentElement!.querySelector('input')!; i.placeholder = o.dataset.eg || ''; i.value = limitPhone(i.value, s.value); } });
+    // live limit + messages for the someone-else phone (form is re-rendered, so delegate)
+    const ofErr = (t: string) => { const el = result.querySelector<HTMLElement>('[data-of-err]'); if (el) { el.textContent = t; el.hidden = !t; } };
+    result.addEventListener('input', (e) => { const i = (e.target as HTMLElement).closest<HTMLInputElement>('[data-other] [name=p]'); if (!i) return; const cc = result.querySelector<HTMLSelectElement>('[data-of-cc]')!.value; const v = limitPhone(i.value, cc); if (v !== i.value) i.value = v; ofErr(earlyPhoneError(cc, v)); });
+    result.addEventListener('focusout', (e) => { const i = (e.target as HTMLElement).closest<HTMLInputElement>('[data-other] [name=p]'); if (!i || !i.value.trim()) return; const r = checkPhone(result.querySelector<HTMLSelectElement>('[data-of-cc]')!.value, i.value); ofErr(r.ok ? '' : r.msg); });
+    result.addEventListener('submit', (e) => {
+      const f = (e.target as HTMLElement).closest<HTMLFormElement>('[data-other]'); if (!f || !check) return;
+      e.preventDefault();
+      const d = new FormData(f); const n = String(d.get('n')).trim(), p = String(d.get('p')).trim(), a = String(d.get('a')).trim();
+      const errEl = f.querySelector<HTMLElement>('[data-of-err]')!;
+      if (!n || !a) { f.reportValidity(); return; }
+      const r = checkPhone(String(d.get('cc') || 'om'), p);
+      if (!r.ok) { errEl.hidden = false; errEl.textContent = p ? r.msg : 'Please enter their mobile number.'; f.querySelector<HTMLInputElement>('[name=p]')!.focus(); return; }
+      errEl.hidden = true;
+      const msg = `Hi Danat Fix, I'd like to book a repair for someone else.\nName: ${n}\nPhone: ${r.full}\nAddress: ${a}\nArea check: ${check.name} — ${check.covered ? 'covered' : 'please confirm coverage'} (nearest branch ${check.branch})`;
+      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    });
+
+    const showFor = (me: [number, number], how: 'ip' | 'gps' | 'typed') => {
+        const near = Object.entries(geo.areaGeo).map(([n, at]) => ({ n, d: km(me, at) })).sort((a, b) => a.d - b.d)[0];
+        const brAll = geo.branchGeo.map((b) => ({ ...b, d: km(me, b.at) })).sort((a, b) => a.d - b.d);
+        const br = brAll[0];
+        const branchRow = `<div class="lr-br"><small>Our branches</small>${brAll.map((b, i) => `<span class="${i === 0 ? 'near' : ''}">${svg('pin')}<b>${esc(b.name)}</b><em>${Math.round(b.d).toLocaleString()} km</em>${i === 0 ? '<i>Nearest</i>' : ''}</span>`).join('')}</div>`;
+        const where = how === 'ip' ? (lastIp ? esc([lastIp.city, lastIp.country].filter(Boolean).join(', ')) : '') : how === 'typed' ? esc(lastPlace) : esc(lastGps);
+        const foot = how === 'ip'
+          ? `<span>${svg('pin')}Approximate — from your internet provider</span><button type="button" class="hs-exact" data-hs-exact>${svg('gps')}Not right? Use exact location</button>`
+          : how === 'typed' ? `<span>${svg('pin')}Checked for: ${esc(lastPlace)}</span><button type="button" class="hs-exact" data-lp-open>Change address</button>`
+          : `<span>${svg('gps')}Exact location from your device</span>`;
+        const dist = `${Math.round(br.d).toLocaleString()} km`;
+        const mapLink = `https://maps.google.com/?q=${me[0].toFixed(5)},${me[1].toFixed(5)}`;
+        const covered = near.d <= (how === 'ip' ? 40 : 12);
+        check = { name: where || near.n, at: me, covered, branch: br.name };
+        const label = how === 'typed' ? lastPlace : (covered ? near.n : (where || 'Outside Oman'));
+        try { localStorage.setItem('svc-loc', JSON.stringify({ name: label, covered })); } catch {}
+        window.dispatchEvent(new CustomEvent('svc-loc', { detail: { name: label, covered } }));
+        setTimeout(() => result.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+        if (covered) {
+          area = near.n;
+          try { localStorage.setItem('area', area); } catch {}
+          linkify();
+          const modes = [geo.doorstep.includes(near.n) && 'Doorstep', geo.pickup.includes(near.n) && 'Pickup'].filter(Boolean) as string[];
+          show(card({
+            tone: 'ok', kicker: 'Great news — we cover your area', title: how === 'typed' ? esc(lastPlace) : esc(near.n),
+            route: [how === 'typed' ? 'This address' : 'You', dist, esc(br.name)],
+            lines: [
+              [modes.includes('Doorstep'), modes.includes('Doorstep') ? 'Doorstep repair available' : 'Doorstep repair not available here', modes.includes('Doorstep') ? geo.eta.doorstep : 'Use pickup & drop instead'],
+              [modes.includes('Pickup'), 'Pickup & drop available', geo.eta.pickup],
+              [true, 'Estimate before any work', 'You approve the price first'],
+            ],
+            text: modes.includes('Doorstep') ? `Our technicians come to you from the ${esc(br.name)} branch.` : `We pick up your device, repair it at our ${esc(br.name)} branch and bring it back.`,
+            actions: `<a class="lr-btn pri" href="${withArea('/services#catalog')}">Book a repair${svg('arrow')}</a>${waBtn(`Hi Danat Fix, I'm in ${near.n} and want to book a repair.`, 'Chat')}`,
+            foot,
+          }), 'ok');
+        } else {
+          const outside = br.d > 400;
+          show(card({
+            tone: 'warn',
+            kicker: outside ? 'Outside our service area' : 'Not on our coverage list yet',
+            branches: branchRow,
+            title: where || (outside ? 'Outside Oman' : `Near ${esc(br.name)}`),
+            route: [how === 'typed' ? 'This address' : 'You', dist, esc(br.name)],
+            lines: [[false, 'Doorstep repair not available', ''], [false, 'Pickup & drop not available', '']],
+            text: outside
+              ? 'We currently repair in Muscat, Al Batinah and Dhofar. Booking for someone in Oman? Check their address instead.'
+              : 'Message us and we’ll confirm whether a technician can reach you.',
+            actions: `<button type="button" class="lr-btn pri" data-lp-open>${svg('pin')}Check another address</button>${waBtn(`Hi Danat Fix, do you cover my location? ${mapLink}`, 'Ask on WhatsApp')}`,
+            foot,
+          }), 'warn');
+        }
+    };
+    result.addEventListener('click', (ev) => { if ((ev.target as HTMLElement).closest('[data-lr-x]')) result.hidden = true; });
+    // ---- Track your repair ----
+    const tr = document.querySelector<HTMLElement>('[data-tr]')!;
+    const openTr = () => { tr.hidden = false; requestAnimationFrame(() => tr.classList.add('in')); tr.querySelector<HTMLInputElement>('input:not([hidden] input)')?.focus(); };
+    const closeTr = () => { tr.classList.remove('in'); setTimeout(() => (tr.hidden = true), 300); };
+    root.querySelector('[data-hs-track]')!.addEventListener('click', openTr);
+    document.querySelectorAll('[data-track-open]').forEach((b) => b.addEventListener('click', (e) => { e.preventDefault(); openTr(); }));
+    tr.querySelectorAll('[data-tr-x]').forEach((b) => b.addEventListener('click', closeTr));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !tr.hidden) closeTr(); });
+    // country code for the phone tab — follows the visitor's country until they pick one
+    const trCc = tr.querySelector<HTMLSelectElement>('[data-tr-cc]')!;
+    const trShow = () => { const o = trCc.selectedOptions[0]; tr.querySelector('[data-tr-code]')!.textContent = o.dataset.code!; const ph = tr.querySelector<HTMLInputElement>('[data-tr-ph]')!; ph.placeholder = o.dataset.eg!; ph.value = limitPhone(ph.value, trCc.value); };
+    let trTouched = false; trCc.addEventListener('change', () => { trTouched = true; trShow(); });
+    const trAuto = (cc: unknown) => { if (trTouched || typeof cc !== 'string') return; if ([...trCc.options].some((o) => o.value === cc.toLowerCase())) { trCc.value = cc.toLowerCase(); trShow(); } };
+    trAuto((window as any).__visitorCountry); window.addEventListener('visitor-country', (e) => trAuto((e as CustomEvent).detail)); trShow();
+    { const m = tr.querySelector<HTMLElement>('[data-tr-msg]')!; bindPhone(tr.querySelector<HTMLInputElement>('[data-tr-ph]')!, () => trCc.value, (t) => { m.textContent = t; m.className = t ? 'tr-msg err' : 'tr-msg'; }); }
+    let trMode = 'id';
+    tr.querySelectorAll<HTMLElement>('[data-tr-mode]').forEach((b) => b.addEventListener('click', () => {
+      trMode = b.dataset.trMode!;
+      tr.querySelectorAll('[data-tr-mode]').forEach((x) => x.setAttribute('aria-selected', String(x === b)));
+      tr.querySelector<HTMLElement>('[data-tr-fid]')!.hidden = trMode !== 'id';
+      tr.querySelector<HTMLElement>('[data-tr-fphone]')!.hidden = trMode !== 'phone';
+      tr.querySelector<HTMLInputElement>(trMode === 'id' ? '[name=id]' : '[name=phone]')!.focus();
+    }));
+    tr.querySelector<HTMLFormElement>('[data-tr-form]')!.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target as HTMLFormElement);
+      const raw = String(fd.get(trMode) ?? '').trim();
+      const msg = tr.querySelector<HTMLElement>('[data-tr-msg]')!;
+      let ref = '';
+      if (trMode === 'id') { if (raw.length < 3) { msg.className = 'tr-msg err'; msg.textContent = 'Please enter your booking ID.'; return; } ref = `Booking ID: ${raw}`; }
+      else { const r = checkPhone(trCc.value, raw); if (!raw || !r.ok) { msg.className = 'tr-msg err'; msg.textContent = raw ? r.msg : 'Please enter your mobile number.'; return; } ref = `Phone: ${r.full}`; }
+      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(`Hi Danat Fix, please share the status of my repair. ${ref}`)}`, '_blank', 'noopener');
+      msg.className = 'tr-msg ok';
+      msg.textContent = '✓ Opening WhatsApp — send the message and we\'ll reply with your status.';
+    });
+    linkify();
+  }
+</script>
+
+<style>
+  .hs { display: grid; gap: 14px; margin-top: 26px; max-width: 600px; }
+  .hs-row { display: flex; border-radius: 14px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); transition: border-color .2s; }
+  .hs-row:focus-within { border-color: var(--violet); }
+  .hs-field { flex: 1; display: flex; align-items: center; gap: 12px; padding: 0 16px; min-width: 0; }
+  .hs-field svg { width: 20px; height: 20px; color: var(--ink-3); flex: none; }
+  .hs-field input { flex: 1; min-width: 0; height: 56px; border: 0; background: none; outline: none; font: inherit; font-size: 16px; color: var(--ink); }
+  .hs-drop { flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin: auto 8px auto 0; border: 1px solid var(--line); border-radius: 12px; background: var(--accent-soft); color: var(--violet); cursor: pointer; transition: background .2s, transform .2s; }
+  .hs-drop:hover { background: var(--violet); color: var(--on-accent); }
+  .hs-drop svg { width: 20px; height: 20px; transition: transform .25s ease; }
+  .hs-drop[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .hs-sugg { max-height: 340px; overflow-y: auto; }
+  .hs-btn { border: 0; background: var(--violet); color: var(--on-accent); transition: filter .2s; }
+  .hs-btn:hover { filter: brightness(1.08); }
+  .hs-icon { width: 76px; display: grid; place-items: center; }
+  .hs-icon svg { width: 22px; height: 22px; }
+
+  .hs-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hs-act { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); text-align: left; box-shadow: var(--shadow); transition: transform .2s, border-color .2s; }
+  .hs-act:hover { transform: translateY(-2px); border-color: var(--violet); }
+  .hs-ai { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--violet); flex: none; }
+  .hs-ai svg { width: 21px; height: 21px; }
+  .hs-act b { display: block; font-size: 15px; }
+  .hs-act small { font-size: 12.5px; color: var(--ink-3); }
+  .hs-act.busy .hs-ai svg { animation: hsPulse .9s ease-in-out infinite; }
+  @keyframes hsPulse { 50% { transform: translateY(-3px); } }
+
+  /* Location drawer — left side panel on desktop (like Swiggy), bottom sheet on phones */
+  .lp-wrap { position: fixed; inset: 0; z-index: 93; }
+  .lp-wrap[hidden] { display: none; }
+  .lp-bg { position: absolute; inset: 0; background: rgba(16, 24, 40, .42); opacity: 0; transition: opacity .25s; }
+  .lp-wrap.in .lp-bg { opacity: 1; }
+  .lp-wrap .lp { position: absolute; left: 0; top: 0; bottom: 0; width: min(440px, 100%); max-height: none; overflow-y: auto; border-radius: 0 24px 24px 0; padding: 0 22px 24px; gap: 14px; transform: translateX(-100%); opacity: 1; transition: transform .32s cubic-bezier(.2,.8,.2,1); animation: none; box-shadow: 30px 0 60px -30px rgba(0,0,0,.45); border: 0; }
+  .lp-wrap.in .lp { transform: none; }
+  @media (max-width: 640px) {
+    .lp-wrap .lp { top: auto; width: 100%; max-height: 88vh; border-radius: 24px 24px 0 0; transform: translateY(100%); }
+  }  .hs-result :global(.lr-lines) { list-style: none; margin: 0; padding: 4px 0; display: grid; gap: 8px; }
+  .hs-result :global(.lr-lines li) { display: flex; gap: 10px; align-items: start; }
+  .hs-result :global(.lr-lines i) { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-style: normal; font-size: 12px; font-weight: 900; }
+  .hs-result :global(.lr-lines li.y i) { background: #DCFCE7; color: #15803D; }
+  .hs-result :global(.lr-lines li.n i) { background: #FEE4E2; color: #B42318; }
+  .hs-result :global(.lr-lines b) { display: block; color: var(--ink); font-size: 14px; }
+  .hs-result :global(.lr-lines li.n b) { color: var(--ink-3); font-weight: 600; }
+  .hs-result :global(.lr-lines small) { color: var(--ink-3); font-size: 12.5px; }
+  .lp { position: relative; display: grid; align-content: start; background: var(--surface); color: var(--ink-2); font-size: 14px; }
+  .lp-top { position: relative; margin: 0 -22px; padding: 20px 22px 18px; background: radial-gradient(260px 160px at 85% 30%, color-mix(in srgb, var(--violet) 18%, transparent), transparent 70%), linear-gradient(160deg, var(--accent-soft), var(--surface)); border-bottom: 1px solid var(--line); }
+  .lp-x { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--surface); box-shadow: 0 4px 12px -6px rgba(0,0,0,.3); color: var(--ink); cursor: pointer; }
+  .lp-x svg { width: 16px; height: 16px; }
+  .lp-hero { position: relative; display: grid; place-items: center; width: 64px; height: 64px; margin-bottom: 12px; }
+  .lp-hero i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--violet) 35%, transparent); animation: lpRing 2.4s ease-out infinite; }
+  .lp-hero i:nth-child(3) { animation-delay: .8s; } .lp-hero i:nth-child(4) { animation-delay: 1.6s; }
+  @keyframes lpRing { from { transform: scale(.45); opacity: 1; } to { transform: scale(1.25); opacity: 0; } }
+  .lp-pin { position: relative; z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--violet); color: #fff; box-shadow: 0 10px 20px -8px var(--violet); animation: lpBob 2.4s ease-in-out infinite; }
+  .lp-pin svg { width: 24px; height: 24px; }
+  @keyframes lpBob { 50% { transform: translateY(-4px); } }
+  .lp-top h3 { font-size: 22px; color: var(--ink); letter-spacing: -.01em; }
+  .lp-top p { margin-top: 4px; color: var(--ink-3); font-size: 13.5px; line-height: 1.5; padding-right: 30px; }
+  .lp-search { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 6px 0 16px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); transition: border-color .2s, box-shadow .2s; }
+  .lp-search:focus-within { border-color: var(--violet); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .lp-search > svg { width: 19px; height: 19px; color: var(--ink-3); flex: none; }
+  .lp-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 15px; color: var(--ink); }
+  .lp-go { height: 40px; padding: 0 16px; border: 0; border-radius: 11px; background: var(--violet); color: var(--on-accent); font: inherit; font-weight: 700; cursor: pointer; }
+  .lp-list { list-style: none; margin: -6px 0 0; padding: 4px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 14px; }
+  .lp-list[hidden] { display: none; }
+  .lp-list :global(button) { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 10px; background: none; text-align: left; font: inherit; cursor: pointer; }
+  .lp-list :global(button:hover) { background: var(--accent-soft); }
+  .lp-list :global(svg) { width: 16px; height: 16px; color: var(--violet); flex: none; }
+  .lp-list :global(b) { display: block; color: var(--ink); }
+  .lp-list :global(small) { color: var(--ink-3); font-size: 12px; }
+  .lp-gps { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); text-align: left; font: inherit; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+  .lp-gps:hover { border-color: var(--violet); box-shadow: 0 10px 22px -16px var(--violet); }
+  .lp-gi { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #FFF1E3; color: #FF7A00; }
+  .lp-gi svg { width: 21px; height: 21px; animation: lpSpin 6s linear infinite; }
+  @keyframes lpSpin { to { transform: rotate(360deg); } }
+  .lp-rt { flex: 1; min-width: 0; }
+  .lp-gps b { display: block; color: #E26A00; font-size: 15px; }
+  .lp-gps small { color: var(--ink-3); font-size: 12.5px; }
+  .lp-chev { width: 18px; height: 18px; color: var(--ink-3); transition: transform .2s; }
+  .lp-gps:hover .lp-chev { transform: translateX(3px); }
+  .lp :global(.lp-sec) { display: block; margin: 4px 0 8px; font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-saved, .lp-recent { display: grid; }
+  .lp-saved:empty, .lp-recent:empty { display: none; }
+  .lp-saved :global(.lp-sv) { display: flex; align-items: center; gap: 6px; padding: 2px 0; border-bottom: 1px solid var(--line); }
+  .lp-saved :global(.lp-sv:last-child) { border-bottom: 0; }
+  .lp-saved :global(.lp-sv-go) { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 10px 6px; border: 0; border-radius: 12px; background: none; text-align: left; font: inherit; cursor: pointer; }
+  .lp-saved :global(.lp-sv-go:hover) { background: var(--tint); }
+  .lp-saved :global(.lp-ri) { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--accent-soft); color: var(--violet); }
+  .lp-saved :global(.lp-ri svg) { width: 18px; height: 18px; }
+  .lp-saved :global(.lp-rt b) { display: block; color: var(--ink); font-size: 14.5px; }
+  .lp-saved :global(.lp-rt small) { display: block; color: var(--ink-3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lp-saved :global(.lp-del) { flex: none; width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--ink-3); font-size: 16px; cursor: pointer; }
+  .lp-saved :global(.lp-del:hover) { background: #FEE4E2; color: #B42318; }
+  .lp-saved :global(.lp-tip) { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--tint); color: var(--ink-3); font-size: 12.5px; }
+  .lp-saved :global(.lp-tip svg) { width: 15px; height: 15px; flex: none; }
+  .lp-recent :global(.lp-rec) { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+  .lp-recent :global(.lp-rec:last-child) { border-bottom: 0; }
+  .lp-recent :global(.lp-rec:hover) { color: var(--violet); }
+  .lp-recent :global(.lp-rec svg) { width: 16px; height: 16px; color: var(--ink-3); }
+  .lp-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .lp-pills button { padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; transition: all .2s; }
+  .lp-pills button:hover { border-color: var(--violet); color: var(--violet); background: var(--accent-soft); transform: translateY(-1px); }
+  .lp-note { display: flex; align-items: center; gap: 8px; margin: 4px 0 0; padding: 12px 14px; border-radius: 14px; background: #ECFDF3; color: #067647; font-size: 12.5px; line-height: 1.45; }
+  .lp-note svg { width: 18px; height: 18px; flex: none; }
+  @media (prefers-reduced-motion: reduce) { .lp-hero i, .lp-pin, .lp-gi svg { animation: none; } }
+  .hs-result :global(.lr-saved-ok) { display: flex !important; align-items: center; gap: 6px; margin: 0 !important; color: #15803D !important; font-size: 13px !important; font-weight: 700; }
+  .hs-result :global(.lr-saved-ok svg) { width: 16px; height: 16px; flex: none; }
+  .hs-result :global(.lr-br) { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: var(--tint); }
+  .hs-result :global(.lr-br small) { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .hs-result :global(.lr-br span) { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+  .hs-result :global(.lr-br svg) { width: 15px; height: 15px; color: var(--ink-3); flex: none; }
+  .hs-result :global(.lr-br b) { color: var(--ink); font-weight: 700; }
+  .hs-result :global(.lr-br em) { margin-left: auto; font-style: normal; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .hs-result :global(.lr-br span.near svg) { color: #FF7A00; }
+  .hs-result :global(.lr-br i) { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: #FFF1E3; color: #C2410C; }
+  .hs-result :global(.lr-ph) { display: flex; gap: 6px; }
+  .hs-result :global(.lr-ph select) { flex: none; width: 84px; height: 42px; padding: 0 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font: inherit; font-size: 14px; font-weight: 700; color: var(--ink); }
+  .hs-result :global(.lr-ph input) { flex: 1; min-width: 0; }
+  .hs-result :global(.lr-err) { grid-column: 1 / -1; margin: -2px 0 0; color: #B42318; font-size: 12.5px; font-weight: 600; }
+  .hs-result :global(.lr-err[hidden]) { display: none; }
+  .hs-result :global(.lr-more) { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .hs-result :global(.lr-tg) { display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font: inherit; font-size: 13px; font-weight: 700; color: var(--ink-2); cursor: pointer; transition: all .2s; }
+  .hs-result :global(.lr-tg svg) { width: 16px; height: 16px; color: var(--violet); flex: none; }
+  .hs-result :global(.lr-tg:hover), .hs-result :global(.lr-tg[aria-expanded='true']) { border-color: var(--violet); color: var(--violet); background: var(--accent-soft); }
+  .hs-result :global(.lr-pane) { padding: 14px; border-radius: 14px; background: var(--tint); animation: hsIn .25s ease; }
+  .hs-result :global(.lr-pane[hidden]) { display: none; }
+  .hs-result :global(.lr-pane-t) { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-3); }
+  .hs-result :global(.lr-of) { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hs-result :global(.lr-of .full) { grid-column: 1 / -1; }
+  .hs-result :global(.lr-of label) { display: grid; gap: 4px; }
+  .hs-result :global(.lr-of label span) { font-size: 11px; font-weight: 800; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
+  .hs-result :global(.lr-of input) { height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font: inherit; font-size: 14px; color: var(--ink); outline: 0; }
+  .hs-result :global(.lr-of input:focus) { border-color: var(--violet); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .hs-result :global(.lr-of .lr-btn) { justify-content: center; }
+  .hs-result :global(button.lr-btn) { cursor: pointer; font: inherit; font-weight: 700; font-size: 14px; }
+  .hs-result :global(.lr-save) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .hs-result :global(.lr-save small) { margin-right: 4px; color: var(--ink-3); font-size: 12px; font-weight: 700; }
+  .hs-result :global(.lr-save button) { padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink-2); cursor: pointer; }
+  .hs-result :global(.lr-save button:hover) { border-color: var(--violet); color: var(--violet); }
+  .hs-result :global(.lr-save button.on) { background: #DCFCE7; border-color: #86EFAC; color: #15803D; }
+  .hs-result :global(.lr-other) { border: 1px dashed var(--line); border-radius: 14px; padding: 10px 12px; background: var(--tint); }
+  .hs-result :global(.lr-other summary) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; cursor: pointer; list-style: none; }
+  .hs-result :global(.lr-other summary::-webkit-details-marker) { display: none; }
+  .hs-result :global(.lr-other summary span) { font-weight: 800; color: var(--ink); }
+  .hs-result :global(.lr-other summary small) { color: var(--ink-3); font-size: 12px; }
+  .hs-result :global(.lr-other form) { display: grid; gap: 8px; margin-top: 10px; }
+  .hs-result :global(.lr-other input) { height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font: inherit; font-size: 14px; color: var(--ink); outline: 0; }
+  .hs-result :global(.lr-other input:focus) { border-color: var(--violet); }
+  .hs-result :global(.lr-other form > small) { color: var(--ink-3); font-size: 12px; }  .hs-result { position: relative; display: grid; gap: 12px; padding: 18px 18px 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 24px 50px -28px rgba(0,0,0,.55); font-size: 14px; color: var(--ink-2); animation: hsIn .35s cubic-bezier(.2,.8,.2,1); }
+  .hs-result[hidden] { display: none; }
+  .hs-result.wait { display: flex; align-items: center; gap: 8px; padding: 14px 16px; }
+  .hs-result :global(.spin) { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border: 2px solid var(--line); border-top-color: var(--violet); border-radius: 50%; animation: spin .8s linear infinite; }
+  .hs-result :global(.lr-x) { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--tint-2); color: var(--ink-2); font-size: 18px; line-height: 1; cursor: pointer; }
+  .hs-result :global(.lr-x:hover) { background: var(--line); color: var(--ink); }
+  .hs-result :global(.lr-head) { display: flex; align-items: center; gap: 12px; padding-right: 34px; }
+  .hs-result :global(.lr-ic) { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; }
+  .hs-result :global(.lr-ic svg) { width: 22px; height: 22px; }
+  .hs-result.ok :global(.lr-ic) { background: #DCFCE7; color: #15803D; }
+  .hs-result.warn :global(.lr-ic) { background: #FFEDD5; color: #C2410C; }
+  .hs-result :global(.lr-kick) { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .hs-result.ok :global(.lr-kick) { color: #15803D; }
+  .hs-result.warn :global(.lr-kick) { color: #C2410C; }
+  .hs-result :global(.lr-title) { display: block; margin-top: 2px; font-size: 19px; color: var(--ink); line-height: 1.2; }
+  .hs-result :global(.lr-route) { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--tint); font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+  .hs-result :global(.lr-dot) { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .hs-result :global(.lr-dot::before) { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--violet); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .hs-result :global(.lr-dot.hq::before) { background: #FF7A00; box-shadow: 0 0 0 4px #FFEDD5; }
+  .hs-result :global(.lr-line) { position: relative; flex: 1; height: 2px; min-width: 40px; background: repeating-linear-gradient(90deg, var(--ink-3) 0 6px, transparent 6px 11px); opacity: .7; }
+  .hs-result :global(.lr-line i) { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 2px 8px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-style: normal; font-size: 12px; color: var(--ink); white-space: nowrap; }
+  .hs-result :global(.lr-chips) { display: flex; flex-wrap: wrap; gap: 6px; }
+  .hs-result :global(.lr-chips span) { padding: 4px 10px; border-radius: 999px; background: #DCFCE7; color: #15803D; font-size: 12.5px; font-weight: 700; }
+  .hs-result :global(.lr-text) { margin: 0; line-height: 1.55; color: var(--ink-2); }
+  .hs-result :global(.lr-acts) { display: flex; flex-wrap: wrap; gap: 8px; }
+  .hs-result :global(.lr-btn) { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 700; font-size: 14px; transition: transform .2s, filter .2s, border-color .2s; }
+  .hs-result :global(.lr-btn:hover) { transform: translateY(-1px); border-color: var(--violet); }
+  .hs-result :global(.lr-btn svg) { width: 17px; height: 17px; }
+  .hs-result :global(.lr-btn.pri) { border-color: transparent; background: var(--violet); color: var(--on-accent); }
+  .hs-result :global(.lr-btn.wa) { color: #128C4A; }
+  .hs-result :global(.lr-btn.wa.pri) { background: #25D366; color: #fff; }
+  .hs-result :global(.lr-btn.pri:hover) { filter: brightness(1.06); }
+  .hs-result :global(.lr-foot) { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 12px; color: var(--ink-3); }
+  .hs-result :global(.lr-foot span), .hs-result :global(.hs-exact) { display: inline-flex; align-items: center; gap: 5px; }
+  .hs-result :global(.lr-foot svg) { width: 14px; height: 14px; }
+  .hs-result :global(.hs-exact) { padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--violet); cursor: pointer; }
+  .hs-result :global(.hs-exact:hover) { text-decoration: underline; }
+  .hs-result.warn > :global(b) { display: block; color: var(--ink); font-size: 15px; }
+  @keyframes hsIn { from { opacity: 0; transform: translateY(6px); } }
+  .hs-result :global(.spin) { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border: 2px solid var(--line); border-top-color: var(--violet); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hs { position: relative; }
+  .hs-sugg { position: absolute; left: 0; right: 0; top: 62px; z-index: 30; display: grid; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 50px -20px rgba(0,0,0,.45); animation: hsIn .2s ease; }
+  .hs-sugg[hidden] { display: none; }
+  .hs-sugg :global(a) { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; color: var(--ink); }
+  .hs-sugg :global(a:hover), .hs-sugg :global(a.on) { background: var(--accent-soft); }
+  .hs-sugg :global(.hs-st) { font-weight: 600; font-size: 15px; }
+  .hs-sugg :global(mark) { background: none; color: var(--violet); }
+  .hs-sugg :global(small) { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+  .hs-sugg :global(.hs-none) { padding: 10px 12px; font-size: 14px; color: var(--ink-3); }  .hs-popular { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
+  .hs-popular span { font-size: 14px; font-weight: 700; color: var(--violet); margin-right: 4px; }
+  .hs-chip { padding: 8px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); font-size: 14px; color: var(--ink-2); transition: border-color .2s, color .2s; }
+  .hs-chip:hover { border-color: var(--violet); color: var(--violet); }
+  @media (max-width: 480px) { .hs-actions { grid-template-columns: 1fr; } .hs-icon { width: 56px; } }
+
+  .tr { position: fixed; inset: 0; z-index: 92; display: grid; place-items: center; padding: 16px; color: var(--ink); --g: var(--violet); --g2: var(--deep, #0f6b37); }
+  .tr[hidden] { display: none; }
+  .tr-bg { position: absolute; inset: 0; background: rgba(16, 24, 40, .32); backdrop-filter: blur(8px); opacity: 0; transition: opacity .3s; }
+  .tr.in .tr-bg { opacity: 1; }
+  .tr-card { position: relative; width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; display: grid; grid-template-columns: .9fr 1.1fr; background: var(--surface); border-radius: 28px; box-shadow: 0 50px 110px -30px rgba(0,0,0,.6); transform: translateY(26px) scale(.96); opacity: 0; transition: transform .5s cubic-bezier(.2,1.2,.3,1), opacity .3s; }
+  .tr.in .tr-card { transform: none; opacity: 1; }
+  .tr-x { position: absolute; right: 16px; top: 16px; z-index: 3; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); }
+  .tr-x svg { width: 17px; height: 17px; }
+
+  .tr-side { position: relative; overflow: hidden; padding: 32px 28px; color: var(--ink); background: radial-gradient(420px circle at 0% 0%, color-mix(in srgb, var(--violet) 14%, transparent), transparent 60%), radial-gradient(360px circle at 100% 100%, #FFE9D6, transparent 60%), linear-gradient(160deg, #F5F9FF, #EEF4FD); border-right: 1px solid var(--line); }
+  .tr-side::after { content: ''; position: absolute; right: -70px; bottom: -70px; width: 220px; height: 220px; border-radius: 50%; border: 36px solid color-mix(in srgb, var(--violet) 7%, transparent); }
+  .tr-kick { font-size: 11.5px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; color: var(--violet); }
+  .tr-side h3 { font-size: 24px; line-height: 1.15; margin: 8px 0 22px; color: var(--ink); }
+  .tr-line { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+  .tr-line::before { content: ''; position: absolute; left: 19px; top: 20px; bottom: 20px; width: 2px; background: repeating-linear-gradient(color-mix(in srgb, var(--violet) 45%, transparent) 0 5px, transparent 5px 10px); }
+  .tr-line li { position: relative; display: flex; align-items: center; gap: 14px; }
+  .tr.in .tr-line li { animation: trIn .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(.2s + var(--i) * .08s); }
+  @keyframes trIn { from { opacity: 0; transform: translateX(-14px); } }
+  .tr-dot { position: relative; z-index: 1; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #fff; color: var(--violet); border: 1.5px solid color-mix(in srgb, var(--violet) 25%, transparent); flex: none; box-shadow: 0 6px 16px -6px rgba(0,0,0,.4); animation: trGlow 5s infinite; animation-delay: calc(var(--i) * 1s); }
+  .tr-dot :global(svg) { width: 19px; height: 19px; }
+  @keyframes trGlow { 0%, 12% { box-shadow: 0 0 0 0 rgba(255,255,255,.7), 0 6px 16px -6px rgba(0,0,0,.4); transform: scale(1.08); } 20%, 100% { box-shadow: 0 0 0 12px rgba(255,255,255,0), 0 6px 16px -6px rgba(0,0,0,.4); transform: none; } }
+  .tr-line b { display: block; font-size: 14.5px; color: var(--ink); }
+  .tr-line small { font-size: 12.5px; color: var(--ink-3); }
+  .tr-runner { position: absolute; left: 15px; top: 16px; width: 10px; height: 10px; border-radius: 50%; background: #FF7A00; box-shadow: 0 0 0 4px #FFE4CC, 0 0 12px #FF9A3D; animation: trRun 5s ease-in-out infinite; z-index: 0; }
+  @keyframes trRun { 0% { top: 16px; } 100% { top: calc(100% - 26px); } }
+
+  .tr-main { display: flex; flex-direction: column; gap: 14px; padding: 36px 32px 30px; }
+  .tr-pill { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #E8FAF0; color: #0F7A3C; font-size: 12.5px; font-weight: 700; }
+  .tr-pill i { width: 8px; height: 8px; border-radius: 50%; background: #25d366; animation: trBlink 1.4s infinite; }
+  @keyframes trBlink { 50% { opacity: .3; } }
+  .tr-main h2 { font-size: 30px; letter-spacing: -.02em; }
+  .tr-main > p { font-size: 14.5px; color: var(--ink-2); }
+  .tr-tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 14px; background: var(--tint-2); }
+  .tr-tabs button { height: 42px; border: 0; border-radius: 10px; background: none; font-weight: 700; font-size: 14px; color: var(--ink-2); transition: all .2s; }
+  .tr-tabs button[aria-selected='true'] { background: var(--surface); color: var(--g2); box-shadow: 0 4px 12px -6px rgba(0,0,0,.25); }
+  .tr-form { display: grid; gap: 12px; }
+  .tr-field { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); transition: border-color .2s, box-shadow .2s; }
+  .tr-field[hidden] { display: none; }
+  .tr-field:focus-within { border-color: var(--g); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .tr-field svg { width: 20px; height: 20px; color: var(--ink-3); flex: none; }
+  .tr-cc { position: relative; display: inline-flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--line); font-weight: 700; color: var(--ink-2); cursor: pointer; }
+  .tr-cc svg { width: 13px !important; height: 13px !important; }
+  .tr-cc select { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .tr-field input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font: inherit; font-size: 16px; color: var(--ink); }
+  .tr-go { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 12px; height: 58px; border: 0; border-radius: 14px; background: linear-gradient(180deg, color-mix(in srgb, var(--violet) 85%, white), var(--violet)); color: #fff; font-size: 17px; font-weight: 700; box-shadow: 0 14px 28px -14px rgba(15,122,60,.9); transition: transform .2s; }
+  .tr-go:hover { transform: translateY(-2px); }
+  .tr-go > svg:first-child { width: 22px; height: 22px; }
+  .tr-go .arr { width: 18px; height: 18px; transition: transform .2s; }
+  .tr-go:hover .arr { transform: translateX(4px); }
+  .tr-go::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent); transform: skewX(-20deg); animation: trShine 3s ease-in-out infinite; }
+  @keyframes trShine { 0%, 55% { left: -60%; } 100% { left: 140%; } }
+  .tr-msg { font-size: 13px; min-height: 1em; }
+  .tr-msg.err { color: #be123c; }
+  .tr-msg.ok { color: var(--g); }
+  .tr-help { align-self: flex-start; font-size: 14px; font-weight: 700; color: var(--g2); }
+  @media (max-width: 720px) { .tr-card { grid-template-columns: 1fr; } .tr-side { padding: 24px; } .tr-line { gap: 10px; } .tr-main { padding: 24px; } }
+  @media (prefers-reduced-motion: reduce) { .tr-dot, .tr-runner, .tr-go::after, .tr-pill i { animation: none; } }</style>

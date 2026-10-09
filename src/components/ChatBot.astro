@@ -1,0 +1,217 @@
+---
+// Floating WhatsApp button + a simple scripted help bot (no AI, no server).
+// Answers come only from the site's own data; anything else hands off to WhatsApp.
+import { site, price } from '../data/site';
+import { categories } from '../data/devices';
+import { coverage } from '../data/coverage';
+
+const tel = site.phone.tel.replace('+', '');
+const wa = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
+const areas = [...new Set(Object.values(coverage).flatMap((m) => m.zones.flatMap((z) => z.areas)))];
+const kb = {
+  devices: categories.map((c) => ({ id: c.id, name: c.name, issues: c.issues })),
+  areas,
+  branches: site.branches,
+  phone: site.phone.display,
+  email: site.email,
+  price: price(),
+  doorstepEta: coverage.doorstep.eta,
+  pickupEta: coverage.pickup.eta,
+};
+const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>';
+---
+
+<div class="fab" data-fab data-kb={JSON.stringify(kb)} data-tel={tel}>
+  <a class="fab-wa" href={wa('Hello Danat Fix — I need help with a repair.')} target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
+    <Fragment set:html={waIcon} />
+    <span class="fab-tip">WhatsApp us</span>
+  </a>
+
+  <button type="button" class="fab-bot" data-bot-toggle aria-expanded="false" aria-label="Open help assistant"><span class="fab-tip">Ask us anything</span>
+    <span class="bot-face" aria-hidden="true">
+      <svg viewBox="0 0 32 32"><path d="M16 5C9.4 5 4 9.6 4 15.3c0 3 1.5 5.7 3.9 7.6L7 27.5l5-2.6c1.2.3 2.6.5 4 .5 6.6 0 12-4.6 12-10.3S22.6 5 16 5z" fill="#fff"/><circle class="d d1" cx="10.8" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d2" cx="16" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d3" cx="21.2" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><path class="spark" d="M26 2l.9 2.1L29 5l-2.1.9L26 8l-.9-2.1L23 5l2.1-.9z" fill="#ffd96a"/></svg>
+    </span>
+    <span class="fab-x" aria-hidden="true">×</span>
+    <span class="fab-badge" data-bot-badge>1</span>
+  </button>
+
+  <section class="bot" data-bot hidden aria-label="Danat Fix assistant">
+    <header class="bot-head">
+      <span class="bot-av"><svg viewBox="0 0 32 32"><path d="M16 5C9.4 5 4 9.6 4 15.3c0 3 1.5 5.7 3.9 7.6L7 27.5l5-2.6c1.2.3 2.6.5 4 .5 6.6 0 12-4.6 12-10.3S22.6 5 16 5z" fill="#fff"/><circle class="d d1" cx="10.8" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d2" cx="16" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d3" cx="21.2" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><path class="spark" d="M26 2l.9 2.1L29 5l-2.1.9L26 8l-.9-2.1L23 5l2.1-.9z" fill="#ffd96a"/></svg></span>
+      <div><b>Danat Fix Assistant</b><small>Automated help · replies instantly</small></div>
+      <button type="button" class="bot-close" data-bot-toggle aria-label="Close">×</button>
+    </header>
+    <div class="bot-log" data-bot-log aria-live="polite"></div>
+    <div class="bot-chips" data-bot-chips></div>
+    <form class="bot-input" data-bot-form>
+      <input name="q" placeholder="Ask about a repair, area or price…" autocomplete="off" aria-label="Your question" />
+      <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
+    </form>
+  </section>
+</div>
+
+<script>
+  const fab = document.querySelector<HTMLElement>('[data-fab]');
+  if (fab) {
+    const kb = JSON.parse(fab.dataset.kb!);
+    const tel = fab.dataset.tel!;
+    const bot = fab.querySelector<HTMLElement>('[data-bot]')!;
+    const log = fab.querySelector<HTMLElement>('[data-bot-log]')!;
+    const chips = fab.querySelector<HTMLElement>('[data-bot-chips]')!;
+    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    const wa = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
+    const norm = (s: string) => s.toLowerCase().trim();
+    let started = false;
+
+    const say = (html: string, who: 'bot' | 'me' = 'bot') => {
+      const el = document.createElement('div');
+      el.className = `msg ${who}`;
+      el.innerHTML = html;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    };
+    const typing = (then: () => void) => {
+      const t = document.createElement('div');
+      t.className = 'msg bot typing'; t.innerHTML = '<i></i><i></i><i></i>';
+      log.appendChild(t); log.scrollTop = log.scrollHeight;
+      setTimeout(() => { t.remove(); then(); }, 650);
+    };
+    const setChips = (list: [string, string][]) => {
+      chips.innerHTML = list.map(([label, act]) => `<button type="button" data-act="${esc(act)}">${esc(label)}</button>`).join('');
+    };
+    const waBtn = (msg: string, label = 'Continue on WhatsApp') => `<a class="bot-wa" href="${wa(msg)}" target="_blank" rel="noopener">${label} →</a>`;
+    const menu = () => setChips([['🔧 Book a repair', 'book'], ['📍 Do you cover my area?', 'area'], ['💰 Prices', 'price'], ['⏱ How long?', 'time'], ['🏢 Branches & contact', 'contact'], ['👤 Talk to a person', 'human']]);
+
+    const answer = (act: string, text = '') => {
+      if (act === 'book') {
+        say('Great! Which device needs fixing?');
+        setChips(kb.devices.map((d: any) => [d.name, `dev:${d.id}`]));
+      } else if (act.startsWith('dev:')) {
+        const d = kb.devices.find((x: any) => x.id === act.slice(4));
+        say(`What's the problem with your <b>${esc(d.name)}</b>?`);
+        setChips(d.issues.slice(0, 8).map((i: string) => [i, `iss:${d.id}:${i}`]));
+      } else if (act.startsWith('iss:')) {
+        const [, id, iss] = act.split(':');
+        const d = kb.devices.find((x: any) => x.id === id);
+        say(`Got it — <b>${esc(iss)}</b> for ${esc(d.name)}. Estimate: <b>${kb.price}</b>. Tap below and your booking message is ready to send.<br>${waBtn(`Hi Danat Fix, I want to book ${iss} for my ${d.name}.`, 'Book on WhatsApp')}`);
+        menu();
+      } else if (act === 'area') {
+        say('Type your area name below (for example <i>Qurum</i> or <i>Sohar</i>) and I\'ll check.');
+        setChips([['⬅ Back to menu', 'menu']]);
+        (fab.querySelector('[data-bot-form] input') as HTMLInputElement).focus();
+      } else if (act === 'price') {
+        say(`Pricing isn't published yet — every estimate on the site shows <b>${kb.price}</b> for now. Our team confirms the price before any work starts.`);
+        menu();
+      } else if (act === 'time') {
+        say(`<b>Doorstep:</b> ${esc(kb.doorstepEta)}.<br><b>Pickup:</b> ${esc(kb.pickupEta)}.`);
+        menu();
+      } else if (act === 'contact') {
+        say(`We have branches in <b>${kb.branches.join(', ')}</b>.<br>📞 <a href="tel:${esc(kb.phone.replace(/\s/g, ''))}">${esc(kb.phone)}</a><br>✉️ <a href="mailto:${esc(kb.email)}">${esc(kb.email)}</a>`);
+        menu();
+      } else if (act === 'human') {
+        say(`Sure — our team replies on WhatsApp.<br>${waBtn('Hello Danat Fix, I would like to talk to someone about a repair.')}`);
+        menu();
+      } else if (act === 'menu') {
+        say('How else can I help?'); menu();
+      } else {
+        // free text
+        const q = norm(text);
+        const area = kb.areas.find((a: string) => q.includes(norm(a)) || norm(a).includes(q) && q.length > 2);
+        const dev = kb.devices.find((d: any) => q.includes(norm(d.name).split(/[\s&]/)[0]) || d.issues.some((i: string) => q.includes(norm(i).split(' ')[0]) && q.length > 3));
+        if (area) { say(`✅ Yes, we cover <b>${esc(area)}</b>. Want to book a repair there?`); setChips([['🔧 Book a repair', 'book'], ['⬅ Menu', 'menu']]); }
+        else if (/price|cost|how much|rate|fee/.test(q)) answer('price');
+        else if (/time|long|when|today|fast/.test(q)) answer('time');
+        else if (/branch|address|where|phone|call|contact|email/.test(q)) answer('contact');
+        else if (dev) answer(`dev:${dev.id}`);
+        else { say(`I'm not sure about that one — our team can help on WhatsApp.<br>${waBtn(`Hello Danat Fix, ${text}`)}`); menu(); }
+      }
+    };
+
+    chips.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-act]');
+      if (!b) return;
+      say(esc(b.textContent!), 'me');
+      typing(() => answer(b.dataset.act!));
+    });
+    fab.querySelector<HTMLFormElement>('[data-bot-form]')!.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const inp = (e.target as HTMLFormElement).elements.namedItem('q') as HTMLInputElement;
+      const v = inp.value.trim(); if (!v) return;
+      inp.value = '';
+      say(esc(v), 'me');
+      typing(() => answer('text', v));
+    });
+
+    const toggle = () => {
+      const open = bot.hidden;
+      bot.hidden = !open;
+      fab.classList.toggle('open', open);
+      fab.querySelectorAll('[data-bot-toggle]').forEach((b) => b.setAttribute('aria-expanded', String(open)));
+      fab.querySelector<HTMLElement>('[data-bot-badge]')!.hidden = true;
+      if (open && !started) {
+        started = true;
+        typing(() => { say('Hi 👋 I\'m the Danat Fix assistant. I can help you book a repair, check your area or find a branch.'); menu(); });
+      }
+    };
+    fab.querySelectorAll('[data-bot-toggle]').forEach((b) => b.addEventListener('click', toggle));
+  }
+</script>
+
+<style>
+  .fab { position: fixed; right: 18px; bottom: 22px; z-index: 64; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; --g: var(--violet); --g2: var(--deep, #0f6b37); }
+  .fab-wa, .fab-bot { position: relative; display: grid; place-items: center; width: 58px; height: 58px; border: 0; border-radius: 50%; color: #fff; box-shadow: 0 12px 28px -8px rgba(0,0,0,.4); transition: transform .2s; }
+  .fab-wa:hover, .fab-bot:hover { transform: scale(1.07); }
+  .fab-wa { background: #25d366; }
+  .fab-wa :global(svg) { width: 32px; height: 32px; }
+  .fab-wa::after { content: ''; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 0 rgba(37,211,102,.55); animation: fabPulse 2.4s infinite; }
+  @keyframes fabPulse { 70% { box-shadow: 0 0 0 16px rgba(37,211,102,0); } 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0); } }
+  .fab-tip { position: absolute; right: 70px; padding: 7px 12px; border-radius: 10px; background: #16211b; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; opacity: 0; transform: translateX(8px); transition: opacity .2s, transform .2s; pointer-events: none; }
+  .fab-wa:hover .fab-tip, .fab-bot:hover .fab-tip { opacity: 1; transform: none; }
+  .fab.open .fab-bot .fab-tip { display: none; }
+  .fab-bot { background: linear-gradient(145deg, var(--g), var(--g2)); }
+  .bot-face { width: 32px; height: 32px; animation: botBob 3s ease-in-out infinite; transition: opacity .25s, transform .25s; }
+  .bot-face svg { width: 100%; height: 100%; }
+  .bot-face .d, .bot-av .d { animation: typeDot 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  .bot-face .d2, .bot-av .d2 { animation-delay: .15s; } .bot-face .d3, .bot-av .d3 { animation-delay: .3s; }
+  @keyframes typeDot { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-2.5px); } }
+  .spark { animation: spark 2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes spark { 50% { transform: scale(1.4) rotate(45deg); opacity: .6; } }
+  @keyframes botBob { 50% { transform: translateY(-3px) rotate(-4deg); } }
+  @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+  .fab-x { position: absolute; font-size: 30px; line-height: 1; opacity: 0; transform: rotate(-90deg); transition: all .25s; }
+  .fab.open .bot-face { opacity: 0; transform: scale(.5); }
+  .fab.open .fab-x { opacity: 1; transform: none; }
+  .fab-badge { position: absolute; right: -2px; top: -2px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #e0362c; font-size: 11px; font-weight: 800; box-shadow: 0 0 0 2px #fff; }
+  .fab-badge[hidden] { display: none; }
+
+  .bot { position: absolute; right: 70px; bottom: 0; width: min(370px, calc(100vw - 110px)); height: min(540px, calc(100vh - 140px)); display: flex; flex-direction: column; background: #fff; color: #16211b; border-radius: 24px; overflow: hidden; box-shadow: 0 30px 70px -20px rgba(0,0,0,.45); transform-origin: bottom right; animation: botIn .35s cubic-bezier(.2,1.2,.3,1); }
+  .bot[hidden] { display: none; }
+  @keyframes botIn { from { opacity: 0; transform: scale(.85) translateY(10px); } }
+  .bot-head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; background: linear-gradient(135deg, var(--g), var(--g2)); color: #fff; }
+  .bot-av { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,.18); }
+  .bot-av svg { width: 28px; height: 28px; }
+  .bot-head b { display: block; font-size: 16px; }
+  .bot-head small { font-size: 12px; opacity: .85; }
+  .bot-close { margin-left: auto; width: 32px; height: 32px; border: 0; border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; font-size: 20px; line-height: 1; }
+  .bot-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 16px; background: #f4f7f5; }
+  .bot-log :global(.msg) { max-width: 86%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.45; animation: msgIn .3s ease; }
+  .bot-log :global(.msg.bot) { align-self: flex-start; background: #fff; border-bottom-left-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  .bot-log :global(.msg.me) { align-self: flex-end; background: var(--g); color: #fff; border-bottom-right-radius: 4px; }
+  .bot-log :global(.msg a) { color: var(--g2); font-weight: 700; }
+  .bot-log :global(.bot-wa) { display: inline-block; margin-top: 8px; padding: 8px 14px; border-radius: 999px; background: #25d366; color: #fff !important; }
+  .bot-log :global(.typing) { display: flex; gap: 4px; padding: 12px 14px; }
+  .bot-log :global(.typing i) { width: 7px; height: 7px; border-radius: 50%; background: #9aa6a0; animation: dot 1s infinite; }
+  .bot-log :global(.typing i:nth-child(2)) { animation-delay: .15s; }
+  .bot-log :global(.typing i:nth-child(3)) { animation-delay: .3s; }
+  @keyframes dot { 50% { transform: translateY(-4px); opacity: .5; } }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } }
+  .bot-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; max-height: 128px; overflow-y: auto; background: #f4f7f5; border-top: 1px solid #e5ebe7; }
+  .bot-chips :global(button) { padding: 7px 12px; border: 1px solid #cfe5d6; border-radius: 999px; background: #fff; color: var(--g2); font-size: 13px; font-weight: 600; }
+  .bot-chips :global(button:hover) { background: #e8f6ec; }
+  .bot-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid #e5ebe7; }
+  .bot-input input { flex: 1; min-width: 0; height: 42px; padding: 0 14px; border: 1px solid #dfe5e1; border-radius: 999px; outline: none; font: inherit; font-size: 14px; }
+  .bot-input input:focus { border-color: var(--g); }
+  .bot-input button { display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--g); color: #fff; }
+  .bot-input button svg { width: 18px; height: 18px; }
+  @media (max-width: 560px) { .bot { right: 0; bottom: 70px; width: calc(100vw - 36px); } }
+</style>

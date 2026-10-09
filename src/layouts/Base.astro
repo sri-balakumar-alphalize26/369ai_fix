@@ -1,0 +1,447 @@
+---
+import '../styles/global.css';
+import { site, nav, price } from '../data/site';
+import MegaMenu from '../components/MegaMenu.astro';
+import Popups from '../components/Popups.astro';
+import LocalCurrency from '../components/LocalCurrency.astro';
+import BrandSwitch from '../components/BrandSwitch.astro';
+import ShadePicker from '../components/ShadePicker.astro';
+import Engage from '../components/Engage.astro';
+import ChatBot from '../components/ChatBot.astro';
+import CartDrawer from '../components/CartDrawer.astro';
+import { categories } from '../data/devices';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description = `${site.tagline} — screens, batteries and more for every major phone brand.` } = Astro.props;
+const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — ${site.tagline}`;
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+// Services mega menu. Every link lands on the Services page — the site stays three pages.
+---
+
+<!doctype html>
+<html lang="en" data-theme="danat" data-menu="1" data-reviews="1">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon-danat.png" type="image/png" data-favicon />
+    <link rel="apple-touch-icon" href="/favicon-danat.png" data-favicon />
+    <link rel="preload" href="/fonts/schibsted.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/jakarta.woff2" as="font" type="font/woff2" crossorigin />
+    <script is:inline>
+      (() => {
+        // Brand (Danat Fix default, or 369 ai Fix) - set before paint so the right logo shows first
+        let br = new URLSearchParams(location.search).get('brand');
+        try { localStorage.removeItem('brand'); } catch {} // every visit opens as Danat Fix; only a ?brand=369 link starts on 369
+        document.documentElement.dataset.brand = br === '369' ? '369' : 'danatfix';
+        // browser-tab icon follows the brand
+        document.querySelectorAll('link[data-favicon]').forEach((l) => l.setAttribute('href', br === '369' ? '/favicon-369.png' : '/favicon-danat.png'));
+        let sh = new URLSearchParams(location.search).get('shade');
+        try { if (sh && /^(0|[1-9]|1[0-4]|2[1-8]|3[2-7])$/.test(sh)) localStorage.setItem('shade', sh); else sh = localStorage.getItem('shade'); } catch {}
+        if (sh && /^([1-9]|1[0-4]|2[1-8]|3[2-7])$/.test(sh)) document.documentElement.dataset.shade = sh;
+        // Theme picker removed: always the default green, menu 1, reviews 1, slot popup.
+        try { ['theme', 'menu', 'reviews', 'welcome-popup'].forEach((k) => localStorage.removeItem(k)); } catch {}
+      })();
+    </script>
+  </head>
+  <body>
+    <Popups />
+    <LocalCurrency />
+    <Engage />
+    <ChatBot />
+    <CartDrawer />
+    <div class="aurora" aria-hidden="true">
+      <span class="orb o1"></span>
+      <span class="grid"></span>
+    </div>
+
+    <header class="nav">
+      <div class="wrap nav-inner glass">
+        <BrandSwitch />
+        <nav aria-label="Main">
+          <ul>
+            {nav.map((n) => n.href === '/services' ? (
+              <li class="has-mega">
+                <a href={n.href} aria-current={path === n.href ? 'page' : undefined} aria-haspopup="true">
+                  {n.label}
+                  <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </a>
+                <div class="mega"><MegaMenu /></div>
+              </li>
+            ) : (
+              <li>
+                <a href={n.href} aria-current={path === n.href ? 'page' : undefined}>{n.label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <button type="button" class="loc-chip" data-loc-chip title="Choose your location">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+          <span class="loc-tx"><small data-loc-state>Your location</small><b data-loc-name>Select location</b></span>
+          <svg class="loc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>        <ShadePicker />
+        <a href="/services#catalog" class="nav-search" aria-label="Search devices and models"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a>
+        <button type="button" class="nav-cart" data-cart-open aria-label="Open cart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1l1.8-7.3H6"/><circle cx="9.5" cy="19.8" r="1.4"/><circle cx="17" cy="19.8" r="1.4"/></svg><b data-cart-count hidden>0</b></button>
+        <a href="/services#catalog" class="btn btn-primary nav-cta">Book a repair</a>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="footer">
+      <div class="wrap ft-grid">
+        <div class="ft-about">
+          <a href="/" class="logo foot-logo" aria-label={site.name} data-no-brand><img class="logo-369" data-for="danatfix" src="/brand/danat-fix-mark.png" alt="Danat Fix" width="196" height="200" loading="lazy" /><img class="logo-369" data-for="369" src="/brand/369-ai-fix-mark.png" alt="369 ai Fix" width="257" height="200" loading="lazy" /></a>
+          <p class="ft-desc">{site.tagline}. Phones, laptops, printers, CCTV and Wi-Fi — repaired at your door or picked up and brought back, across {site.country} since {site.since}.</p>
+          <ul class="ft-contact">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg><a href={`tel:${site.phone.tel}`}>{site.phone.display}</a></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><a href={`mailto:${site.email}`}>{site.email}</a></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg><a href="/#check-location">Check if we cover your area</a><em class="ft-tag">Doorstep</em></li>
+          </ul>
+          <p class="ft-h">Follow us</p>
+          <ul class="ft-icons">
+            <li><a href={site.social.facebook} target="_blank" rel="noopener" aria-label="Facebook" style="--c:#1877F2"><i style="--m:url(/brand/ai/facebook.svg)"></i></a></li>
+            <li><a href={site.social.instagram} target="_blank" rel="noopener" aria-label="Instagram" style="--c:#E4405F"><i style="--m:url(/brand/ai/instagram.svg)"></i></a></li>
+            <li><a href={`https://wa.me/${site.whatsapp}`} target="_blank" rel="noopener" aria-label="WhatsApp" style="--c:#25D366"><i style="--m:url(/brand/ai/whatsapp.svg)"></i></a></li>
+          </ul>
+        </div>
+        <div class="ft-col" role="navigation" aria-label="Services">
+          <p class="ft-h">Services</p>
+          <ul>{categories.map((c) => <li><a href="/services#all">{c.name}</a></li>)}</ul>
+        </div>
+        <div class="ft-col" role="navigation" aria-label="Quick links">
+          <p class="ft-h">Quick links</p>
+          <ul>
+            {nav.map((n) => <li><a href={n.href}>{n.label}</a></li>)}
+            <li><a href="/services#catalog">Get an estimate</a></li>
+            <li><a href="/#check-location">Check location</a></li>
+            <li><a href={`https://wa.me/${site.whatsapp}`} target="_blank" rel="noopener">Book on WhatsApp</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="wrap ft-offices">
+        <p class="ft-h">Our branches</p>
+        <ul class="ft-branches">
+          {site.branchInfo.map((b) => (
+            <li>
+              <b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>Oman — {b.name}</b>
+              <address>{b.lines.map((l) => <>{l}<br /></>)}</address>
+              <span class="ft-tels">{b.phones.map((p) => <a class="ft-tel" href={`tel:${p.replace(/\s/g, '')}`}>{p}</a>)}</span>
+              <a class="ft-dir" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.map)}`} target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>Get directions</a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div class="wrap ft-base">
+        <span>© {new Date().getFullYear()} {site.name}. All rights reserved. · Estimates shown as {price()} — pricing to be announced.</span>
+        <span>Site developed and maintained by <a class="ft-dev" href="https://alphalize.com" target="_blank" rel="noopener">alphalize</a></span>
+      </div>
+    </footer>
+
+    <script>
+      // Count-up numbers, site-wide: any <b data-count="12" data-from="0" data-suffix="+"> counts up the
+      // first time it scrolls into view. The final value is already in the HTML, so nothing breaks without JS.
+      // window.__countUp(el) replays it (used when a panel with a number is shown).
+      {
+        const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const countUp = (el: HTMLElement) => {
+          const to = Number(el.dataset.count), from = Number(el.dataset.from ?? 0), sfx = el.dataset.suffix ?? '';
+          if (still || !Number.isFinite(to)) { el.textContent = to + sfx; return; }
+          const t0 = performance.now(), D = 2000;
+          el.classList.add('counting');
+          const step = (now: number) => {
+            const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 2);
+            el.textContent = Math.round(from + (to - from) * e) + sfx;
+            if (k < 1) requestAnimationFrame(step); else { el.classList.remove('counting'); el.classList.add('counted'); setTimeout(() => el.classList.remove('counted'), 600); }
+          };
+          el.textContent = from + sfx; requestAnimationFrame(step);
+        };
+        (window as any).__countUp = countUp;
+        // replays every time the number scrolls back into view (up or down); armed again once it leaves
+        const armed = new WeakSet<Element>();
+        const io = new IntersectionObserver((es) => es.forEach((e) => {
+          if (e.isIntersecting && e.intersectionRatio >= .6) { if (!armed.has(e.target)) { armed.add(e.target); countUp(e.target as HTMLElement); } }
+          else if (!e.isIntersecting) armed.delete(e.target);
+        }), { threshold: [0, .6] });
+        document.querySelectorAll<HTMLElement>('[data-count]').forEach((el) => io.observe(el));
+      }
+
+      // Header location chip (like "Deliver to" on shopping sites): shows the last checked area,
+      // opens the location picker on Home, or goes Home and opens it from other pages.
+      const chip = document.querySelector<HTMLButtonElement>('[data-loc-chip]');
+      if (chip) {
+        const nameEl = chip.querySelector('[data-loc-name]')!;
+        const stateEl = chip.querySelector('[data-loc-state]')!;
+        // the small line says whether we actually serve there — never "Service at" a place we don't cover
+        const paint = (v: { name?: string; covered?: boolean } | null) => {
+          if (!v?.name) return;
+          nameEl.textContent = v.name; stateEl.textContent = v.covered ? 'We serve here' : 'Outside our area';
+          chip.classList.toggle('ok', !!v.covered); chip.classList.toggle('no', !v.covered);
+          chip.title = v.covered ? `Doorstep service available in ${v.name}` : `${v.name} is outside our service area — tap to change`;
+        };
+        try { paint(JSON.parse(localStorage.getItem('svc-loc') || 'null')); } catch {}
+        window.addEventListener('svc-loc', (e) => paint((e as CustomEvent).detail));
+        chip.addEventListener('click', () => { const open = (window as any).__openLocation; if (open) open(); else location.href = '/#check-location'; });
+      }
+      const io = new IntersectionObserver(
+        (entries) => entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+        }),
+        { threshold: 0.12, rootMargin: '0px 0px -40px 0px' },
+      );
+      document.querySelectorAll('[data-reveal]').forEach((el) => io.observe(el));
+
+      const nav = document.querySelector('.nav');
+      const onScroll = () => nav?.classList.toggle('scrolled', window.scrollY > 12);
+      onScroll();
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      // Services menu. Opens on hover, but not when a page loads with the
+      // pointer already over it (arms after the pointer has been outside once);
+      // closes on click. Inside the visible style, hovering a device ([data-d])
+      // swaps the matching panels ([data-dp]) after a short hover intent.
+      const megaLi = document.querySelector<HTMLElement>('.has-mega');
+      if (megaLi) {
+        let t = 0;
+        let armed = false;
+        const close = () => { clearTimeout(t); megaLi.classList.remove('open'); };
+        document.addEventListener('pointermove', (e) => { if (!megaLi.contains(e.target as Node)) armed = true; }, { passive: true });
+        megaLi.addEventListener('pointerenter', () => { if (!armed) return; clearTimeout(t); t = window.setTimeout(() => megaLi.classList.add('open'), 60); });
+        megaLi.addEventListener('pointerleave', () => { clearTimeout(t); t = window.setTimeout(close, 160); });
+        megaLi.addEventListener('focusin', () => megaLi.classList.add('open'));
+        megaLi.addEventListener('focusout', (e) => { if (!megaLi.contains(e.relatedTarget as Node)) close(); });
+        megaLi.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+        megaLi.querySelectorAll<HTMLElement>('[data-mv]').forEach((mv) => {
+          const items = mv.querySelectorAll<HTMLElement>('[data-d]');
+          const show = (id: string) => {
+            items.forEach((x) => x.classList.toggle('on', x.dataset.d === id));
+            mv.querySelectorAll<HTMLElement>('[data-dp]').forEach((x) => x.classList.toggle('on', x.dataset.dp === id));
+          };
+          let dt = 0;
+          items.forEach((x) => {
+            x.addEventListener('pointerenter', () => { clearTimeout(dt); dt = window.setTimeout(() => { if (x.matches(':hover')) show(x.dataset.d!); }, 90); });
+            x.addEventListener('pointerleave', () => clearTimeout(dt));
+            x.addEventListener('focus', () => show(x.dataset.d!));
+          });
+        });
+        megaLi.querySelectorAll('.mega a').forEach((a) => a.addEventListener('click', () => {
+          close();
+          armed = false;
+          (document.activeElement as HTMLElement | null)?.blur();
+        }));
+      }
+
+    </script>
+  </body>
+</html>
+
+<style>
+  .aurora {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(110px);
+    opacity: .35;
+    animation: drift 22s ease-in-out infinite alternate;
+  }
+  .o1 { width: 40vw; height: 40vw; right: -8vw; top: -12vw; background: var(--glow); }
+  @keyframes drift {
+    to { transform: translate3d(6vw, 4vh, 0) scale(1.12); }
+  }
+  .grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(rgba(15, 27, 45, .09) 1px, transparent 1.4px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse at 50% 0%, #000 20%, transparent 70%);
+  }
+
+  /* Default green theme: engineering grid like the hero mockup */
+  :global(:root:not([data-theme])) .grid {
+    background-image:
+      linear-gradient(rgba(47, 208, 127, .06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(47, 208, 127, .06) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(#000, transparent 85%);
+  }
+  :global(:root:not([data-theme])) .nav-inner { background: rgba(13, 28, 23, .85); border-color: rgba(255,255,255,.08); backdrop-filter: blur(12px); }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    padding: 14px 0;
+    transition: padding .3s;
+  }
+  .nav.scrolled { padding: 8px 0; }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 10px 10px 10px 20px;
+    border-radius: 999px;
+    background: var(--surface);
+  }
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: 21px;
+    letter-spacing: -.02em;
+  }
+  .logo-mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--grad);
+    color: var(--on-accent);
+  }
+  .logo-mark svg { width: 22px; height: 22px; }
+  .logo-369 { display: block; height: 72px; width: auto; margin-block: -8px; }
+  .foot-logo .logo-369 { display: none; }
+  :global(:root[data-brand='danatfix']) .foot-logo [data-for='danatfix'], :global(:root[data-brand='369']) .foot-logo [data-for='369'] { display: block; }
+  .logo-369.on-dark { height: 96px; padding: 8px 12px; border-radius: 14px; background: #fff; }
+  @media (max-width: 560px) { .logo-369 { height: 48px; } }
+  .logo-img img { display: block; width: 40px; height: 40px; border-radius: 10px; background: #fff; object-fit: contain; }
+  .contact { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 6px; font-size: 14px; color: rgba(255,255,255,.75); }
+  .contact a:hover { color: #fff; text-decoration: underline; }
+  nav { margin-left: auto; }
+  /* wide screens: logo sits left of the bar, so the menu starts at the bar's own left edge (no empty gap) */
+  /* menu sits right after the logo (no empty gap); action buttons stay on the right */
+  @media (min-width: 1101px) { nav { margin-left: 8px; } .nav-inner > .loc-chip { margin-left: auto; } }
+  @media (min-width: 1480px) { nav { margin-left: 0; } .nav-inner { padding-left: 14px; } }
+  nav ul { display: flex; gap: 4px; list-style: none; margin: 0; padding: 0; }
+  nav a {
+    display: block;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 15px;
+    color: var(--ink-2);
+    transition: color .2s, background .2s;
+  }
+  nav a:hover { color: var(--ink); }
+  nav a[aria-current='page'] { color: var(--violet); background: var(--accent-soft); font-weight: 600; }
+  .nav-cta { padding: 11px 20px; }
+
+  @media (max-width: 720px) {
+    .nav-inner { flex-wrap: wrap; border-radius: 22px; gap: 8px; padding: 10px 12px; }
+    nav { order: 3; width: 100%; margin: 0; }
+    nav ul { justify-content: space-between; }
+    nav a { padding: 8px 10px; font-size: 14px; }
+    .nav-cta { margin-left: auto; padding: 9px 14px; font-size: 14px; }
+  }
+
+  /* footer — light, columns like the Alphalize / 369 footers */
+  .footer { margin-top: 40px; background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--violet) 5%, var(--surface))); color: var(--ink-2); border-top: 1px solid var(--line); border-radius: 32px 32px 0 0; }
+  .ft-grid { display: grid; grid-template-columns: minmax(280px, 1.4fr) 1fr 1fr; gap: 40px 56px; padding: 56px 0 36px; }
+  .ft-about .foot-logo img { height: 72px; width: auto; }
+  .ft-desc { margin: 14px 0 18px; max-width: 46ch; font-size: 14.5px; line-height: 1.6; color: var(--ink-2); }
+  .ft-contact, .ft-col ul, .ft-icons, .ft-branches { list-style: none; margin: 0; padding: 0; }
+  .ft-contact { display: grid; gap: 12px; }
+  .ft-contact li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; }
+  .ft-contact svg, .ft-branches svg { width: 18px; height: 18px; flex: none; color: var(--violet); }
+  .ft-tag { font-style: normal; padding: 2px 9px; border-radius: 999px; background: #22C55E; color: #fff; font-size: 11.5px; font-weight: 800; }
+  .ft-h { margin: 26px 0 12px; font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .ft-col .ft-h { margin-top: 6px; }
+  .ft-col ul { display: grid; gap: 11px; }
+  .ft-col a { position: relative; font-size: 14.5px; color: var(--ink-2); transition: color .2s, padding .2s; }
+  .ft-col a:hover { color: var(--violet); padding-left: 6px; }
+  .ft-icons { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ft-icons a { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); transition: transform .25s cubic-bezier(.3,1.5,.5,1), box-shadow .25s, border-color .25s; }
+  .ft-icons i { width: 20px; height: 20px; background: var(--c); -webkit-mask: var(--m) center / contain no-repeat; mask: var(--m) center / contain no-repeat; }
+  .ft-icons a:hover { transform: translateY(-4px); border-color: var(--c); box-shadow: 0 10px 20px -12px var(--c); }
+  /* branches: own full-width row of three roomy cards (like the 369 "Our offices" row) */
+  .ft-offices { padding: 28px 0 36px; border-top: 1px solid var(--line); }
+  .ft-offices .ft-h { margin: 0 0 16px; }
+  .ft-branches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .ft-branches li { display: grid; align-content: start; gap: 10px; padding: 22px 24px; border-radius: 18px; background: color-mix(in srgb, var(--surface) 70%, transparent); border: 1px solid var(--line); transition: transform .25s, box-shadow .25s, border-color .25s; }
+  .ft-branches li:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--violet) 35%, var(--line)); box-shadow: 0 16px 30px -22px rgba(16, 24, 40, .35); }
+  .ft-branches b { display: flex; align-items: center; gap: 8px; font-size: 15.5px; font-weight: 700; color: var(--ink-2); }
+  .ft-branches b svg { margin: 0; }
+  .ft-branches address { font-style: normal; font-size: 14px; line-height: 1.75; color: var(--ink-3); }
+  .ft-tels { display: grid; gap: 4px; }
+  .ft-tel { justify-self: start; font-size: 14.5px; font-weight: 600; color: color-mix(in srgb, var(--violet) 80%, white); }
+  .ft-tel:hover { text-decoration: underline; }
+  .ft-dir { display: inline-flex; align-items: center; gap: 7px; justify-self: start; margin-top: 4px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 13px; font-weight: 600; color: var(--ink-2); transition: border-color .2s, color .2s, transform .2s; }
+  .ft-dir svg { width: 14px !important; height: 14px !important; margin: 0 !important; color: currentColor !important; }
+  .ft-dir:hover { border-color: var(--violet); color: var(--violet); transform: translateY(-2px); }
+  @media (max-width: 900px) { .ft-branches { grid-template-columns: 1fr; } }
+  .ft-dev { font-weight: 800; color: var(--violet); }
+  @media (max-width: 1000px) { .ft-grid { grid-template-columns: 1fr 1fr; } .ft-about { grid-column: 1 / -1; } }
+  @media (max-width: 560px) { .ft-grid { grid-template-columns: 1fr; gap: 28px; padding-top: 40px; } }
+  .ft-base {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 20px 0 32px;
+    font-size: 13px;
+    color: var(--ink-3);
+    border-top: 1px solid var(--line);
+  }
+  /* Services mega menu — six styles live in MegaMenu.astro; this is the shell */
+  .loc-chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px 0 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: border-color .2s, box-shadow .2s; flex: none; max-width: 220px; }
+  .loc-chip:hover { border-color: var(--violet); box-shadow: 0 8px 18px -12px var(--violet); }
+  .loc-chip > svg:first-child { width: 20px; height: 20px; color: var(--violet); flex: none; }
+  .loc-chip.ok > svg:first-child { color: #15803D; }
+  .loc-chip.no > svg:first-child { color: #C2410C; }
+  .loc-tx { display: grid; line-height: 1.1; min-width: 0; }
+  .loc-tx small { font-size: 11px; color: var(--ink-3); }
+  .loc-chip.ok .loc-tx small { color: #15803D; font-weight: 700; }
+  .loc-chip.no .loc-tx small { color: #C2410C; font-weight: 700; }
+  .loc-tx b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loc-chev { width: 14px; height: 14px; color: var(--ink-3); flex: none; }
+  @media (max-width: 1280px) { .loc-tx small { display: none; } .loc-chip { max-width: 170px; } }
+  @media (max-width: 900px) { .loc-tx, .loc-chev { display: none; } .loc-chip { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 50%; } }  .nav-inner { position: relative; }
+  .has-mega > a { display: inline-flex; align-items: center; gap: 4px; }
+  .caret { width: 14px; height: 14px; transition: transform .25s; }
+  .mega {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 12px);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: 0 30px 70px -30px rgba(15, 27, 45, .38), var(--shadow);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: opacity .2s, transform .25s cubic-bezier(.2,.8,.2,1), visibility 0s .25s;
+    z-index: 70;
+    text-align: left;
+  }
+  .mega::before { content: ''; position: absolute; left: 0; right: 0; top: -16px; height: 16px; }
+  .has-mega.open .mega { opacity: 1; visibility: visible; transform: none; transition: opacity .2s, transform .25s cubic-bezier(.2,.8,.2,1); }
+  .has-mega.open .caret { transform: rotate(180deg); }
+  .nav-search { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); color: var(--ink-2); flex: none; transition: color .15s, border-color .15s; }
+  .nav-search:hover { color: var(--violet); border-color: var(--violet); }
+  .nav-search svg { width: 18px; height: 18px; }
+  .nav-cart { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--ink-2); flex: none; transition: color .15s, border-color .15s; }
+  .nav-cart:hover { color: var(--violet); border-color: var(--violet); }
+  .nav-cart svg { width: 19px; height: 19px; }
+  .nav-cart b { position: absolute; right: -4px; top: -4px; display: grid; place-items: center; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px; background: var(--violet); color: var(--on-accent); font-size: 11px; font-weight: 800; box-shadow: 0 0 0 2px var(--surface); }
+  .nav-cart b[hidden] { display: none; }
+  .nav-cart.bump { animation: bump .5s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes bump { 40% { transform: scale(1.25) rotate(-8deg); } }
+  @media (max-width: 1100px) { .mega { display: none; } .caret { display: none; } }
+</style>
