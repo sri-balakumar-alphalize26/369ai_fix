@@ -1,13 +1,12 @@
 // POST /api/otp/request { phone } — Odoo sends a 6-digit login code on WhatsApp.
 // The answer is the same whether or not the number has orders (no "who booked" leak).
 import type { APIRoute } from 'astro';
-import { sameOrigin } from '../../../lib/adminAuth';
-import { digits, hostOf, ipOf, json, odooCall } from '../../../lib/odoo';
+import { digits, hostOf, ipOf, json, odooCall, originOk } from '../../../lib/odoo';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
-  if (!sameOrigin(request)) return json({ ok: false, error: 'bad origin' }, 403);
+  if (!originOk(request)) return json({ ok: false, error: 'bad origin' }, 403);
   const b = await request.json().catch(() => ({}));
   const phone = digits(b?.phone);
   if (phone.length < 7) return json({ ok: false, error: 'Please enter your full mobile number with country code.' }, 400);

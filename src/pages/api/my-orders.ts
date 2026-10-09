@@ -1,8 +1,7 @@
 // GET /api/my-orders — the logged-in customer's orders with live status (polled by /track).
 // DELETE — log out.
 import type { APIRoute } from 'astro';
-import { sameOrigin } from '../../lib/adminAuth';
-import { clearCustomer, customerOf, hostOf, json, odooCall } from '../../lib/odoo';
+import { clearCustomer, customerOf, hostOf, json, odooCall, originOk } from '../../lib/odoo';
 
 export const prerender = false;
 
@@ -20,7 +19,7 @@ export const GET: APIRoute = async ({ request, cookies }) => {
 };
 
 export const DELETE: APIRoute = async ({ request, cookies }) => {
-  if (!sameOrigin(request)) return json({ ok: false }, 403);
+  if (!originOk(request)) return json({ ok: false }, 403);
   clearCustomer(cookies);
   return json({ ok: true });
 };

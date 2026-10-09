@@ -2,15 +2,14 @@
 // The customer's WhatsApp message still opens exactly as before; this runs alongside it,
 // and any failure here is swallowed so a booking is never blocked by Odoo.
 import type { APIRoute } from 'astro';
-import { sameOrigin } from '../../lib/adminAuth';
-import { hostOf, ipOf, json, odooCall } from '../../lib/odoo';
+import { hostOf, ipOf, json, odooCall, originOk } from '../../lib/odoo';
 
 export const prerender = false;
 
 const s = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) : '');
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
-  if (!sameOrigin(request)) return json({ ok: false, error: 'bad origin' }, 403);
+  if (!originOk(request)) return json({ ok: false, error: 'bad origin' }, 403);
   const b = await request.json().catch(() => null);
   if (!b || typeof b !== 'object') return json({ ok: false, error: 'bad request' }, 400);
   const lines = Array.isArray(b.lines) ? b.lines.slice(0, 30).map((l: any) => ({

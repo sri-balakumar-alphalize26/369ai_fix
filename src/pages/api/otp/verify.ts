@@ -1,13 +1,12 @@
 // POST /api/otp/verify { phone, code } — on success the browser gets a signed, http-only
 // cookie (30 days) that lets /api/my-orders show this number's orders on this site.
 import type { APIRoute } from 'astro';
-import { sameOrigin } from '../../../lib/adminAuth';
-import { digits, hostOf, json, odooCall, setCustomer } from '../../../lib/odoo';
+import { digits, hostOf, json, odooCall, setCustomer, originOk } from '../../../lib/odoo';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, cookies, url }) => {
-  if (!sameOrigin(request)) return json({ ok: false, error: 'bad origin' }, 403);
+  if (!originOk(request)) return json({ ok: false, error: 'bad origin' }, 403);
   const b = await request.json().catch(() => ({}));
   const phone = digits(b?.phone), code = digits(b?.code).slice(0, 6);
   if (phone.length < 7 || code.length !== 6) return json({ ok: false, error: 'Enter the 6-digit code.' }, 400);

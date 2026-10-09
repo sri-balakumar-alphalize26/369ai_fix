@@ -21,7 +21,14 @@ export const hostOf = (request: Request) => {
   try { return new URL(request.url).hostname.toLowerCase(); } catch { return ''; }
 };
 
-export const ipOf = (request: Request, socket?: string) =>
+/** Cross-site posts are refused: the browser's Origin must be this same host. */
+export function originOk(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  if (!origin) return true; // same-site form posts from older browsers
+  try { return new URL(origin).hostname.toLowerCase() === hostOf(request); } catch { return false; }
+}
+
+export const ipOf =(request: Request, socket?: string) =>
   request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0].trim() || socket || '';
 
 /** The Odoo database (and its key) for this host, or null when this host is not connected. */
