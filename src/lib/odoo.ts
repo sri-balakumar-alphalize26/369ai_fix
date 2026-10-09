@@ -13,7 +13,11 @@ import type { AstroCookies } from 'astro';
 
 const env = (k: string) => (import.meta.env as Record<string, string | undefined>)[k] ?? process.env[k];
 
+// The Host header as the visitor typed it (the Cloudflare tunnel passes it through).
+// request.url is not used: Astro's standalone server may build it as localhost.
 export const hostOf = (request: Request) => {
+  const h = (request.headers.get('host') || '').trim().toLowerCase().replace(/:\d+$/, '');
+  if (h) return h;
   try { return new URL(request.url).hostname.toLowerCase(); } catch { return ''; }
 };
 
