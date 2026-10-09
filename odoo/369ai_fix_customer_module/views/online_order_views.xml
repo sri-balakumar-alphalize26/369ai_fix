@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_online_order_list" model="ir.ui.view">
+        <field name="name">online.service.order.list</field>
+        <field name="model">online.service.order</field>
+        <field name="arch" type="xml">
+            <list string="Online Service Orders" decoration-info="state == 'new'" decoration-muted="state == 'cancelled'">
+                <field name="name"/>
+                <field name="create_date" string="Received" widget="datetime"/>
+                <field name="mode" widget="badge"
+                       decoration-primary="mode == 'doorstep'" decoration-warning="mode == 'pickup'"/>
+                <field name="customer_name"/>
+                <field name="phone"/>
+                <field name="area"/>
+                <field name="summary"/>
+                <field name="site_id" optional="hide"/>
+                <field name="job_card_id" optional="show"/>
+                <field name="job_card_state" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'new'" decoration-success="state == 'done'"
+                       decoration-primary="state == 'confirmed'" decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_online_order_kanban" model="ir.ui.view">
+        <field name="name">online.service.order.kanban</field>
+        <field name="model">online.service.order</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column">
+                <field name="state"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between">
+                            <field name="name" class="fw-bold"/>
+                            <field name="mode" widget="badge"/>
+                        </div>
+                        <field name="customer_name"/>
+                        <field name="phone" class="text-muted"/>
+                        <field name="summary" class="small"/>
+                        <field name="job_card_id" class="small text-primary"/>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_online_order_form" model="ir.ui.view">
+        <field name="name">online.service.order.form</field>
+        <field name="model">online.service.order</field>
+        <field name="arch" type="xml">
+            <form string="Online Service Order">
+                <header>
+                    <button name="action_create_job_card" type="object" string="Create Job Card"
+                            class="btn-primary" invisible="job_card_id or state in ('done', 'cancelled')"/>
+                    <button name="action_confirm" type="object" string="Confirm"
+                            invisible="state != 'new'"/>
+                    <button name="action_mark_opened" type="object" string="Stop alarm"
+                            invisible="state != 'new' or opened_by_id"/>
+                    <button name="action_done" type="object" string="Done"
+                            invisible="state not in ('new', 'confirmed')"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state not in ('new', 'confirmed')"
+                            confirm="Cancel this order? The customer gets a WhatsApp message."/>
+                    <button name="action_reopen" type="object" string="Reopen"
+                            invisible="state not in ('done', 'cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="new,confirmed,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_job_card" type="object" class="oe_stat_button"
+                                icon="fa-wrench" invisible="not job_card_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Job Card</span>
+                                <field name="job_card_state" readonly="1"/>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Customer">
+                            <field name="customer_name"/>
+                            <field name="phone" widget="phone"/>
+                            <field name="email" widget="email"/>
+                            <field name="area"/>
+                            <field name="address"/>
+                            <field name="map_url" widget="url" invisible="not map_url"/>
+                            <field name="partner_id"/>
+                        </group>
+                        <group string="Service">
+                            <field name="mode"/>
+                            <field name="site_id"/>
+                            <field name="source"/>
+                            <field name="job_card_id" readonly="1"/>
+                            <field name="coupon" invisible="not coupon"/>
+                            <field name="opened_by_id" invisible="not opened_by_id"/>
+                            <field name="create_date" string="Received"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Repairs" name="repairs">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="device"/>
+                                    <field name="model"/>
+                                    <field name="issue"/>
+                                    <field name="qty"/>
+                                </list>
+                            </field>
+                            <field name="note" placeholder="Customer note" invisible="not note"/>
+                        </page>
+                        <page string="Website" name="website">
+                            <group>
+                                <field name="web_ref"/>
+                                <field name="page"/>
+                                <field name="ip"/>
+                                <field name="confirmed_on"/>
+                                <field name="done_on"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_online_order_search" model="ir.ui.view">
+        <field name="name">online.service.order.search</field>
+        <field name="model">online.service.order</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="customer_name"/>
+                <field name="phone"/>
+                <field name="area"/>
+                <field name="summary"/>
+                <filter name="f_new" string="New" domain="[('state', '=', 'new')]"/>
+                <filter name="f_open" string="Open" domain="[('state', 'in', ('new', 'confirmed'))]"/>
+                <filter name="f_done" string="Done" domain="[('state', '=', 'done')]"/>
+                <filter name="f_cancel" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <separator/>
+                <filter name="f_no_jc" string="No job card yet" domain="[('job_card_id', '=', False)]"/>
+                <separator/>
+                <filter name="g_mode" string="Service type" context="{'group_by': 'mode'}"/>
+                <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                <filter name="g_site" string="Website" context="{'group_by': 'site_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_online_order_doorstep" model="ir.actions.act_window">
+        <field name="name">Doorstep Service</field>
+        <field name="res_model">online.service.order</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('mode', '=', 'doorstep')]</field>
+        <field name="context">{'default_mode': 'doorstep', 'search_default_f_open': 1}</field>
+        <field name="search_view_id" ref="view_online_order_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No doorstep orders yet</p>
+            <p>Orders from the website where the technician comes to the customer appear here.</p>
+        </field>
+    </record>
+
+    <record id="action_online_order_pickup" model="ir.actions.act_window">
+        <field name="name">Pickup &amp; Service</field>
+        <field name="res_model">online.service.order</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('mode', '=', 'pickup')]</field>
+        <field name="context">{'default_mode': 'pickup', 'search_default_f_open': 1}</field>
+        <field name="search_view_id" ref="view_online_order_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No pickup orders yet</p>
+            <p>Orders from the website where a rider collects the device appear here.</p>
+        </field>
+    </record>
+
+    <record id="action_online_order_all" model="ir.actions.act_window">
+        <field name="name">All Orders</field>
+        <field name="res_model">online.service.order</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="search_view_id" ref="view_online_order_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No website orders yet</p>
+            <p>Every order placed on the repair website appears here, including cart orders whose service type is still to confirm.</p>
+        </field>
+    </record>
+
+</odoo>

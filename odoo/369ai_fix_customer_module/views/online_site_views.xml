@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_online_site_list" model="ir.ui.view">
+        <field name="name">online.service.site.list</field>
+        <field name="model">online.service.site</field>
+        <field name="arch" type="xml">
+            <list string="Websites">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="domains"/>
+                <field name="alarm"/>
+                <field name="whatsapp_messages"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="active" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_online_site_form" model="ir.ui.view">
+        <field name="name">online.service.site.form</field>
+        <field name="model">online.service.site</field>
+        <field name="arch" type="xml">
+            <form string="Website">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_orders" type="object" class="oe_stat_button" icon="fa-globe">
+                            <field name="order_count" widget="statinfo" string="Orders"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Off" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. Danat Fix"/></h1>
+                    </div>
+                    <group>
+                        <group string="Which website sends to this database">
+                            <field name="domains" placeholder="danatfix.com, www.danatfix.com"/>
+                            <field name="public_url" placeholder="https://danatfix.com"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active"/>
+                        </group>
+                        <group string="Staff and customer">
+                            <field name="alarm"/>
+                            <field name="whatsapp_messages"/>
+                            <field name="whatsapp_session" placeholder="First connected session"/>
+                        </group>
+                    </group>
+                    <div class="text-muted small">
+                        The website chooses the database by its own host name (its <code>ODOO_ROUTES</code> setting).
+                        This record is the other half: orders from a host that is not listed here, or from a
+                        website that is switched off, are refused. To connect another website to another
+                        database, install this module there and add the website in that database.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_online_site" model="ir.actions.act_window">
+        <field name="name">Websites</field>
+        <field name="res_model">online.service.site</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Connect a website</p>
+            <p>Add the host names of the repair website that may send orders to this database.</p>
+        </field>
+    </record>
+
+</odoo>

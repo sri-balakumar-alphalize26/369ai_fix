@@ -509,7 +509,12 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       const msg = tr.querySelector<HTMLElement>('[data-tr-msg]')!;
       let ref = '';
       if (trMode === 'id') { if (raw.length < 3) { msg.className = 'tr-msg err'; msg.textContent = 'Please enter your booking ID.'; return; } ref = `Booking ID: ${raw}`; }
-      else { const r = checkPhone(trCc.value, raw); if (!raw || !r.ok) { msg.className = 'tr-msg err'; msg.textContent = raw ? r.msg : 'Please enter your mobile number.'; return; } ref = `Phone: ${r.full}`; }
+      else {
+        const r = checkPhone(trCc.value, raw); if (!raw || !r.ok) { msg.className = 'tr-msg err'; msg.textContent = raw ? r.msg : 'Please enter your mobile number.'; return; }
+        // By phone: the live "My orders" page (login code on WhatsApp) instead of a chat.
+        location.href = `/track?cc=${encodeURIComponent(trCc.value)}&n=${encodeURIComponent(raw)}`;
+        return;
+      }
       window.open(`https://wa.me/${tel}?text=${encodeURIComponent(`Hi Danat Fix, please share the status of my repair. ${ref}`)}`, '_blank', 'noopener');
       msg.className = 'tr-msg ok';
       msg.textContent = '✓ Opening WhatsApp — send the message and we\'ll reply with your status.';

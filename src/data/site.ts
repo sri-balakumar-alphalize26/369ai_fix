@@ -40,6 +40,7 @@ export const nav = [
   { href: '/', label: 'Home' },
   { href: '/services', label: 'Services' },
   { href: '/team', label: 'Our Team' },
+  { href: '/track', label: 'My Orders' },
 ];
 
 export const serviceModes = [

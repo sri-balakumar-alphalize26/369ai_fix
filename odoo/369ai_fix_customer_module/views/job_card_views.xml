@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Shows the website order on a job card that came from one (hidden otherwise). -->
+    <record id="view_job_card_form_online" model="ir.ui.view">
+        <field name="name">job.card.form.online.service</field>
+        <field name="model">job.card</field>
+        <field name="inherit_id" ref="mobile_repair.view_job_card_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='delivery_type']" position="before">
+                <field name="online_order_id" readonly="1" force_save="1" invisible="not online_order_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

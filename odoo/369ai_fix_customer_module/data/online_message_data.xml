@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default WhatsApp texts. noupdate: staff edits survive module upgrades. -->
+<odoo noupdate="1">
+    <record id="msg_received" model="online.service.message">
+        <field name="key">received</field>
+        <field name="sequence">1</field>
+        <field name="body">Hi {name}, thank you for booking with {site}! 🛠️
+Your order {order} is received: {summary}
+We will confirm it shortly. Track it any time: {track_url}</field>
+    </record>
+    <record id="msg_confirmed" model="online.service.message">
+        <field name="key">confirmed</field>
+        <field name="sequence">2</field>
+        <field name="body">Hi {name}, your order {order} is confirmed ✅ (job card {job_card}).
+Track it: {track_url}</field>
+    </record>
+    <record id="msg_inspection" model="online.service.message">
+        <field name="key">inspection</field>
+        <field name="sequence">3</field>
+        <field name="body">Hi {name}, our technician is inspecting your device 🔍 (order {order}).
+Track it: {track_url}</field>
+    </record>
+    <record id="msg_quotation" model="online.service.message">
+        <field name="key">quotation</field>
+        <field name="sequence">4</field>
+        <field name="body">Hi {name}, the estimate for order {order} is ready 📋. We will contact you to approve it.
+Track it: {track_url}</field>
+    </record>
+    <record id="msg_repair" model="online.service.message">
+        <field name="key">repair</field>
+        <field name="sequence">5</field>
+        <field name="body">Hi {name}, your device is being repaired now 🔧 (order {order}).
+Track it: {track_url}</field>
+    </record>
+    <record id="msg_completed" model="online.service.message">
+        <field name="key">completed</field>
+        <field name="sequence">6</field>
+        <field name="body">Hi {name}, good news! The repair for order {order} is completed 🎉
+Thank you for choosing {site}. {track_url}</field>
+    </record>
+    <record id="msg_done" model="online.service.message">
+        <field name="key">done</field>
+        <field name="sequence">7</field>
+        <field name="body">Hi {name}, your order {order} is done. Thank you for choosing {site}! 🙏</field>
+    </record>
+    <record id="msg_cancelled" model="online.service.message">
+        <field name="key">cancelled</field>
+        <field name="sequence">8</field>
+        <field name="body">Hi {name}, your order {order} has been cancelled. Reply here if this is a mistake or you need help.</field>
+    </record>
+</odoo>

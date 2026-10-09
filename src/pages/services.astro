@@ -724,8 +724,22 @@ const payload = JSON.stringify({
     if (!ph.ok) { wzErrFor(wzPhone, ph.msg); wzPhone.focus(); return; }
     wzErrFor(null, '');
     const it = currentItem();
+    // Same booking into Odoo (Online Service), alongside the WhatsApp message - never blocks it.
+    const ref = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+    fetch('/api/booking', {
+      method: 'POST', keepalive: true, credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ref, mode, source: 'wizard', name, phone: ph.full, area: wzArea.value.trim(),
+        ...(wzAt ? { lat: wzAt[0], lng: wzAt[1] } : {}),
+        note: areaState === 'listed' ? '' : areaState === 'far' ? 'Area outside the listed areas' : 'Area not on the list - please confirm',
+        page: location.pathname,
+        lines: it.issues.map((issue) => ({ device: it.device, model: it.model, issue, qty: 1 })),
+      }),
+    }).catch(() => {});
     const msg = [
       `Hi Danat Fix, I'd like to book a repair.`,
+      `Booking ref: ${ref}`,
       `Service: ${titles[mode]}`,
       `Area: ${wzArea.value.trim()}${areaState === 'listed' ? '' : areaState === 'far' ? ' (outside listed areas)' : ' (not on the list — please confirm)'}`,
       ...(wzAt ? [`Location: https://maps.google.com/?q=${wzAt[0].toFixed(5)},${wzAt[1].toFixed(5)}`] : []),

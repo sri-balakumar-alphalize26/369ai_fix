@@ -1,0 +1,176 @@
+---
+// My orders: log in with your mobile number and a code sent on WhatsApp, then watch the
+// live status of every repair booked on this site. Data comes from Odoo through
+// /api/otp/* and /api/my-orders (server side); the page refreshes itself every 15 s.
+import Base from '../layouts/Base.astro';
+import { DIAL } from '../lib/phone';
+---
+
+<Base title="My orders" description="Track the live status of your repair with your mobile number.">
+  <section class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">Track your repair</span>
+      <h1 class="h-xl">My <span class="grad-text">orders</span></h1>
+      <p class="lead">Log in with your mobile number. We send a 6-digit code on WhatsApp, and you see every booking with its live status.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap tk" data-tk>
+      <div class="tk-card" data-tk-login hidden>
+        <form data-tk-phone-form novalidate>
+          <label class="tk-l">Mobile number (the one you booked with)</label>
+          <div class="tk-row">
+            <select data-tk-cc aria-label="Country code">{DIAL.map((d) => <option value={d.cc} selected={d.cc === 'om'}>{d.name} ({d.code})</option>)}</select>
+            <input data-tk-ph inputmode="tel" maxlength="16" autocomplete="tel-national" placeholder="9123 4567" aria-label="Mobile number" />
+          </div>
+          <button class="tk-btn" type="submit" data-tk-send>Send code on WhatsApp</button>
+        </form>
+        <form data-tk-code-form novalidate hidden>
+          <label class="tk-l">Enter the 6-digit code we sent on WhatsApp to <b data-tk-to></b></label>
+          <input class="tk-code" data-tk-code inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" aria-label="Code" />
+          <button class="tk-btn" type="submit">Show my orders</button>
+          <button class="tk-link" type="button" data-tk-back>Use another number / send again</button>
+        </form>
+        <p class="tk-msg" data-tk-msg aria-live="polite"></p>
+      </div>
+
+      <div data-tk-orders hidden>
+        <div class="tk-head">
+          <p>Logged in as <b data-tk-who></b> · <span class="tk-live"><i></i>live</span></p>
+          <button class="tk-link" type="button" data-tk-out>Log out</button>
+        </div>
+        <div data-tk-list></div>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { checkPhone } from '../lib/phone';
+
+  const root = document.querySelector<HTMLElement>('[data-tk]')!;
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+  const login = $('[data-tk-login]'), orders = $('[data-tk-orders]'), msg = $('[data-tk-msg]');
+  const phoneForm = $<HTMLFormElement>('[data-tk-phone-form]'), codeForm = $<HTMLFormElement>('[data-tk-code-form]');
+  const cc = $<HTMLSelectElement>('[data-tk-cc]'), ph = $<HTMLInputElement>('[data-tk-ph]'), code = $<HTMLInputElement>('[data-tk-code]');
+  let phone = '';
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  const say = (t: string, ok = false) => { msg.textContent = t; msg.className = 'tk-msg' + (t ? (ok ? ' ok' : ' err') : ''); };
+  const post = (url: string, body: unknown) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
+    .then(async (r) => ({ status: r.status, ...(await r.json().catch(() => ({}))) }));
+
+  // ?cc=om&n=91234567 from the home page "Track your repair" box
+  const qs = new URLSearchParams(location.search);
+  const preCc = (qs.get('cc') || '').toLowerCase();
+  if ([...cc.options].some((o) => o.value === preCc)) cc.value = preCc;
+  if (qs.get('n')) ph.value = (qs.get('n') || '').replace(/[^\d ]/g, '').slice(0, 16);
+
+  function showLogin() {
+    if (timer) { clearInterval(timer); timer = null; }
+    orders.hidden = true; login.hidden = false; phoneForm.hidden = false; codeForm.hidden = true; say('');
+  }
+
+  phoneForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const r = checkPhone(cc.value, ph.value);
+    if (!r.ok) { say(ph.value.trim() ? r.msg : 'Please enter your mobile number.'); ph.focus(); return; }
+    phone = r.full.replace(/\D/g, '');
+    const btn = $<HTMLButtonElement>('[data-tk-send]'); btn.disabled = true; say('Sending…', true);
+    const res = await post('/api/otp/request', { phone }).catch(() => ({ ok: false, error: 'Network problem. Please try again.' } as any));
+    btn.disabled = false;
+    if (!res.ok) { say(res.error || 'Please try again.'); return; }
+    $('[data-tk-to]').textContent = r.full;
+    phoneForm.hidden = true; codeForm.hidden = false; code.value = ''; code.focus();
+    say('If this number has a booking with us, the code is on its way on WhatsApp.', true);
+  });
+
+  codeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const c = code.value.replace(/\D/g, '');
+    if (c.length !== 6) { say('Enter the 6-digit code.'); return; }
+    const res = await post('/api/otp/verify', { phone, code: c }).catch(() => ({ ok: false, error: 'Network problem. Please try again.' } as any));
+    if (!res.ok) { say(res.error || 'Wrong code.'); code.select(); return; }
+    say('');
+    load(true);
+  });
+  $('[data-tk-back]').addEventListener('click', showLogin);
+  $('[data-tk-out]').addEventListener('click', async () => {
+    await fetch('/api/my-orders', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+    showLogin();
+  });
+
+  function render(data: any) {
+    $('[data-tk-who]').textContent = '+' + data.phone;
+    const list = $('[data-tk-list]');
+    if (!data.orders.length) {
+      list.innerHTML = '<div class="tk-empty">No bookings for this number yet. <a href="/services">Book a repair →</a></div>';
+      return;
+    }
+    list.innerHTML = data.orders.map((o: any) => `
+      <article class="tk-order${o.cancelled ? ' x' : ''}">
+        <header>
+          <div><b>${esc(o.ref)}</b><span class="tk-mode">${esc(o.mode_label)}</span></div>
+          <span class="tk-status">${esc(o.status)}</span>
+        </header>
+        <p class="tk-sum">${esc(o.summary)}</p>
+        ${o.cancelled ? '<p class="tk-x">This order was cancelled. Chat with us on WhatsApp if you need help.</p>' : `
+        <ol class="tk-steps">${o.steps.map((s: any) => `<li class="${s.done ? 'done' : ''}${s.current ? ' cur' : ''}"><i></i><span>${esc(s.label)}</span></li>`).join('')}</ol>`}
+        <footer>${o.job_card ? `Job card ${esc(o.job_card)} · ` : ''}Booked ${esc(new Date(o.created.replace(' ', 'T') + 'Z').toLocaleString())}</footer>
+      </article>`).join('');
+  }
+
+  async function load(first = false) {
+    const r = await fetch('/api/my-orders', { credentials: 'same-origin', cache: 'no-store' }).catch(() => null);
+    if (!r) return;
+    if (r.status === 401) { showLogin(); return; }
+    const data = await r.json().catch(() => null);
+    if (!data?.ok) { if (first) { login.hidden = false; say(data?.error || 'Order tracking is not available right now.'); } return; }
+    login.hidden = true; orders.hidden = false;
+    render(data);
+    if (!timer) timer = setInterval(() => { if (!document.hidden) load(); }, 15000);
+  }
+  load(true);
+</script>
+
+<style>
+  .tk { max-width: 760px; }
+  .tk-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius, 18px); padding: 24px; box-shadow: var(--shadow); max-width: 480px; }
+  .tk-l { display: block; font-weight: 600; margin-bottom: 10px; color: var(--ink); }
+  .tk-row { display: flex; gap: 8px; }
+  .tk-row select { width: 120px; flex: none; }
+  .tk select, .tk input { height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; min-width: 0; }
+  .tk-row input { flex: 1; }
+  .tk-code { width: 100%; letter-spacing: .5em; text-align: center; font-size: 22px !important; }
+  .tk-btn { margin-top: 14px; width: 100%; height: 50px; border: 0; border-radius: 12px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font: inherit; font-weight: 700; font-size: 16px; cursor: pointer; }
+  .tk-btn:disabled { opacity: .6; }
+  .tk-link { margin-top: 10px; background: none; border: 0; color: var(--violet); font: inherit; cursor: pointer; padding: 4px 0; }
+  .tk-msg { margin: 12px 0 0; min-height: 1.2em; font-size: 14.5px; }
+  .tk-msg.err { color: #d63a3a; }
+  .tk-msg.ok { color: var(--ink-2); }
+  .tk-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tk-head p { margin: 0; color: var(--ink-2); }
+  .tk-live { display: inline-flex; align-items: center; gap: 6px; color: #1a9a52; font-weight: 600; }
+  .tk-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: tkp 1.6s infinite; }
+  @keyframes tkp { 50% { opacity: .25; } }
+  .tk-order { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius, 18px); padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .tk-order header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .tk-mode { margin-left: 10px; font-size: 13px; padding: 2px 10px; border-radius: 99px; background: var(--tint); color: var(--ink-2); }
+  .tk-status { font-weight: 700; color: var(--violet); white-space: nowrap; }
+  .tk-order.x .tk-status { color: #d63a3a; }
+  .tk-sum { margin: 8px 0 14px; color: var(--ink-2); }
+  .tk-x { color: #d63a3a; margin: 0 0 8px; }
+  .tk-steps { list-style: none; padding: 0; margin: 0 0 12px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .tk-steps li { position: relative; text-align: center; font-size: 12.5px; color: var(--ink-3); }
+  .tk-steps li i { display: block; height: 6px; border-radius: 99px; background: var(--line); margin-bottom: 8px; }
+  .tk-steps li.done i { background: var(--grad, var(--violet)); }
+  .tk-steps li.done { color: var(--ink); }
+  .tk-steps li.cur span { font-weight: 700; color: var(--violet); }
+  .tk-order footer { font-size: 13px; color: var(--ink-3); }
+  .tk-empty { padding: 24px; border: 1px dashed var(--line); border-radius: 14px; text-align: center; color: var(--ink-2); }
+  @media (max-width: 560px) {
+    .tk-steps { grid-template-columns: repeat(3, 1fr); row-gap: 12px; }
+    .tk-row select { width: 100px; }
+  }
+</style>

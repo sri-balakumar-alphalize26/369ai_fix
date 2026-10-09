@@ -1,0 +1,12 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_online_order_tech,online.service.order technician,model_online_service_order,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_online_order_recep,online.service.order receptionist,model_online_service_order,mobile_repair.group_mobile_repair_receptionist,1,1,1,0
+access_online_order_manager,online.service.order manager,model_online_service_order,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_online_order_line_tech,online.service.order.line technician,model_online_service_order_line,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_online_order_line_recep,online.service.order.line receptionist,model_online_service_order_line,mobile_repair.group_mobile_repair_receptionist,1,1,1,0
+access_online_order_line_manager,online.service.order.line manager,model_online_service_order_line,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_online_site_tech,online.service.site technician,model_online_service_site,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_online_site_manager,online.service.site manager,model_online_service_site,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_online_message_tech,online.service.message technician,model_online_service_message,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_online_message_manager,online.service.message manager,model_online_service_message,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_online_otp_system,online.service.otp system,model_online_service_otp,base.group_system,1,0,0,0

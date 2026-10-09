@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- IT & Mobile Repair > Online Service, right after Job Cards. -->
+    <menuitem id="menu_online_service_root"
+              name="Online Service"
+              parent="mobile_repair.menu_mobile_repair_root"
+              sequence="12"/>
+
+    <menuitem id="menu_online_service_doorstep"
+              name="Doorstep Service"
+              parent="menu_online_service_root"
+              action="action_online_order_doorstep"
+              sequence="1"/>
+
+    <menuitem id="menu_online_service_pickup"
+              name="Pickup &amp; Service"
+              parent="menu_online_service_root"
+              action="action_online_order_pickup"
+              sequence="2"/>
+
+    <menuitem id="menu_online_service_all"
+              name="All Orders"
+              parent="menu_online_service_root"
+              action="action_online_order_all"
+              sequence="3"/>
+
+    <menuitem id="menu_online_service_config"
+              name="Configuration"
+              parent="menu_online_service_root"
+              groups="mobile_repair.group_mobile_repair_manager"
+              sequence="20"/>
+
+    <menuitem id="menu_online_service_websites"
+              name="Websites"
+              parent="menu_online_service_config"
+              action="action_online_site"
+              sequence="1"/>
+
+    <menuitem id="menu_online_service_messages"
+              name="Status Messages"
+              parent="menu_online_service_config"
+              action="action_online_message"
+              sequence="2"/>
+</odoo>
