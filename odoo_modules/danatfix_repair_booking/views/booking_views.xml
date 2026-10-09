@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_danatfix_booking_list" model="ir.ui.view">
+        <field name="name">danatfix.booking.list</field>
+        <field name="model">danatfix.booking</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="state == 'new'" decoration-warning="state == 'calling'"
+                  decoration-muted="state in ('done', 'cancelled')">
+                <field name="name"/>
+                <field name="create_date" string="Booked on"/>
+                <field name="customer_name"/>
+                <field name="phone"/>
+                <field name="area"/>
+                <field name="summary"/>
+                <field name="brand" optional="show"/>
+                <field name="source" optional="hide"/>
+                <field name="accepted_by_id" optional="show"/>
+                <field name="accepted_by_name" optional="hide"/>
+                <field name="state" widget="badge"
+                       decoration-danger="state == 'new'" decoration-warning="state == 'calling'"
+                       decoration-success="state in ('accepted', 'done')"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_danatfix_booking_form" model="ir.ui.view">
+        <field name="name">danatfix.booking.form</field>
+        <field name="model">danatfix.booking</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="new,accepted,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                        <div class="text-muted">
+                            <field name="web_ref" readonly="1"/>
+                        </div>
+                    </div>
+                    <group>
+                        <group string="Customer">
+                            <field name="customer_name"/>
+                            <field name="phone" widget="phone"/>
+                            <field name="email" widget="email"/>
+                            <field name="area"/>
+                            <field name="address"/>
+                            <field name="map_url" widget="url"/>
+                            <field name="partner_id"/>
+                        </group>
+                        <group string="Booking">
+                            <field name="brand"/>
+                            <field name="source"/>
+                            <field name="coupon"/>
+                            <field name="create_date" string="Booked on"/>
+                            <field name="accepted_by_id"/>
+                            <field name="accepted_by_name"/>
+                            <field name="accepted_on"/>
+                            <field name="decided_via"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Repairs" name="lines">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="device"/>
+                                    <field name="model"/>
+                                    <field name="issue"/>
+                                    <field name="qty"/>
+                                </list>
+                            </field>
+                            <field name="note" placeholder="Notes"/>
+                        </page>
+                        <page string="WhatsApp" name="whatsapp">
+                            <group>
+                                <field name="poll_sent"/>
+                                <field name="poll_wa_id"/>
+                                <field name="poll_error"/>
+                            </group>
+                            <label for="message"/>
+                            <field name="message" readonly="1"/>
+                        </page>
+                        <page string="Website" name="website">
+                            <group>
+                                <field name="page"/>
+                                <field name="ip"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_danatfix_booking_search" model="ir.ui.view">
+        <field name="name">danatfix.booking.search</field>
+        <field name="model">danatfix.booking</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="web_ref"/>
+                <field name="customer_name"/>
+                <field name="phone"/>
+                <field name="area"/>
+                <field name="summary"/>
+                <filter name="open" string="Open"
+                        domain="[('state', 'in', ('new', 'calling', 'accepted'))]"/>
+                <filter name="new" string="New" domain="[('state', '=', 'new')]"/>
+                <filter name="done" string="Done" domain="[('state', '=', 'done')]"/>
+                <filter name="cancelled" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <separator/>
+                <filter name="today" string="Today"
+                        domain="[('create_date', '>=', context_today().strftime('%Y-%m-%d'))]"/>
+                <group>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_brand" string="Brand" context="{'group_by': 'brand'}"/>
+                    <filter name="group_taken" string="Taken by" context="{'group_by': 'accepted_by_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_danatfix_booking_list" model="ir.actions.act_window">
+        <field name="name">All Website Bookings</field>
+        <field name="res_model">danatfix.booking</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No website bookings yet</p>
+            <p>Bookings made on the Danat Fix / 369 ai Fix website appear here.</p>
+        </field>
+    </record>
+
+    <!-- The live screen: listens, redraws and rings, which a list cannot. -->
+    <record id="action_danatfix_booking_screen" model="ir.actions.client">
+        <field name="name">Website Bookings</field>
+        <field name="tag">danatfix_repair_booking.screen</field>
+    </record>
+
+</odoo>

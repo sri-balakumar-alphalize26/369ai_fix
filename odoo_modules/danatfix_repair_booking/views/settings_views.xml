@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_danatfix_booking_settings_form" model="ir.ui.view">
+        <field name="name">danatfix.booking.settings.form</field>
+        <field name="model">danatfix.booking.settings</field>
+        <field name="arch" type="xml">
+            <form create="0" delete="0">
+                <sheet>
+                    <div class="oe_title"><h1>Website Booking Settings</h1></div>
+                    <group>
+                        <group string="WhatsApp staff group">
+                            <field name="poll_enabled"/>
+                            <field name="staff_group_id" invisible="not poll_enabled"
+                                   options="{'no_create': True}"/>
+                            <field name="staff_group_jid" invisible="not poll_enabled or staff_group_id"
+                                   placeholder="120363xxxxxxxx@g.us"/>
+                            <field name="session_id" invisible="not poll_enabled"
+                                   options="{'no_create': True}"/>
+                            <button name="action_test_group" type="object" class="btn-secondary"
+                                    string="Send a test message" invisible="not poll_enabled" colspan="2"/>
+                        </group>
+                        <group string="Alarm">
+                            <field name="ring_seconds"/>
+                            <field name="repeat_seconds"/>
+                            <field name="alarm_user_ids" widget="many2many_tags"
+                                   placeholder="Everyone"/>
+                        </group>
+                    </group>
+                    <div class="text-muted">
+                        The website sends bookings through Odoo's external API as the user
+                        whose API key is set on the website server (ODOO_LOGIN / ODOO_API_KEY).
+                        Give that user internal access only - it needs nothing else.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_danatfix_booking_settings" model="ir.actions.server">
+        <field name="name">Website Booking Settings</field>
+        <field name="model_id" ref="model_danatfix_booking_settings"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_settings()</field>
+    </record>
+
+</odoo>

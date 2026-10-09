@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_danatfix_booking_user,danatfix.booking user,model_danatfix_booking,base.group_user,1,1,1,0
+access_danatfix_booking_admin,danatfix.booking admin,model_danatfix_booking,base.group_system,1,1,1,1
+access_danatfix_booking_line_user,danatfix.booking.line user,model_danatfix_booking_line,base.group_user,1,1,1,0
+access_danatfix_booking_line_admin,danatfix.booking.line admin,model_danatfix_booking_line,base.group_system,1,1,1,1
+access_danatfix_booking_settings_user,danatfix.booking.settings user,model_danatfix_booking_settings,base.group_user,1,0,0,0
+access_danatfix_booking_settings_admin,danatfix.booking.settings admin,model_danatfix_booking_settings,base.group_system,1,1,1,1
