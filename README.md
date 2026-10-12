@@ -23,6 +23,47 @@ in `astro.config.mjs`.
 | `FX_API_KEY` | no | Use the keyed exchangerate-api.com v6 instead of the free open.er-api.com |
 | `ALLOW_TEST_GEO` | no | `1` lets `?country=XX` / `X-Test-Country` simulate a country on a production server (testing only) |
 | `FX_API_URL` | no | Override the rate provider URL (`{BASE}` placeholder) — used by tests |
+| `ODOO_URL` | for Odoo | Odoo server, e.g. `http://127.0.0.1:8069` |
+| `ODOO_DB` | for Odoo | Default Odoo database when no route matches |
+| `ODOO_ROUTES` | for Odoo | Which database each host feeds: `danatfix.com,www.danatfix.com=DUBAI_TEST;other.com=OTHER_DB` |
+| `ODOO_API_KEY` | for Odoo | API key of the Odoo bot user; per database: `ODOO_KEY_<DB>` (e.g. `ODOO_KEY_OTHER_DB`) |
+
+## Online Service: bookings into Odoo, alarm, WhatsApp status, "My Orders"
+
+Odoo module: `odoo/369ai_fix_customer_module` (Odoo 19, depends on `mobile_repair`).
+It adds **IT & Mobile Repair ▸ Online Service**: Doorstep Service / Pickup & Service /
+All Orders, *Create Job Card*, an alarm on every Odoo page for new orders, a WhatsApp
+message to the customer at every status (order + job card; through the
+`whatsapp_gateway` module when installed, skipped otherwise), WhatsApp login codes,
+and **Configuration ▸ Websites** (which host may send to this database) and
+**Status Messages** (editable texts).
+
+Website side (all server-side, nothing secret reaches the browser):
+
+- `src/lib/odoo.ts` — picks the database by the request's `Host` header (`ODOO_ROUTES`),
+  calls Odoo `POST /json/2/<model>/<method>` with the bot key + `X-Odoo-Database`,
+  signs the customer cookie. Note: behind the Cloudflare tunnel `request.url` is
+  localhost, so host/origin checks read the `Host` header.
+- `/api/booking` — the services wizard (`src/pages/services.astro`, step 4) sends the
+  booking here alongside the WhatsApp message; Odoo failures never block the customer.
+  The carts do not collect name/phone, so they stay WhatsApp-only.
+- `/api/otp/request`, `/api/otp/verify`, `/api/my-orders` + page `/track` ("My Orders"):
+  mobile number → 6-digit code on WhatsApp → orders with live status, refreshed every 15 s.
+
+Odoo methods the site calls (bot user, `online.service.order` / `online.service.otp`):
+`website_create(payload)`, `customer_orders(host, phone)`, `otp_request(host, phone, ip)`,
+`otp_verify(host, phone, code)`. A host that is not an active record in
+Configuration ▸ Websites is refused.
+
+**Connect another website / database:** install the module in that database, add the
+website under Online Service ▸ Configuration ▸ Websites, create an internal user with the
+*Mobile Repair / Receptionist* group and an API key, then add the host to `ODOO_ROUTES`
+and the key as `ODOO_KEY_<DB>` in the website's `.env`.
+
+**Deploy the Odoo module:** the server runs it from `/opt/odoo/369ai_fix_addons/`
+(in `addons_path`). After changing it, copy the folder there and upgrade only the
+databases that have it: `odoo-bin -c /etc/odoo19.conf -d DUBAI_TEST -u 369ai_fix_customer_module --stop-after-init --no-http`.
+The website itself redeploys from GitHub `main` automatically (`danatfix-deploy.timer`).
 
 ## Automatic currency conversion
 
