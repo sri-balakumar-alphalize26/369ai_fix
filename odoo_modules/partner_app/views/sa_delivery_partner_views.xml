@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        The rider form, as the office sees it from both menus (Partner App >
+        Partners and Delivery > Configuration > Riders & Couriers):
+        Phone, then Works In on its own band so it is noticed, Busy, then
+        Shops. Kind (the delivery module's field) is hidden: the business
+        uses own riders only, and new riders default to Own Rider.
+    -->
+    <record id="view_sa_delivery_partner_form_partner_app" model="ir.ui.view">
+        <field name="name">sa.delivery.partner.form.partner_app</field>
+        <field name="model">sa.delivery.partner</field>
+        <field name="inherit_id"
+               ref="sales_automation_delivery.view_sa_delivery_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='kind']" position="before">
+                <xpath expr="//field[@name='phone']" position="move"/>
+            </xpath>
+            <xpath expr="//field[@name='kind']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//sheet/group[1]" position="after">
+                <div name="partner_app_works_in"
+                     class="bg-primary-subtle border border-primary-subtle rounded-3 px-3 pt-2 mb-3">
+                    <group>
+                        <field name="work_type" widget="radio"
+                               options="{'horizontal': true}"/>
+                        <field name="busy_display"/>
+                        <field name="is_test_rider"/>
+                    </group>
+                </div>
+                <group name="partner_app_shops"/>
+            </xpath>
+            <xpath expr="//group[@name='partner_app_shops']" position="inside">
+                <xpath expr="//field[@name='shop_ids']" position="move"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_sa_delivery_partner_list_partner_app" model="ir.ui.view">
+        <field name="name">sa.delivery.partner.list.partner_app</field>
+        <field name="model">sa.delivery.partner</field>
+        <field name="inherit_id"
+               ref="sales_automation_delivery.view_sa_delivery_partner_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='kind']" position="after">
+                <field name="work_type"/>
+            </xpath>
+            <xpath expr="//field[@name='kind']" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Partner App > Partners -->
+    <record id="view_partner_app_partner_list" model="ir.ui.view">
+        <field name="name">sa.delivery.partner.list.partner_app.menu</field>
+        <field name="model">sa.delivery.partner</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list string="Partners">
+                <field name="name"/>
+                <field name="phone"/>
+                <field name="work_type"/>
+                <field name="busy_display"/>
+                <field name="is_test_rider" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_partner_app_partner_search" model="ir.ui.view">
+        <field name="name">sa.delivery.partner.search.partner_app.menu</field>
+        <field name="model">sa.delivery.partner</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <search string="Partners">
+                <field name="name"/>
+                <field name="phone"/>
+                <filter name="pa_delivery" string="Delivery"
+                        domain="[('work_type', '=', 'delivery')]"/>
+                <filter name="pa_service" string="Service"
+                        domain="[('work_type', '=', 'service')]"/>
+                <filter name="pa_both" string="Both"
+                        domain="[('work_type', '=', 'both')]"/>
+                <group>
+                    <filter name="pa_group_work_type" string="Works In"
+                            context="{'group_by': 'work_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_partner_app_partners" model="ir.actions.act_window">
+        <field name="name">Partners</field>
+        <field name="res_model">sa.delivery.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_partner_app_partner_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('sales_automation_delivery.view_sa_delivery_partner_form')})]"/>
+        <field name="search_view_id" ref="view_partner_app_partner_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add your first partner</p>
+            <p>Works In decides which screens the app opens: Delivery, Service,
+               or both. Kind decides pay only.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_partner_app_root" name="Partner App"
+              groups="sales_automation_delivery.group_sa_delivery_manager"
+              sequence="60"/>
+    <menuitem id="menu_partner_app_partners" name="Partners"
+              parent="menu_partner_app_root"
+              action="action_partner_app_partners" sequence="10"/>
+</odoo>
