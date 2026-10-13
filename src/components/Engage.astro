@@ -186,7 +186,7 @@ import { DIAL as dial } from '../lib/phone';
     idle.querySelector('[data-prev]')!.addEventListener('click', () => go(cur - 1));
     idle.querySelector('[data-next]')!.addEventListener('click', () => go(cur + 1));
     const openIdle = (force = false) => {
-      if (!force && (ss('idle-shown') || busy())) return;
+      if (!force && (ss('idle-shown') || busy() || (window as any).__offerSnoozed?.())) return;
       sset('idle-shown');
       hideSl();
       idle.hidden = false;
@@ -195,6 +195,7 @@ import { DIAL as dial } from '../lib/phone';
       go(0);
     };
     const closeIdle = () => {
+      (window as any).__offerClosed?.(); // × remembers: no welcome / idle pop-up again for 30 days
       idle.classList.remove('in');
       document.documentElement.style.overflow = '';
       clearTimeout(slideT);

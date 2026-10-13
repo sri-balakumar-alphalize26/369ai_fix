@@ -113,17 +113,23 @@ const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis 
   const po = q('[data-po]');
   const today = new Date().toDateString();
   const open = () => { po.hidden = false; requestAnimationFrame(() => po.classList.add('in')); document.documentElement.style.overflow = 'hidden'; };
-  const close = () => { po.classList.remove('in'); document.documentElement.style.overflow = ''; setTimeout(() => (po.hidden = true), 350); sput('offer-seen', today); };
+  // Once the visitor closes the welcome offer with ×, it stays away for 30 days on this browser
+  // (it used to come back on every visit). The buttons that open it on purpose still work.
+  const SNOOZE_MS = 30 * 24 * 3600 * 1000;
+  const snoozed = () => { const t = Number(get('offer-closed') || 0); return !!t && Date.now() - t < SNOOZE_MS; };
+  const markClosed = () => { sput('offer-seen', today); put('offer-closed', String(Date.now())); };
+  (window as any).__offerSnoozed = snoozed;
+  const close = () => { po.classList.remove('in'); document.documentElement.style.overflow = ''; setTimeout(() => (po.hidden = true), 350); markClosed(); };
   // Which offer popup: 'spin' (default) or 'flash' — ?offer=… or Theme › Offer popup
   const qOffer = new URLSearchParams(location.search).get('offer');
   if (qOffer === 'slot' || qOffer === 'spin' || qOffer === 'flash') put('welcome-popup', qOffer);
   const offerType = () => { const t = get('welcome-popup'); return t === 'spin' || t === 'flash' ? t : 'slot'; };
-  (window as any).__offerClosed = () => sput('offer-seen', today);
+  (window as any).__offerClosed = markClosed;
   (window as any).__openOffer = () => { const t = offerType(); if (t === 'slot') (window as any).__openSlot?.(); else if (t === 'spin') (window as any).__openSpin?.(); else open(); };
   const adminGate = new URLSearchParams(location.search).has('admin'); // ?admin= pop-up gets the screen to itself
   // Pages opened from a WhatsApp link (/slot, /quote) are a task to finish: no welcome offer on top.
   const quietPage = document.documentElement.dataset.quiet === '1';
-  if (!adminGate && !quietPage && (sget('offer-seen') !== today || qOffer)) setTimeout(() => (window as any).__openOffer(), offerType() === 'slot' ? 1500 : ((window as any).__poDelay ?? 4000));
+  if (!adminGate && !quietPage && ((sget('offer-seen') !== today && !snoozed()) || qOffer)) setTimeout(() => (window as any).__openOffer(), offerType() === 'slot' ? 1500 : ((window as any).__poDelay ?? 4000));
   po.querySelectorAll('[data-po-x]').forEach((b) => b.addEventListener('click', close));
   po.querySelectorAll('[data-po-go]').forEach((b) => b.addEventListener('click', () => sput('offer-seen', today)));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !po.hidden) close(); });
