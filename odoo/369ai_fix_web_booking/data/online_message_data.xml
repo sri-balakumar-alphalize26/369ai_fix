@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default WhatsApp texts for website bookings. noupdate: staff edits survive upgrades. -->
+<odoo noupdate="1">
+    <record id="msg_approved" model="online.service.message">
+        <field name="key">approved</field>
+        <field name="sequence">20</field>
+        <field name="body">Hi {name}, your booking {order} is approved ✅
+{estimate}
+All parts are available. Pick a time for the visit: {slot_url}</field>
+    </record>
+    <record id="msg_approved_order" model="online.service.message">
+        <field name="key">approved_order</field>
+        <field name="sequence">21</field>
+        <field name="body">Hi {name}, your booking {order} is approved ✅
+{estimate}
+{parts} must be ordered (about {days} days). Shall we order it? Answer here: {slot_url}</field>
+    </record>
+    <record id="msg_rejected" model="online.service.message">
+        <field name="key">rejected</field>
+        <field name="sequence">22</field>
+        <field name="body">Hi {name}, sorry, we can't take your booking {order}: {reason}
+Call us if you have any question.</field>
+    </record>
+    <record id="msg_parts_declined" model="online.service.message">
+        <field name="key">parts_declined</field>
+        <field name="sequence">23</field>
+        <field name="body">Hi {name}, no problem - we have closed booking {order} and nothing was ordered. We're here whenever you need us.</field>
+    </record>
+    <record id="msg_parts_ordering" model="online.service.message">
+        <field name="key">parts_ordering</field>
+        <field name="sequence">24</field>
+        <field name="body">Thanks {name}! We're ordering the part for {order} (about {days} days). We'll tell you when it arrives.</field>
+    </record>
+    <record id="msg_part_ordered" model="online.service.message">
+        <field name="key">part_ordered</field>
+        <field name="sequence">25</field>
+        <field name="body">Hi {name}, we've ordered {part} for {order}. Expected by {date}.</field>
+    </record>
+    <record id="msg_part_delayed" model="online.service.message">
+        <field name="key">part_delayed</field>
+        <field name="sequence">26</field>
+        <field name="body">Hi {name}, {part} for {order} is delayed. New expected date: {date}. Sorry for the wait.</field>
+    </record>
+    <record id="msg_part_arrived" model="online.service.message">
+        <field name="key">part_arrived</field>
+        <field name="sequence">27</field>
+        <field name="body">Hi {name}, all the parts for {order} have arrived 🎉 Pick a time for the repair: {slot_url}</field>
+    </record>
+    <record id="msg_quote_changed" model="online.service.message">
+        <field name="key">quote_changed</field>
+        <field name="sequence">29</field>
+        <field name="body">Hi {name}, after checking your device the price for {order} has changed:
+{estimate}
+(estimate was {old_total}). Please approve or decline: {quote_url}</field>
+    </record>
+    <record id="msg_office_taken" model="online.service.message">
+        <field name="key">office_taken</field>
+        <field name="sequence">30</field>
+        <field name="body">Hi {name}, we've taken your device to our office for {order}. We'll send you the price shortly and return it by {date}.</field>
+    </record>
+    <record id="msg_return_ready" model="online.service.message">
+        <field name="key">return_ready</field>
+        <field name="sequence">31</field>
+        <field name="body">Hi {name}, {reason} Pick a time for us to bring it back ({order}): {slot_url}</field>
+    </record>
+    <record id="msg_slot_booked" model="online.service.message">
+        <field name="key">slot_booked</field>
+        <field name="sequence">28</field>
+        <field name="body">Thanks {name}! Your visit for {order} is booked: {slot}. Track it: {track_url}</field>
+    </record>
+</odoo>

@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_booking_slot_tech,fix.booking.slot technician,model_fix_booking_slot,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_booking_slot_manager,fix.booking.slot manager,model_fix_booking_slot,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_wb_approve_wizard,wb.approve.wizard,model_wb_approve_wizard,mobile_repair.group_mobile_repair_receptionist,1,1,1,1
+access_wb_reject_wizard,wb.reject.wizard,model_wb_reject_wizard,mobile_repair.group_mobile_repair_receptionist,1,1,1,1
+access_wb_office_wizard,wb.office.wizard,model_wb_office_wizard,mobile_repair.group_mobile_repair_technician,1,1,1,1
+access_wb_call_wizard,wb.call.wizard,model_wb_call_wizard,mobile_repair.group_mobile_repair_technician,1,1,1,1

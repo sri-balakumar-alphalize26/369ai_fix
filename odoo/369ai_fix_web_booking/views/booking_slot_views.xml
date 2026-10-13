@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_booking_slot_list" model="ir.ui.view">
+        <field name="name">fix.booking.slot.list</field>
+        <field name="model">fix.booking.slot</field>
+        <field name="arch" type="xml">
+            <list string="Time slots" editable="bottom">
+                <field name="weekday"/>
+                <field name="date"/>
+                <field name="start" widget="float_time"/>
+                <field name="end" widget="float_time"/>
+                <field name="capacity"/>
+                <field name="mode"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_booking_slot_search" model="ir.ui.view">
+        <field name="name">fix.booking.slot.search</field>
+        <field name="model">fix.booking.slot</field>
+        <field name="arch" type="xml">
+            <search string="Time slots">
+                <field name="name"/>
+                <filter name="filter_weekly" string="Every week" domain="[('weekday', '!=', False)]"/>
+                <filter name="filter_oneoff" string="One-off dates" domain="[('date', '!=', False)]"/>
+                <separator/>
+                <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_weekday" string="Day" context="{'group_by': 'weekday'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_booking_slot" model="ir.actions.act_window">
+        <field name="name">Time Slots</field>
+        <field name="res_model">fix.booking.slot</field>
+        <field name="view_mode">list</field>
+        <field name="search_view_id" ref="view_booking_slot_search"/>
+        <field name="context">{'search_default_group_weekday': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add the times customers can book</p>
+            <p>Every week (e.g. Saturday 09:00-12:00, 2 bookings) or one date only. Times that overlap
+               another slot for the same day are refused.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_booking_slots" name="Time Slots"
+              parent="369ai_fix_customer_module.menu_online_service_config"
+              action="action_booking_slot" sequence="30"/>
+
+    <!-- Settings: next to IT & Mobile Repair's Inspection block -->
+    <record id="res_config_settings_view_form_web_booking" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.web.booking</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="mobile_repair.res_config_settings_view_form_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='mobile_repair']/block[1]" position="after">
+                <block title="Website bookings" name="web_booking">
+                    <setting string="Time slots shown" help="How many days ahead the customer can book, and how soon.">
+                        <div class="content-group">
+                            <div><field name="wb_slot_days" class="oe_inline"/> days ahead</div>
+                            <div><field name="wb_slot_lead_hours" class="oe_inline"/> hours from now at the earliest</div>
+                            <div>change allowed until <field name="wb_slot_change_hours" class="oe_inline"/> hours before</div>
+                        </div>
+                    </setting>
+                    <setting string="Technician placeholder"
+                             help="Job cards made from website bookings start with this employee; choose the real technician when approving.">
+                        <field name="wb_unassigned_employee_id"/>
+                    </setting>
+                    <setting string="Part costs more than expected"
+                             help="When an ordered part arrives dearer than this over its estimated cost, staff re-price and the customer approves again.">
+                        <div><field name="repair_requote_pct" class="oe_inline"/> % over the estimate</div>
+                    </setting>
+                    <setting string="Time slots">
+                        <button name="%(action_booking_slot)d" string="Edit time slots" type="action"
+                                class="btn-link" icon="oi-arrow-right"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_wb_approve_wizard" model="ir.ui.view">
+        <field name="name">wb.approve.wizard.form</field>
+        <field name="model">wb.approve.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Approve booking">
+                <field name="order_id" invisible="1"/>
+                <field name="has_missing" invisible="1"/>
+                <group>
+                    <field name="technician_id" options="{'no_create': True}"/>
+                </group>
+                <separator string="Parts on the job card"/>
+                <field name="parts_html" nolabel="1"/>
+                <div class="alert alert-warning" role="alert" invisible="not has_missing">
+                    Some parts must be ordered. The customer is asked first whether to order them.
+                </div>
+                <group invisible="not has_missing">
+                    <field name="days" required="has_missing"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Approve and tell the customer" class="btn-primary"/>
+                    <button special="cancel" string="Back"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wb_reject_wizard" model="ir.ui.view">
+        <field name="name">wb.reject.wizard.form</field>
+        <field name="model">wb.reject.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reject booking">
+                <field name="order_id" invisible="1"/>
+                <p>The customer gets this reason on WhatsApp. The booking moves to the Rejected list.</p>
+                <field name="reason" placeholder="e.g. This model is not repairable; parts are discontinued."/>
+                <footer>
+                    <button name="action_confirm" type="object" string="Reject and tell the customer" class="btn-danger"/>
+                    <button special="cancel" string="Back"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wb_office_wizard" model="ir.ui.view">
+        <field name="name">wb.office.wizard.form</field>
+        <field name="model">wb.office.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Take to office">
+                <field name="job_card_id" invisible="1"/>
+                <p>Tick everything you take with the device. The customer gets the same items back.</p>
+                <group>
+                    <field name="accessory_ids" widget="many2many_checkboxes" invisible="no_accessories"/>
+                    <field name="no_accessories"/>
+                    <field name="accessories" placeholder="e.g. charger has a frayed cable; black case"/>
+                    <field name="return_by"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Take to office and tell the customer" class="btn-primary"/>
+                    <button special="cancel" string="Back"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wb_call_wizard" model="ir.ui.view">
+        <field name="name">wb.call.wizard.form</field>
+        <field name="model">wb.call.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Call the customer">
+                <field name="order_id" invisible="1"/>
+                <div class="d-flex flex-column gap-2">
+                    <button name="action_call_main" type="object" class="btn btn-primary text-start" invisible="not main_number">
+                        <span class="badge text-bg-light me-2">Main</span><field name="main_number" readonly="1" class="d-inline"/>
+                    </button>
+                    <button name="action_call_alt" type="object" class="btn btn-secondary text-start" invisible="not alt_number">
+                        <span class="badge text-bg-light me-2">Alternative</span><field name="alt_number" readonly="1" class="d-inline"/>
+                    </button>
+                </div>
+                <footer>
+                    <button special="cancel" string="Close"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

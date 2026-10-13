@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!-- One more box on the IT & Mobile Repair dashboard, after Online Service.
+         Extension only: the original templates are not changed. -->
+    <t t-inherit="mobile_repair.Dashboard" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('stats-box')][h5[text()='Online Service']]" position="after">
+            <div class="stats-box">
+                <h5>Website bookings</h5>
+                <div class="simple-chart">
+                    <div class="chart-legend">
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix_web_booking.action_wb_waiting')">
+                            <span class="legend-dot" style="background: #714b67;"/>
+                            <span>Waiting for approval: <strong t-out="state.data.wb_waiting || 0"/></span>
+                        </div>
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix_web_booking.action_wb_slot_unseen')">
+                            <span class="legend-dot" style="background: #0b6e8a;"/>
+                            <span>Visit time booked (not seen): <strong t-out="state.data.wb_slot_unseen || 0"/></span>
+                        </div>
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix_web_booking.action_wb_parts')">
+                            <span class="legend-dot" style="background: #a35400;"/>
+                            <span>Waiting for parts: <strong t-out="state.data.wb_parts || 0"/></span>
+                        </div>
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix_web_booking.action_wb_rejected')">
+                            <span class="legend-dot" style="background: #b3261e;"/>
+                            <span>Rejected today: <strong t-out="state.data.wb_rejected_today || 0"/></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </t>
+</templates>
