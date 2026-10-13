@@ -48,6 +48,11 @@ class DanatfixBookingSettings(models.Model):
         help="Empty: every internal user hears it on any Odoo page. The Live "
              "Screen always rings for whoever has it open.")
 
+    desk_replaces_online_alarm = fields.Boolean(
+        'Only the Live Screen alarm rings', default=True,
+        help="Website orders ring with this module's alarm (new booking + visit time booked). "
+             "Online Service's own alarm stays quiet, so staff hear one alarm, not two.")
+
     @api.model
     def get_settings(self):
         settings = self.sudo().search([], limit=1)

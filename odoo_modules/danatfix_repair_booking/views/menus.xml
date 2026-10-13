@@ -14,11 +14,17 @@
               action="action_danatfix_booking_screen"
               sequence="1"/>
 
+    <menuitem id="menu_danatfix_booking_orders"
+              name="All Website Orders"
+              parent="menu_danatfix_booking_root"
+              action="369ai_fix_customer_module.action_online_order_all"
+              sequence="2"/>
+
     <menuitem id="menu_danatfix_booking_list"
-              name="All Bookings"
+              name="Old Bookings"
               parent="menu_danatfix_booking_root"
               action="action_danatfix_booking_list"
-              sequence="2"/>
+              sequence="8"/>
 
     <menuitem id="menu_danatfix_booking_settings"
               name="Settings"

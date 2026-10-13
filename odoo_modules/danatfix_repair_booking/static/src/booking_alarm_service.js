@@ -1,18 +1,21 @@
 /** @odoo-module **/
 
 /**
- * The website-booking alarm on every page of Odoo.
+ * The two website-booking alarms on every page of Odoo.
  *
- * A service, so it lives as long as the web client: somebody working in
- * Invoicing still hears that a customer has booked. It asks the server every
- * 20 seconds and also the moment the bus says something changed, and rings
- * while any booking is still New. Accepting one anywhere - another screen,
- * another tab, the WhatsApp poll - silences it on the next refresh.
+ *  1. New booking: the chime, while any website order waits for review
+ *     (approve / reject) and nobody is calling the customer about it.
+ *  2. Visit time booked: a lower "ding-dong", while a customer has booked the
+ *     visit time and nobody has pressed Seen.
+ *
+ * A service, so it lives as long as the web client. It asks the server every
+ * 20 seconds and at once when the bus says something changed. While the Live
+ * Screen is open in this tab, the screen owns the sound (see `presence`).
  */
 
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
-import { BookingAlarm, presence } from "./booking_shared";
+import { BookingAlarm, SLOT_TONE, presence } from "./booking_shared";
 
 const POLL_MS = 20000;
 const MAX_FAILURES = 3;
@@ -21,12 +24,16 @@ export const bookingAlarmService = {
     dependencies: ["orm", "bus_service", "notification", "action"],
 
     start(env, { orm, bus_service, notification, action }) {
-        const alarm = new BookingAlarm();
+        const newAlarm = new BookingAlarm();
+        const slotAlarm = new BookingAlarm();
         let armed = false;
         let failures = 0;
         let state = null;
-        let timer = null;
-        let closeNotification = null;
+        let newTimer = null;
+        let slotTimer = null;
+        let closeNew = null;
+        let closeSlot = null;
+        let slotKey = "";
         let poller = null;
 
         // Browsers only allow sound after a click or key press, so arm on the
@@ -35,7 +42,7 @@ export const bookingAlarmService = {
             if (armed) {
                 return;
             }
-            armed = await alarm.arm();
+            armed = (await newAlarm.arm()) && (await slotAlarm.arm());
             if (armed) {
                 document.removeEventListener("pointerdown", arm, true);
                 document.removeEventListener("keydown", arm, true);
@@ -45,66 +52,128 @@ export const bookingAlarmService = {
         document.addEventListener("pointerdown", arm, true);
         document.addEventListener("keydown", arm, true);
 
-        function stop() {
-            if (timer) {
-                clearInterval(timer);
-                timer = null;
+        function stopNew() {
+            if (newTimer) {
+                clearInterval(newTimer);
+                newTimer = null;
             }
-            alarm.stop();
+            newAlarm.stop();
+        }
+
+        function stopSlot() {
+            if (slotTimer) {
+                clearInterval(slotTimer);
+                slotTimer = null;
+            }
+            slotAlarm.stop();
         }
 
         function sync() {
-            if (!state || !armed || presence.screens > 0 || !state.new) {
-                stop();
+            if (!state || !armed || presence.screens > 0) {
+                stopNew();
+                stopSlot();
                 return;
             }
-            if (!timer) {
-                alarm.ring(state.ring);
-                timer = setInterval(() => alarm.ring(state.ring),
-                                    (state.ring + state.repeat) * 1000);
+            if (state.new) {
+                if (!newTimer) {
+                    newAlarm.ring(state.ring);
+                    newTimer = setInterval(() => newAlarm.ring(state.ring),
+                                           (state.ring + state.repeat) * 1000);
+                }
+            } else {
+                stopNew();
+            }
+            if (state.slots.length) {
+                if (!slotTimer) {
+                    // Offset by half a cycle so the two alarms never sound together.
+                    const cycle = (state.ring + state.repeat) * 1000;
+                    setTimeout(() => {
+                        if (state.slots.length && !presence.screens) {
+                            slotAlarm.ring(state.ring, SLOT_TONE);
+                        }
+                    }, state.new ? cycle / 2 : 0);
+                    slotTimer = setInterval(() => slotAlarm.ring(state.ring, SLOT_TONE), cycle);
+                }
+            } else {
+                stopSlot();
             }
         }
 
+        const openScreen = () => action.doAction("danatfix_repair_booking.action_danatfix_booking_screen");
+
+        async function seen(id) {
+            try {
+                await orm.call("online.service.order", "action_wb_slot_seen", [[id]]);
+            } catch {
+                // the screen can still do it
+            }
+            poll();
+        }
+
         function tellThem() {
-            if (!state || !state.new) {
-                if (closeNotification) {
-                    closeNotification();
-                    closeNotification = null;
+            // New bookings
+            if (!state.new) {
+                if (closeNew) {
+                    closeNew();
+                    closeNew = null;
                 }
-                return;
+            } else if (!closeNew && presence.screens === 0) {
+                closeNew = notification.add(
+                    state.new === 1
+                        ? _t("1 new website booking to review")
+                        : _t("%s new website bookings to review", state.new),
+                    {
+                        title: _t("Website booking"),
+                        type: "warning",
+                        sticky: true,
+                        buttons: [{ name: _t("Open Live Screen"), primary: true, onClick: openScreen }],
+                        onClose: () => {
+                            closeNew = null;
+                        },
+                    });
             }
-            if (closeNotification || presence.screens > 0) {
-                return;
+            // Visit times booked
+            const key = state.slots.map((s) => s.id).join(",");
+            if (key !== slotKey || !key) {
+                if (closeSlot) {
+                    closeSlot();
+                    closeSlot = null;
+                }
+                slotKey = key;
             }
-            closeNotification = notification.add(
-                state.new === 1
-                    ? _t("1 new repair booking from the website")
-                    : _t("%s new repair bookings from the website", state.new),
-                {
-                    title: _t("Website booking"),
-                    type: "warning",
-                    sticky: true,
-                    buttons: [{
-                        name: _t("Open Live Screen"),
-                        primary: true,
-                        onClick: () => action.doAction(
-                            "danatfix_repair_booking.action_danatfix_booking_screen"),
-                    }],
-                    onClose: () => {
-                        closeNotification = null;
-                    },
-                });
+            if (key && !closeSlot && presence.screens === 0) {
+                const first = state.slots[0];
+                closeSlot = notification.add(
+                    state.slots.length === 1
+                        ? _t("%(name)s - %(customer)s booked %(slot)s",
+                             { name: first.name, customer: first.customer, slot: first.slot })
+                        : _t("%s customers booked their visit time", state.slots.length),
+                    {
+                        title: _t("Visit time booked"),
+                        type: "info",
+                        sticky: true,
+                        buttons: [
+                            state.slots.length === 1
+                                ? { name: _t("Seen"), primary: true, onClick: () => seen(first.id) }
+                                : { name: _t("Open Live Screen"), primary: true, onClick: openScreen },
+                        ],
+                        onClose: () => {
+                            closeSlot = null;
+                        },
+                    });
+            }
         }
 
         async function poll() {
             try {
-                state = await orm.call("danatfix.booking", "alarm_state", []);
+                state = await orm.silent.call("online.service.order", "desk_alarm_state", []);
                 failures = 0;
             } catch {
                 // No access, or the server is restarting: not worth a dialog.
                 failures += 1;
                 if (failures >= MAX_FAILURES) {
-                    stop();
+                    stopNew();
+                    stopSlot();
                     clearInterval(poller);
                 }
                 return;
@@ -115,6 +184,7 @@ export const bookingAlarmService = {
 
         bus_service.addChannel("danatfix_booking");
         bus_service.subscribe("danatfix_booking/refresh", () => poll());
+        bus_service.subscribe("online_service/refresh", () => poll());
         poller = setInterval(poll, POLL_MS);
         poll();
 

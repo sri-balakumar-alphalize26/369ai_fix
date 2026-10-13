@@ -14,6 +14,12 @@
 /** Rising three-note chime, quicker than the order alarm. */
 export const BOOKING_TONE = { notes: [784, 988, 1175], step: 0.22, len: 0.18, gap: 0.5 };
 
+/**
+ * The second alarm: a customer booked the visit time. Falling two-note "ding-dong",
+ * slower and lower, so it is never mistaken for a new booking.
+ */
+export const SLOT_TONE = { notes: [1047, 698], step: 0.42, len: 0.36, gap: 0.9, type: "sine" };
+
 export class BookingAlarm {
     constructor() {
         this.ctx = null;
@@ -39,10 +45,10 @@ export class BookingAlarm {
         return this.armed;
     }
 
-    _tone(freq, at, length) {
+    _tone(freq, at, length, type = "square") {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = "square";
+        osc.type = type;
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0.0001, at);
         gain.gain.exponentialRampToValueAtTime(0.7, at + 0.01);
@@ -55,19 +61,19 @@ export class BookingAlarm {
     }
 
     /** Ring for `seconds`, scheduled a second ahead at a time so stop() is instant. */
-    ring(seconds) {
+    ring(seconds, tone = BOOKING_TONE) {
         this.stop();
         if (!this.armed || !this.ctx) {
             return;
         }
-        const t = BOOKING_TONE;
+        const t = tone;
         const end = this.ctx.currentTime + seconds;
         let next = this.ctx.currentTime + 0.05;
         let i = 0;
         const schedule = () => {
             const horizon = this.ctx.currentTime + 1.0;
             while (next < horizon && next < end) {
-                this._tone(t.notes[i % t.notes.length], next, t.len);
+                this._tone(t.notes[i % t.notes.length], next, t.len, t.type || "square");
                 i += 1;
                 next += i % t.notes.length === 0 ? t.step + t.gap : t.step;
             }

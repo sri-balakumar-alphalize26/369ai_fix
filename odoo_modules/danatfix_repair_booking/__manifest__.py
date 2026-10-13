@@ -1,24 +1,26 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Danat Fix Repair Booking',
-    'version': '19.0.1.0.0',
-    'summary': 'Website repair bookings on the Store screen, with an alarm and a WhatsApp poll for the staff group',
+    'version': '19.0.2.0.0',
+    'summary': 'Live Screen, alarms and the staff WhatsApp poll for website repair bookings',
     'description': """
-Every "Book" button on the Danat Fix / 369 ai Fix website sends the booking here.
+Website bookings (IT & Mobile Repair > Online Service, each already a filled job
+card) are handled here.
 
-* Store > Website Bookings > Live Screen: cards for new bookings, with an
-  alarm that keeps ringing until somebody accepts one. The alarm also rings
-  on every other Odoo page (polled every 20 s, pushed over the bus at once).
-* The staff WhatsApp group gets the booking and a poll:
-  Accept / Call customer first / Reject. The first tap decides, and the
-  Store screen updates by itself.
-* The website talks to Odoo through the normal external API
-  (execute_kw on danatfix.booking.website_create) with a dedicated user and
-  an API key - see the README of the website.
+* Store > Website Bookings > Live Screen: a card per new booking with the device,
+  the faults, the customer's own words and photos, the parts and their stock, and
+  Approve / Call (Main, Alternative) / Reject. Booked visit times show too, with Seen.
+* Two alarms on every Odoo page: a chime while a booking waits for review, and a
+  second tone when a customer books the visit time.
+* The staff WhatsApp group gets each booking with a poll:
+  Accept / Call customer first / Reject. The first tap decides; the screen follows.
+  Reject from WhatsApp asks for the reason on the screen; Accept that needs a price
+  or parts is sent to the screen.
+* Bookings from before 19.0.2 stay under Old Bookings.
 """,
     'author': 'Alphalize',
     'category': 'Sales',
-    'depends': ['sales_automation', 'sales_automation_store', 'mail', 'bus'],
+    'depends': ['sales_automation', 'sales_automation_store', 'mail', 'bus', '369ai_fix_web_booking'],
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence.xml',

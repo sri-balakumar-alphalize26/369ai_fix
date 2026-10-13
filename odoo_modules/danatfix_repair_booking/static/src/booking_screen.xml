@@ -7,9 +7,11 @@
     <div class="df_bk_bar">
       <h2 class="df_bk_title">Website Bookings</h2>
       <span class="df_bk_pill" t-att-class="{ 'df_bk_pulse': state.newCount }">
-        <t t-esc="state.newCount"/> new
+        <t t-esc="state.newCount"/> to review
       </span>
-      <span class="df_bk_pill df_bk_pill_open"><t t-esc="state.rows.length"/> open</span>
+      <span class="df_bk_pill df_bk_pill_slot" t-att-class="{ 'df_bk_pulse': state.slotCount }">
+        <t t-esc="state.slotCount"/> times booked
+      </span>
       <span class="df_bk_poll" t-if="state.pollReady" title="New bookings are posted to the staff WhatsApp group with a poll">
         WhatsApp poll on
       </span>
@@ -19,9 +21,9 @@
       </button>
       <t t-else="">
         <span class="df_bk_sound_on">Alarm on</span>
-        <button class="btn btn-secondary btn-sm" t-on-click="onTestSound">Test sound</button>
+        <button class="btn btn-secondary btn-sm" t-on-click="onTestSound">Test both sounds</button>
       </t>
-      <button class="btn btn-link" t-on-click="openList">All bookings</button>
+      <button class="btn btn-link" t-on-click="openList">All website orders</button>
     </div>
 
     <div class="df_bk_warn" t-if="!state.soundOn">
@@ -31,33 +33,41 @@
 
     <div class="df_bk_empty" t-if="!state.loading and !state.rows.length">
       <div class="df_bk_empty_mark">✓</div>
-      <div>Nothing waiting. New website bookings appear here on their own.</div>
+      <div>Nothing waiting. New website bookings and booked visit times appear here on their own.</div>
     </div>
 
     <div class="df_bk_grid">
       <t t-foreach="state.rows" t-as="row" t-key="row.id">
-        <div class="df_bk_card" t-att-class="'df_bk_' + row.state">
+        <div class="df_bk_card" t-att-class="'df_bk_' + row.stage">
 
           <div class="df_bk_top">
-            <a href="#" class="df_bk_ref" t-on-click.prevent="() => this.openRecord(row)">
+            <a href="#" class="df_bk_ref" t-on-click.prevent="() => this.openOrder(row)">
               <t t-esc="row.name"/>
             </a>
             <span class="df_bk_stage"><t t-esc="stageLabel(row)"/></span>
             <span class="df_bk_age"><t t-esc="age(row)"/></span>
           </div>
           <div class="df_bk_meta">
-            <span t-if="row.web_ref"><t t-esc="row.web_ref"/></span>
-            <span t-if="row.brand"><t t-esc="row.brand"/></span>
-            <span t-if="row.source"><t t-esc="row.source"/></span>
+            <span t-if="row.mode"><t t-esc="row.mode"/></span>
+            <t t-foreach="row.job_cards" t-as="card" t-key="card.id">
+              <a href="#" t-on-click.prevent="() => this.openJobCard(card)"><t t-esc="card.name"/></a>
+            </t>
+          </div>
+
+          <div class="df_bk_slot" t-if="row.slot">
+            🗓 <b><t t-esc="row.slot"/></b>
           </div>
 
           <div class="df_bk_who">
             <div class="df_bk_cust"><t t-esc="row.customer or 'No name given'"/></div>
-            <div t-if="row.phone" class="df_bk_contact">
-              <a t-attf-href="tel:+#{row.phone_digits}"><t t-esc="row.phone"/></a>
-              <a class="df_bk_wa" t-attf-href="https://wa.me/#{row.phone_digits}" target="_blank" rel="noopener">WhatsApp</a>
+            <div class="df_bk_numbers">
+              <t t-foreach="row.numbers" t-as="num" t-key="num.digits">
+                <a class="df_bk_num" t-attf-href="tel:+#{num.digits}">
+                  <span class="df_bk_badge" t-att-class="{ 'df_bk_badge_alt': num.label !== 'Main' }"><t t-esc="num.label"/></span>
+                  <t t-esc="num.number"/>
+                </a>
+              </t>
             </div>
-            <div t-if="row.email"><a t-attf-href="mailto:#{row.email}"><t t-esc="row.email"/></a></div>
             <div t-if="row.address or row.area" class="df_bk_addr">
               <t t-esc="where(row)"/>
               <a t-if="row.map_url" t-att-href="row.map_url" target="_blank" rel="noopener"> · map</a>
@@ -69,37 +79,54 @@
               <li>
                 <span class="df_bk_qty"><t t-esc="line.qty"/></span>
                 <span><t t-esc="lineLabel(line)"/></span>
+                <span class="df_bk_price" t-if="line.price !== null"><t t-esc="money(row, line.price)"/></span>
               </li>
             </t>
           </ul>
-          <div class="df_bk_note" t-if="row.coupon">Coupon: <b><t t-esc="row.coupon"/></b></div>
-          <div class="df_bk_note" t-if="row.note"><t t-esc="row.note"/></div>
+          <div class="df_bk_problem" t-if="row.problem">“<t t-esc="row.problem"/>”</div>
 
-          <div class="df_bk_taken" t-if="row.taken_by">
-            <t t-if="row.state === 'calling'">Calling: </t>
-            <t t-else="">Taken by </t>
-            <b><t t-esc="row.taken_by"/></b>
-            <t t-if="row.decided_via === 'whatsapp'"> (WhatsApp poll)</t>
+          <div class="df_bk_photos" t-if="row.photos.length or row.videos">
+            <t t-foreach="row.photos" t-as="pid" t-key="pid">
+              <a t-attf-href="/web/content/#{pid}" target="_blank" rel="noopener">
+                <img t-attf-src="/web/image/#{pid}/96x96" alt="Customer photo"/>
+              </a>
+            </t>
+            <span class="df_bk_video" t-if="row.videos">🎬 <t t-esc="row.videos"/> video</span>
           </div>
-          <div class="df_bk_err" t-if="row.poll_error" t-att-title="row.poll_error">
-            WhatsApp poll not sent
-          </div>
+
+          <ul class="df_bk_parts" t-if="row.parts.length">
+            <t t-foreach="row.parts" t-as="part" t-key="part_index">
+              <li>
+                <span><t t-esc="part.name"/> × <t t-esc="part.qty"/></span>
+                <span t-att-class="part.on_hand &gt; 0 ? 'df_bk_stock_ok' : 'df_bk_stock_no'">
+                  <t t-if="part.on_hand &gt; 0"><t t-esc="part.on_hand"/> in stock</t>
+                  <t t-else="">none - order it</t>
+                </span>
+              </li>
+            </t>
+          </ul>
+          <div class="df_bk_total" t-if="row.total">Estimate: <b><t t-esc="money(row, row.total)"/></b></div>
+
+          <div class="df_bk_note" t-if="row.note"><t t-esc="row.note"/></div>
+          <div class="df_bk_taken" t-if="row.calling_by">Calling: <b><t t-esc="row.calling_by"/></b></div>
+          <div class="df_bk_err" t-if="row.needs_screen">Accepted on WhatsApp, but <t t-esc="row.needs_screen"/>.</div>
+          <div class="df_bk_err" t-if="row.poll_error" t-att-title="row.poll_error">WhatsApp poll not sent</div>
 
           <div class="df_bk_actions">
-            <t t-if="row.state === 'new' or row.state === 'calling'">
-              <button class="btn btn-primary" t-att-disabled="state.busy"
-                      t-on-click="() => this.act(row, 'accept')">Accept</button>
-            </t>
             <t t-if="row.state === 'new'">
-              <button class="btn btn-secondary" t-att-disabled="state.busy"
-                      t-on-click="() => this.act(row, 'call')">Call customer first</button>
+              <button class="btn btn-primary" t-att-disabled="state.busy" t-if="row.stage !== 'reject'"
+                      t-on-click="() => this.act(row, 'approve')">Approve</button>
+              <button class="btn btn-secondary" t-att-disabled="state.busy" t-if="row.stage === 'new'"
+                      t-on-click="() => this.act(row, 'call')">I'm calling</button>
+              <button class="btn" t-att-class="row.stage === 'reject' ? 'btn-danger' : 'btn-link text-danger'"
+                      t-att-disabled="state.busy"
+                      t-on-click="() => this.act(row, 'reject')">
+                <t t-if="row.stage === 'reject'">Write the reason and reject</t>
+                <t t-else="">Reject</t>
+              </button>
             </t>
-            <t t-if="row.state === 'accepted' or row.state === 'calling'">
-              <button class="btn btn-success" t-att-disabled="state.busy"
-                      t-on-click="() => this.act(row, 'done')">Done</button>
-            </t>
-            <button class="btn btn-link text-danger" t-att-disabled="state.busy"
-                    t-on-click="() => this.onCancel(row)">Cancel</button>
+            <button class="btn btn-warning" t-if="row.slot_unseen" t-att-disabled="state.busy"
+                    t-on-click="() => this.act(row, 'seen')">Seen</button>
           </div>
         </div>
       </t>

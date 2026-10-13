@@ -25,12 +25,13 @@
                             <field name="repeat_seconds"/>
                             <field name="alarm_user_ids" widget="many2many_tags"
                                    placeholder="Everyone"/>
+                            <field name="desk_replaces_online_alarm"/>
                         </group>
                     </group>
                     <div class="text-muted">
-                        The website sends bookings through Odoo's external API as the user
-                        whose API key is set on the website server (ODOO_LOGIN / ODOO_API_KEY).
-                        Give that user internal access only - it needs nothing else.
+                        Website orders (IT &amp; Mobile Repair &gt; Online Service) show on the Live Screen.
+                        Two alarms: a chime for a new booking, a second tone when a customer books
+                        the visit time.
                     </div>
                 </sheet>
             </form>

@@ -38,7 +38,12 @@ class WhatsAppWebhookBookingPoll(WhatsAppWebhookGroups):
         poll_ref = self._sa_poll_ref(message)
         if not poll_ref:
             return False
-        booking = request.env['danatfix.booking'].sudo()._from_poll_ref(poll_ref)
+        # Website orders first (where bookings arrive now), then the old bookings.
+        booking = request.env['online.service.order'].sudo()._desk_from_poll_ref(poll_ref)
+        apply_vote = booking._desk_apply_vote if booking else None
+        if not booking:
+            booking = request.env['danatfix.booking'].sudo()._from_poll_ref(poll_ref)
+            apply_vote = booking._apply_vote if booking else None
         if not booking:
             return False
         choice = self._sa_poll_choice(message)
@@ -46,7 +51,7 @@ class WhatsAppWebhookBookingPoll(WhatsAppWebhookGroups):
         digits, _lid, _hidden = self._sa_sender_of(data, key)
         push_name = str(data.get('pushName') or '')
         if choice:
-            changed = booking._apply_vote(choice, digits, push_name)
+            changed = apply_vote(choice, digits, push_name)
             _logger.info("Website booking %s: %s voted %r (%s)", booking.name,
                          push_name or digits or '(hidden)', choice,
                          'applied' if changed else 'too late, ignored')
