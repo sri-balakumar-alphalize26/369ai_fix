@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_doorstep_visit" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.doorstep.visit</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="mobile_repair.res_config_settings_view_form_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='mobile_repair']" position="inside">
+                <block title="Doorstep Visits"
+                       help="The technician's trip to the customer: live position, ETA and arrival code.">
+                    <setting string="Average travel speed"
+                             help="ETA = straight-line distance to the customer ÷ this speed (km/h).">
+                        <field name="fs_speed_kmh"/>
+                    </setting>
+                    <setting string="Signal lost after"
+                             help="Seconds without a new technician position before it is shown as lost.">
+                        <field name="fs_stale_after_s"/>
+                    </setting>
+                    <setting string="Keep position trail"
+                             help="Days the trail points are kept.">
+                        <field name="fs_position_keep_days"/>
+                    </setting>
+                    <setting string="Arrival code"
+                             help="The technician enters the code the customer reads out before the visit can be marked Arrived.">
+                        <field name="fs_arrival_otp"/>
+                    </setting>
+                    <setting string="Show technician's phone"
+                             help="Show the technician's phone number on the customer's tracking page during the visit.">
+                        <field name="fs_show_tech_phone"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

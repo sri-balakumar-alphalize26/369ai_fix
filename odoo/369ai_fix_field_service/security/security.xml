@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Every company sees only its own visits. -->
+    <record id="rule_service_visit_company" model="ir.rule">
+        <field name="name">Doorstep visit: own companies</field>
+        <field name="model_id" ref="model_fix_service_visit"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <!-- A technician sees the visits given to them (as mobile_repair does for job cards). -->
+    <record id="rule_service_visit_technician" model="ir.rule">
+        <field name="name">Doorstep visit: technician sees own visits</field>
+        <field name="model_id" ref="model_fix_service_visit"/>
+        <field name="domain_force">['|', ('technician_user_id', '=', user.id), ('create_uid', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('mobile_repair.group_mobile_repair_technician'))]"/>
+    </record>
+
+    <record id="rule_service_visit_receptionist" model="ir.rule">
+        <field name="name">Doorstep visit: office sees all</field>
+        <field name="model_id" ref="model_fix_service_visit"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('mobile_repair.group_mobile_repair_receptionist'))]"/>
+    </record>
+
+    <record id="rule_service_visit_position_technician" model="ir.rule">
+        <field name="name">Doorstep visit trail: technician sees own visits</field>
+        <field name="model_id" ref="model_fix_service_visit_position"/>
+        <field name="domain_force">[('visit_id.technician_user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('mobile_repair.group_mobile_repair_technician'))]"/>
+    </record>
+
+    <record id="rule_service_visit_position_receptionist" model="ir.rule">
+        <field name="name">Doorstep visit trail: office sees all</field>
+        <field name="model_id" ref="model_fix_service_visit_position"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('mobile_repair.group_mobile_repair_receptionist'))]"/>
+    </record>
+</odoo>

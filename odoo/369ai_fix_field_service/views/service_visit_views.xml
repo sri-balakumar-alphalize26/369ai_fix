@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_service_visit_list" model="ir.ui.view">
+        <field name="name">fix.service.visit.list</field>
+        <field name="model">fix.service.visit</field>
+        <field name="arch" type="xml">
+            <list string="Doorstep Visits" decoration-muted="state in ('done', 'cancelled')"
+                  decoration-info="state == 'draft'" decoration-warning="state == 'on_the_way'">
+                <field name="name"/>
+                <field name="slot_start" optional="show"/>
+                <field name="customer_name"/>
+                <field name="phone" optional="show"/>
+                <field name="area"/>
+                <field name="technician_id" widget="many2one_avatar_employee"/>
+                <field name="order_id" optional="show"/>
+                <field name="job_card_id" optional="hide"/>
+                <field name="distance_km" optional="hide"/>
+                <field name="eta_minutes" optional="show" invisible="not eta_minutes"/>
+                <field name="company_id" optional="hide" groups="base.group_multi_company"/>
+                <field name="state" widget="badge"
+                       decoration-info="state in ('draft', 'assigned')"
+                       decoration-warning="state == 'on_the_way'"
+                       decoration-primary="state in ('arrived', 'in_progress')"
+                       decoration-success="state == 'done'"
+                       decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_service_visit_kanban" model="ir.ui.view">
+        <field name="name">fix.service.visit.kanban</field>
+        <field name="model">fix.service.visit</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" class="o_kanban_small_column" quick_create="false">
+                <field name="state"/>
+                <field name="tech_stale"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between">
+                            <field name="name" class="fw-bold"/>
+                            <field name="slot_start" widget="datetime" class="small text-muted"/>
+                        </div>
+                        <field name="customer_name"/>
+                        <field name="area" class="small text-muted"/>
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <field name="technician_id" widget="many2one_avatar_employee"/>
+                            <span t-if="record.eta_minutes.raw_value" class="badge text-bg-warning">
+                                ETA <field name="eta_minutes"/> min
+                            </span>
+                            <span t-if="record.tech_stale.raw_value" class="badge text-bg-secondary">Signal lost</span>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_service_visit_calendar" model="ir.ui.view">
+        <field name="name">fix.service.visit.calendar</field>
+        <field name="model">fix.service.visit</field>
+        <field name="arch" type="xml">
+            <calendar string="Doorstep Visits" date_start="slot_start" date_stop="slot_end"
+                      color="technician_id" mode="week" quick_create="0" event_open_popup="0">
+                <field name="customer_name"/>
+                <field name="area"/>
+                <field name="technician_id" filters="1"/>
+                <field name="state"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="view_service_visit_form" model="ir.ui.view">
+        <field name="name">fix.service.visit.form</field>
+        <field name="model">fix.service.visit</field>
+        <field name="arch" type="xml">
+            <form string="Doorstep Visit">
+                <header>
+                    <button name="action_assign" type="object" string="Assign" class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_on_the_way" type="object" string="On the way" class="btn-primary"
+                            invisible="state != 'assigned'"/>
+                    <button name="action_arrived" type="object" string="Arrived" class="btn-primary"
+                            invisible="state not in ('assigned', 'on_the_way')"/>
+                    <button name="action_start" type="object" string="Start work" class="btn-primary"
+                            invisible="state != 'arrived'"/>
+                    <button name="action_done" type="object" string="Done"
+                            invisible="state not in ('arrived', 'in_progress')"/>
+                    <button name="action_cancel" type="object" string="Cancel visit"
+                            invisible="state in ('done', 'cancelled')"
+                            confirm="Cancel this visit?"/>
+                    <button name="action_reset" type="object" string="Back to draft"
+                            invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,assigned,on_the_way,arrived,in_progress,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_order" type="object" class="oe_stat_button"
+                                icon="fa-globe" invisible="not order_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Website Order</span>
+                                <field name="order_id" readonly="1" options="{'no_open': True}"/>
+                            </div>
+                        </button>
+                        <button name="action_open_job_card" type="object" class="oe_stat_button"
+                                icon="fa-wrench" invisible="not job_card_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Job Card</span>
+                                <field name="job_card_id" readonly="1" options="{'no_open': True}"/>
+                            </div>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Signal lost" bg_color="text-bg-secondary"
+                            invisible="not tech_stale or state not in ('on_the_way', 'arrived')"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+
+                    <!-- The live strip: how far and how long, while the technician is travelling. -->
+                    <div class="alert alert-warning d-flex flex-wrap gap-4 align-items-center" role="status"
+                         invisible="state not in ('on_the_way', 'arrived')">
+                        <span><strong>Distance:</strong> <field name="distance_km" class="d-inline"/> km</span>
+                        <span invisible="not eta_minutes"><strong>ETA:</strong> <field name="eta_minutes" class="d-inline"/> min
+                            (<field name="eta_at" class="d-inline" widget="datetime"/>)</span>
+                        <span invisible="not tech_fix_on"><strong>Last position:</strong>
+                            <field name="tech_fix_age_s" class="d-inline"/> s ago</span>
+                        <span invisible="tech_fix_on" class="text-muted">No position from the technician yet</span>
+                        <field name="directions_url" widget="url" text="Directions" invisible="not directions_url"/>
+                    </div>
+
+                    <group>
+                        <group string="Customer">
+                            <field name="customer_name"/>
+                            <field name="phone" widget="phone"/>
+                            <field name="partner_id"/>
+                            <field name="area"/>
+                            <field name="address"/>
+                            <field name="building"/>
+                            <field name="floor_flat"/>
+                            <field name="landmark"/>
+                        </group>
+                        <group string="Visit">
+                            <field name="technician_id" widget="many2one_avatar_employee"
+                                   readonly="state not in ('draft', 'assigned')"/>
+                            <field name="technician_phone" widget="phone" invisible="not technician_id"/>
+                            <field name="slot_start"/>
+                            <field name="slot_end"/>
+                            <field name="site_id"/>
+                            <field name="order_id" invisible="1"/>
+                            <field name="job_card_id" invisible="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="cancel_reason" invisible="state != 'cancelled'"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Customer location" name="customer_location">
+                            <group>
+                                <group>
+                                    <field name="customer_map_link" placeholder="Paste a Google Maps link or 'lat, lng'"/>
+                                    <field name="customer_lat"/>
+                                    <field name="customer_lng"/>
+                                    <field name="customer_accuracy"/>
+                                    <field name="customer_location_source"/>
+                                    <field name="customer_location_on"/>
+                                </group>
+                                <group>
+                                    <field name="customer_map_url" widget="url" text="Open in Google Maps"
+                                           invisible="not customer_map_url"/>
+                                    <field name="directions_url" widget="url" text="Directions"
+                                           invisible="not directions_url"/>
+                                </group>
+                            </group>
+                            <field name="customer_map_html" nolabel="1" readonly="1"
+                                   invisible="not customer_map_url"/>
+                            <div class="text-muted" invisible="customer_map_url">
+                                No customer location yet. Paste a map link above.
+                            </div>
+                        </page>
+
+                        <page string="Technician" name="technician">
+                            <div class="d-flex gap-3 align-items-start mb-3" invisible="not technician_id">
+                                <field name="technician_image" widget="image" readonly="1"
+                                       options="{'size': [96, 96]}"/>
+                                <div>
+                                    <h3><field name="technician_id" readonly="1" options="{'no_open': True}"/></h3>
+                                    <field name="technician_phone" widget="phone"/>
+                                </div>
+                            </div>
+                            <group>
+                                <group string="Last position">
+                                    <field name="tech_fix_on"/>
+                                    <field name="tech_fix_age_s" invisible="not tech_fix_on"/>
+                                    <field name="tech_stale" invisible="not tech_fix_on"/>
+                                    <field name="tech_lat"/>
+                                    <field name="tech_lng"/>
+                                    <field name="tech_accuracy"/>
+                                    <field name="tech_speed"/>
+                                    <field name="tech_heading"/>
+                                    <field name="tech_battery" widget="percentage"/>
+                                </group>
+                                <group string="Trip">
+                                    <field name="start_lat"/>
+                                    <field name="start_lng"/>
+                                    <field name="distance_km"/>
+                                    <field name="eta_minutes"/>
+                                    <field name="eta_at"/>
+                                    <field name="arrived_distance_m"/>
+                                    <field name="tech_map_url" widget="url" text="Open in Google Maps"
+                                           invisible="not tech_map_url"/>
+                                    <field name="agent_ref"/>
+                                </group>
+                            </group>
+                            <field name="tech_map_html" nolabel="1" readonly="1" invisible="not tech_map_url"/>
+                            <div class="text-muted" invisible="tech_map_url">
+                                No position yet. The 369 Partner App will send it while the technician
+                                is on this visit.
+                            </div>
+                        </page>
+
+                        <page string="Timeline" name="timeline">
+                            <group>
+                                <group>
+                                    <field name="create_date" string="Created"/>
+                                    <field name="assigned_on"/>
+                                    <field name="departed_on"/>
+                                    <field name="arrived_on"/>
+                                </group>
+                                <group>
+                                    <field name="started_on"/>
+                                    <field name="done_on"/>
+                                    <field name="cancelled_on" invisible="not cancelled_on"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Arrival code" name="arrival_code"
+                              groups="mobile_repair.group_mobile_repair_receptionist">
+                            <group>
+                                <field name="arrival_code"/>
+                                <field name="arrival_verified_on"/>
+                                <field name="arrival_tries"/>
+                            </group>
+                            <p class="text-muted">
+                                The customer sees this code on the tracking page and in WhatsApp, and reads it
+                                out at the door. The setting is under IT &amp; Mobile Repair settings.
+                            </p>
+                        </page>
+
+                        <page string="Trail" name="trail">
+                            <field name="position_ids" readonly="1">
+                                <list>
+                                    <field name="recorded_on"/>
+                                    <field name="latitude"/>
+                                    <field name="longitude"/>
+                                    <field name="accuracy"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_service_visit_search" model="ir.ui.view">
+        <field name="name">fix.service.visit.search</field>
+        <field name="model">fix.service.visit</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="customer_name"/>
+                <field name="phone"/>
+                <field name="area"/>
+                <field name="technician_id"/>
+                <field name="order_id"/>
+                <field name="job_card_id"/>
+                <filter name="f_mine" string="My visits" domain="[('technician_user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="f_open" string="Open"
+                        domain="[('state', 'not in', ('done', 'cancelled'))]"/>
+                <filter name="f_draft" string="To assign" domain="[('state', '=', 'draft')]"/>
+                <filter name="f_moving" string="On the way" domain="[('state', '=', 'on_the_way')]"/>
+                <filter name="f_done" string="Done" domain="[('state', '=', 'done')]"/>
+                <filter name="f_cancel" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <separator/>
+                <filter name="f_today" string="Today"
+                        domain="[('slot_start', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0, 0, 0)).to_utc()),
+                                 ('slot_start', '&lt;', datetime.datetime.combine(context_today() + relativedelta(days=1), datetime.time(0, 0, 0)).to_utc())]"/>
+                <filter name="f_upcoming" string="Upcoming"
+                        domain="[('slot_start', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0, 0, 0)).to_utc())]"/>
+                <separator/>
+                <filter name="g_state" string="Status" context="{'group_by': 'state'}"/>
+                <filter name="g_tech" string="Technician" context="{'group_by': 'technician_id'}"/>
+                <filter name="g_area" string="Area" context="{'group_by': 'area'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_service_visit" model="ir.actions.act_window">
+        <field name="name">Doorstep Visits</field>
+        <field name="res_model">fix.service.visit</field>
+        <field name="view_mode">list,kanban,calendar,form</field>
+        <field name="search_view_id" ref="view_service_visit_search"/>
+        <field name="context">{'search_default_f_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No doorstep visits yet</p>
+            <p>A visit is made when a doorstep order is confirmed, or with "Schedule Visit" on an order
+               or a job card. It tracks the technician's trip to the customer.</p>
+        </field>
+    </record>
+
+</odoo>

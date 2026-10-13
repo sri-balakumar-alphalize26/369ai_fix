@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- IT & Mobile Repair > Online Service > Doorstep Visits -->
+    <menuitem id="menu_service_visit"
+              name="Doorstep Visits"
+              parent="369ai_fix_customer_module.menu_online_service_root"
+              action="action_service_visit"
+              sequence="4"/>
+</odoo>

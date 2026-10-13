@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_service_visit_arrival_form" model="ir.ui.view">
+        <field name="name">fix.service.visit.arrival.form</field>
+        <field name="model">fix.service.visit.arrival</field>
+        <field name="arch" type="xml">
+            <form string="Arrival code">
+                <div class="alert alert-danger" role="alert" invisible="not message">
+                    <field name="message" readonly="1"/>
+                </div>
+                <p class="text-muted">
+                    Ask the customer for the 4-digit code shown on their tracking page and in WhatsApp.
+                </p>
+                <group>
+                    <field name="visit_id" readonly="1"/>
+                    <field name="code" placeholder="0000" class="fs-3"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirm arrival" class="btn-primary"
+                            data-hotkey="q"/>
+                    <button name="action_skip" type="object" string="Arrived without code"
+                            groups="mobile_repair.group_mobile_repair_receptionist"
+                            confirm="Confirm the arrival without the customer's code?"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

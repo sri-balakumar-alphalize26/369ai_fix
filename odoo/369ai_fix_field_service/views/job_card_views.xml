@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_job_card_form_visit" model="ir.ui.view">
+        <field name="name">job.card.form.doorstep.visit</field>
+        <field name="model">job.card</field>
+        <field name="inherit_id" ref="mobile_repair.view_job_card_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_fs_schedule_visit" type="object" string="Schedule Visit"
+                        invisible="delivery_type != 'door_step' or fs_visit_count or state in ('completed', 'cancelled')"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="fs_visit_count" invisible="1"/>
+                <button name="action_fs_view_visits" type="object" class="oe_stat_button"
+                        icon="fa-motorcycle" invisible="not fs_visit_count">
+                    <field name="fs_visit_count" widget="statinfo" string="Visit"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

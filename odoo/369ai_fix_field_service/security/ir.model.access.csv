@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_service_visit_tech,fix.service.visit technician,model_fix_service_visit,mobile_repair.group_mobile_repair_technician,1,1,0,0
+access_service_visit_recep,fix.service.visit receptionist,model_fix_service_visit,mobile_repair.group_mobile_repair_receptionist,1,1,1,0
+access_service_visit_manager,fix.service.visit manager,model_fix_service_visit,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_service_visit_position_tech,fix.service.visit.position technician,model_fix_service_visit_position,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_service_visit_position_manager,fix.service.visit.position manager,model_fix_service_visit_position,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_service_visit_arrival_tech,fix.service.visit.arrival technician,model_fix_service_visit_arrival,mobile_repair.group_mobile_repair_technician,1,1,1,1

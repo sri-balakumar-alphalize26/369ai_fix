@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default WhatsApp texts for the doorstep visit. noupdate: staff edits survive upgrades. -->
+<odoo noupdate="1">
+    <record id="msg_tech_assigned" model="online.service.message">
+        <field name="key">tech_assigned</field>
+        <field name="sequence">10</field>
+        <field name="body">Hi {name}, {technician} is your technician for order {order} 👨‍🔧
+When they arrive, share this code with them: {code}
+Track the visit live: {track_url}</field>
+    </record>
+    <record id="msg_on_the_way" model="online.service.message">
+        <field name="key">on_the_way</field>
+        <field name="sequence">11</field>
+        <field name="body">Hi {name}, {technician} is on the way to you 🚗 {eta}
+Arrival code: {code}
+Track them live: {track_url}</field>
+    </record>
+    <record id="msg_arrived" model="online.service.message">
+        <field name="key">arrived</field>
+        <field name="sequence">12</field>
+        <field name="body">Hi {name}, {technician} has arrived at your place 📍 (order {order}).</field>
+    </record>
+</odoo>
