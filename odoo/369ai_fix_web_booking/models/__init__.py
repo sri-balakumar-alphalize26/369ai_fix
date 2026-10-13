@@ -7,3 +7,4 @@ from . import purchase_request
 from . import job_card_lines
 from . import job_card_quote
 from . import login_code
+from . import pincode_oman

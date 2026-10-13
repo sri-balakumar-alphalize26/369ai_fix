@@ -6,6 +6,11 @@ repair site's server marks its calls with the header ``X-Fix-Site: <host>``; whe
 that host is one of our Online Service websites the code says "Your Danat Fix code"
 and goes out through that website's WhatsApp number. Anything else: 369 Mart's own
 text, unchanged.
+
+Test mode (local test databases only): when the system parameter
+``369ai_fix.test_login_code`` holds 6 digits, every sign-in code asked for from our
+repair site IS those digits and no WhatsApp is sent. 369 Mart's own sign-ins are
+never affected. Leave the parameter unset on a real database.
 """
 import logging
 
@@ -14,9 +19,40 @@ from odoo.http import request
 
 _logger = logging.getLogger(__name__)
 
+TEST_CODE_PARAM = '369ai_fix.test_login_code'
+
 
 def _digits(number):
     return ''.join(c for c in (number or '') if c.isdigit())
+
+
+def _fix_site(env):
+    """The Online Service website this request came from (X-Fix-Site), or None."""
+    host = ''
+    try:
+        if request and request.httprequest:
+            host = request.httprequest.headers.get('X-Fix-Site', '')
+    except RuntimeError:     # no HTTP request (cron, shell)
+        host = ''
+    return env['online.service.site'].sudo()._for_host(host) if host else None
+
+
+def _test_code(env):
+    code = (env['ir.config_parameter'].sudo().get_param(TEST_CODE_PARAM) or '').strip()
+    return code if len(code) == 6 and code.isdigit() else ''
+
+
+class PhoneCode(models.Model):
+    _inherit = 'mart369.phone.code'
+
+    @api.model
+    def _mart369_issue(self, phone, purpose, user=None, ip=None):
+        record, code = super()._mart369_issue(phone, purpose, user=user, ip=ip)
+        test = _test_code(self.env)
+        if test and _fix_site(self.env):
+            record.sudo().code_hash = self._mart369_digest(phone, test)
+            return record, test
+        return record, code
 
 
 class ResPartner(models.Model):
@@ -24,15 +60,13 @@ class ResPartner(models.Model):
 
     @api.model
     def _mart369_send_login_code(self, phone, code):
-        host = ''
-        try:
-            if request and request.httprequest:
-                host = request.httprequest.headers.get('X-Fix-Site', '')
-        except RuntimeError:     # no HTTP request (cron, shell)
-            host = ''
-        site = self.env['online.service.site'].sudo()._for_host(host) if host else None
+        site = _fix_site(self.env)
         if not site:
             return super()._mart369_send_login_code(phone, code)
+        if _test_code(self.env):
+            _logger.warning("369ai fix: TEST MODE - sign-in code for %s not sent (%s is set)",
+                            phone, TEST_CODE_PARAM)
+            return 'sent'
         session = site._wa_session()
         if not session and 'mart369.whatsapp' in self.env:
             session = self.env['mart369.whatsapp']._mart369_session()
