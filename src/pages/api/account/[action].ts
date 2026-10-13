@@ -6,6 +6,7 @@
 //   GET  me                      who is signed in
 //   POST logout
 //   GET  addresses               saved addresses
+//   GET  pincode?pin=133         city (wilayat), governorate and areas for a postal code
 //   POST addresses               a new address {label, name, phone, alt, line, area, town, pin, landmark, lat, lng}
 import type { APIRoute } from 'astro';
 import { clearSession, martFetch, me, sessionOf, setSession } from '../../../lib/account';
@@ -32,6 +33,12 @@ export const GET: APIRoute = async ({ params, request, cookies }) => {
       const r = await martFetch(host, '/369mart/addresses', { session });
       if (r.status === 401) clearSession(cookies);
       return pass(r);
+    }
+    case 'pincode': {
+      // postal code -> wilayat, governorate and area, from 369 Mart's lookup in Odoo (as on 369 Mart)
+      const pin = (new URL(request.url).searchParams.get('pin') || '').replace(/\D/g, '').slice(0, 10);
+      if (!pin) return json({ ok: false }, 400);
+      return pass(await martFetch(host, `/369mart/pincode/${pin}`));
     }
     case 'address-form': {
       // what the address form needs for Oman (e.g. the governorates, when Odoo has them)

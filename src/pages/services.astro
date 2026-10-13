@@ -202,7 +202,7 @@ const payload = JSON.stringify({
       <div class="cat-head">
         <div>
           <span class="eyebrow" data-reveal>Book a repair</span>
-          <h2 class="h-lg" data-reveal style="--d:.06s">Get your estimate in 4 steps</h2>
+          <h2 class="h-lg" data-reveal style="--d:.06s">Get your estimate in 5 steps</h2>
         </div>
       </div>
 
@@ -324,20 +324,28 @@ const payload = JSON.stringify({
               <p class="wz-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Price confirmed after diagnosis — before any work starts.</p>
             </div>
             <div class="wz-time">
-              <h4>How should we reach you?</h4>
-              <div class="wz-tcards" role="radiogroup" aria-label="Service type">
-                <button type="button" role="radio" class="wz-t" data-wz-mode="doorstep" aria-checked="true">
+              <!-- No choice for the customer: the technician comes first; if it can't be fixed there,
+                   it goes to our lab. Every website booking reaches Odoo as Doorstep. -->
+              <h4>How we fix it</h4>
+              <ul class="wz-how">
+                <li>
                   <span class="wz-ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>
-                  <span class="wz-tt"><b>Doorstep service</b><small>{coverage.doorstep.eta}</small></span>
-                  <span class="wz-tpick"><i></i>Your choice</span>
-                </button>
-                <button type="button" role="radio" class="wz-t" data-wz-mode="pickup" data-wz-pickup aria-checked="false">
-                  <span class="wz-ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/></svg></span>
-                  <span class="wz-tt"><b>Pickup &amp; service</b><small>{coverage.pickup.eta}</small></span>
-                  <span class="wz-tpick"><i></i>Your choice</span>
-                </button>
+                  <span class="wz-tt"><b>We come to you</b><small>Our technician visits at the time you pick and fixes it on the spot if possible.</small></span>
+                </li>
+                <li data-wz-labline>
+                  <span class="wz-ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg></span>
+                  <span class="wz-tt"><b>If it needs more work or a part</b><small>We take it to our lab, confirm the price with you first, and bring it back.</small></span>
+                </li>
+              </ul>
+              <!-- The real flow after Book now: staff check it, then the customer picks a time from a WhatsApp link -->
+              <div class="wz-next-steps">
+                <h5>What happens next</h5>
+                <ol>
+                  <li><b>We check your booking</b><small>Our team looks at your device, repairs and photos.</small></li>
+                  <li><b>You pick a time</b><small>We send you a WhatsApp link with the estimate and the free time slots.</small></li>
+                  <li><b>Our technician comes to you</b><small>At the time you picked. The final price is always confirmed before any work starts.</small></li>
+                </ol>
               </div>
-              <p class="wz-onsite" data-wz-onsite hidden>This service is done on-site, so it is booked as a doorstep visit.</p>
             </div>
           </div>
 
@@ -355,6 +363,8 @@ const payload = JSON.stringify({
                 <div class="wz-fl" data-acc-newbox hidden><span>Your name</span><span class="wz-ic"><input data-acc-name autocomplete="name" maxlength="60" placeholder="Full name" /></span></div>
                 <div class="wz-fl" data-acc-newbox hidden><span>Email <small>(optional)</small></span><span class="wz-ic"><input data-acc-email type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" /></span></div>
                 <div class="wz-fl" data-acc-codebox hidden><span>Code from WhatsApp</span><span class="wz-ic"><input data-acc-code inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 digits" /></span></div>
+                <!-- an existing account whose number isn't proven yet confirms its password once (369 Mart's rule) -->
+                <div class="wz-fl" data-acc-passbox hidden><span>Your password <small>(once, to confirm it's your account)</small></span><span class="wz-ic"><input data-acc-pass type="password" autocomplete="current-password" maxlength="128" placeholder="Password" /></span></div>
               </div>
               <p class="wz-acc-msg" data-acc-msg role="status" hidden></p>
               <div class="wz-acts">
@@ -376,10 +386,15 @@ const payload = JSON.stringify({
                   <label class="wz-fl"><span>Building / Villa no.</span><span class="wz-ic"><input data-af="building" maxlength="60" placeholder="e.g. Villa 12" /></span></label>
                   <label class="wz-fl"><span>Way / Street no.</span><span class="wz-ic"><input data-af="way" maxlength="60" placeholder="e.g. Way 3421" /></span></label>
                   <label class="wz-fl"><span>Flat / Floor <small>(optional)</small></span><span class="wz-ic"><input data-af="flat" maxlength="40" /></span></label>
+                  <label class="wz-fl"><span>Postal code (PC) <small>— fills the city for you</small></span><span class="wz-ic"><input data-af="pin" inputmode="numeric" maxlength="6" placeholder="e.g. 133" /></span></label>
+                  <!-- as on 369 Mart: what the postal code found, and its areas to tap -->
+                  <div class="wz-pinhelp" data-af-pinhelp hidden>
+                    <span class="wz-pinhint" data-af-pinhint></span>
+                    <div class="wz-pinareas" data-af-areas hidden><small data-af-areastitle></small><span data-af-arealist></span></div>
+                  </div>
                   <label class="wz-fl"><span>Area</span><span class="wz-ic"><input data-af="area" maxlength="80" list="wz-areas" placeholder="e.g. Al Khuwair" /></span></label>
                   <label class="wz-fl"><span>Wilayat / City</span><span class="wz-ic"><input data-af="town" maxlength="60" placeholder="e.g. Bawshar" /></span></label>
                   <label class="wz-fl" data-af-statebox hidden><span>Governorate</span><span class="wz-ic"><select data-af="state_id"><option value="">Choose…</option></select></span></label>
-                  <label class="wz-fl"><span>Postal code (PC)</span><span class="wz-ic"><input data-af="pin" inputmode="numeric" maxlength="6" placeholder="e.g. 133" /></span></label>
                   <label class="wz-fl"><span>Landmark <small>(optional)</small></span><span class="wz-ic"><input data-af="landmark" maxlength="80" placeholder="e.g. near Lulu" /></span></label>
                   <div class="wz-fl"><span>Map pin <small>(recommended)</small></span>
                     <button type="button" class="wz-loc" data-af-loc><span>Use my location</span></button>
@@ -572,21 +587,17 @@ const payload = JSON.stringify({
   // ---------- booking wizard: 1 device → 2 brand & model → 3 issues → 4 estimate ----------
   const wz = $('[data-wz]');
   const wzState = { step: 1, cat: '', brand: '', model: '', modelId: 0, seriesId: 0, issues: new Set<string>() };
+  let wzReady = false;   // true once a saved booking-in-progress has been put back (restoreWz); saving waits for it
   const LAST = 5;   // 1 device · 2 brand & model · 3 repairs · 4 details · 5 book
   const tel = site.phone.tel.replace('+', '');
   const waUrl = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
   const wzCat = () => data.categories.find((c) => c.id === wzState.cat);
   const wzSearch = $<HTMLInputElement>('[data-model-search]', wz);
-  // Service type inside step 4 — same choice as "How should we reach you?" above (setMode keeps both in sync)
+  // The wizard has no Doorstep/Pickup choice (the technician comes first, the lab if needed);
+  // on-site-only services (CCTV, networking) don't go to the lab, so that line is hidden for them.
   function paintWzMode() {
-    const onsite = !!wzCat()?.onsiteOnly;
-    $$<HTMLButtonElement>('[data-wz-mode]', wz).forEach((b) => {
-      b.setAttribute('aria-checked', String(b.dataset.wzMode === mode));
-      b.disabled = onsite && b.dataset.wzMode === 'pickup';
-      b.title = b.disabled ? 'Installed on-site, so this is a doorstep visit' : '';
-    });
+    $('[data-wz-labline]', wz).hidden = !!wzCat()?.onsiteOnly;
   }
-  $$<HTMLButtonElement>('[data-wz-mode]', wz).forEach((b) => b.addEventListener('click', () => setMode(b.dataset.wzMode!)));
 
   const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? true : wzState.step === 3 ? wzState.issues.size > 0 : wzState.step === 4);
   const wzGo = (n: number) => {
@@ -605,6 +616,7 @@ const payload = JSON.stringify({
     $('[data-wz-crumb]', wz).textContent = [c?.name, wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name, wzState.model].filter(Boolean).join(' › ');
     if (n === LAST) renderEstimate();
     if (wz.getBoundingClientRect().top < 0) wz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    saveWz();
   };
 
   // step 1
@@ -680,6 +692,7 @@ const payload = JSON.stringify({
     wzState.issues.has(v) ? wzState.issues.delete(v) : wzState.issues.add(v);
     b.setAttribute('aria-pressed', String(wzState.issues.has(v)));
     $<HTMLButtonElement>('[data-wz-next]', wz).disabled = !canNext();
+    saveWz();
   }));
 
   // step 4 · details: the customer's own words, photos (max 5, shrunk here) and one video
@@ -701,16 +714,99 @@ const payload = JSON.stringify({
     img.onerror = () => res(file);
     img.src = URL.createObjectURL(file);
   });
+  let thumbUrls: string[] = [];
   const drawThumbs = () => {
     const ul = $('[data-wz-thumbs]', wz);
-    ul.innerHTML = media.photos.map((p, i) => `<li><img src="${URL.createObjectURL(p)}" alt="Photo ${i + 1}" /><button type="button" data-rm="p${i}" aria-label="Remove photo">×</button></li>`).join('')
-      + (media.video ? `<li class="vid"><span>🎬 ${esc(media.video.name)}</span><button type="button" data-rm="v" aria-label="Remove video">×</button></li>` : '');
+    thumbUrls.forEach((u) => URL.revokeObjectURL(u));
+    thumbUrls = media.photos.map((p) => URL.createObjectURL(p));
+    ul.innerHTML = media.photos.map((_p, i) => `<li><img src="${thumbUrls[i]}" alt="Photo ${i + 1}" data-open="${i}" title="Tap to view" /><button type="button" data-rm="p${i}" aria-label="Remove photo">×</button></li>`).join('')
+      + (media.video ? `<li class="vid"><span data-open="${media.photos.length}" title="Tap to play">🎬 ${esc(media.video.name)}</span><button type="button" data-rm="v" aria-label="Remove video">×</button></li>` : '');
+    if (wzReady) saveMedia();
   };
   $('[data-wz-thumbs]', wz).addEventListener('click', (e) => {
-    const rm = (e.target as HTMLElement).closest<HTMLElement>('[data-rm]')?.dataset.rm;
-    if (!rm) return;
+    const t = e.target as HTMLElement;
+    const rm = t.closest<HTMLElement>('[data-rm]')?.dataset.rm;
+    if (!rm) { const open = t.closest<HTMLElement>('[data-open]')?.dataset.open; if (open !== undefined) lbOpen(Number(open)); return; }
     if (rm === 'v') media.video = null; else media.photos.splice(Number(rm.slice(1)), 1);
     mErr(''); drawThumbs();
+  });
+
+  // Preview pop-up: tap a thumbnail; drag/swipe sideways, the arrows or ← → move between the
+  // photos (and the video). Built on <body> so the wizard's animated panels can't clip it.
+  const lb = document.createElement('div');
+  lb.className = 'wz-lb'; lb.hidden = true;
+  lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-modal', 'true'); lb.setAttribute('aria-label', 'Preview');
+  lb.innerHTML = `<button type="button" class="wz-lb-x" data-lb-x aria-label="Close">×</button>
+    <button type="button" class="wz-lb-nav prev" data-lb-prev aria-label="Previous">‹</button>
+    <div class="wz-lb-stage" data-lb-stage><div class="wz-lb-track" data-lb-track></div></div>
+    <button type="button" class="wz-lb-nav next" data-lb-next aria-label="Next">›</button>
+    <p class="wz-lb-count" data-lb-count></p>`;
+  document.body.appendChild(lb);
+  const lbTrack = lb.querySelector<HTMLElement>('[data-lb-track]')!;
+  const lbStage = lb.querySelector<HTMLElement>('[data-lb-stage]')!;
+  let lbUrls: string[] = [], lbAt = 0, lbN = 0;
+  const lbPause = () => lbTrack.querySelectorAll('video').forEach((v) => v.pause());
+  const lbGo = (i: number, animate = true) => {
+    lbAt = Math.max(0, Math.min(lbN - 1, i));
+    lbTrack.style.transition = animate ? 'transform .3s cubic-bezier(.2,.8,.2,1)' : 'none';
+    lbTrack.style.transform = `translateX(${-lbAt * 100}%)`;
+    lb.querySelector('[data-lb-count]')!.textContent = lbN > 1 ? `${lbAt + 1} / ${lbN}` : '';
+    lb.querySelector<HTMLButtonElement>('[data-lb-prev]')!.hidden = lbAt === 0;
+    lb.querySelector<HTMLButtonElement>('[data-lb-next]')!.hidden = lbAt >= lbN - 1;
+    lbPause();
+  };
+  function lbOpen(i: number) {
+    const items: Blob[] = [...media.photos, ...(media.video ? [media.video] : [])];
+    if (!items.length) return;
+    lbUrls = items.map((b) => URL.createObjectURL(b));
+    lbN = items.length;
+    lbTrack.innerHTML = items.map((b, k) => `<div class="wz-lb-slide">${b === media.video
+      ? `<video src="${lbUrls[k]}" controls playsinline preload="metadata"></video>`
+      : `<img src="${lbUrls[k]}" alt="Photo ${k + 1}" draggable="false" />`}</div>`).join('');
+    lb.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+    lbGo(i, false);
+    lb.querySelector<HTMLButtonElement>('[data-lb-x]')!.focus();
+  }
+  const lbClose = () => {
+    lbPause(); lb.hidden = true; lbTrack.innerHTML = '';
+    lbUrls.forEach((u) => URL.revokeObjectURL(u)); lbUrls = [];
+    document.documentElement.style.overflow = '';
+  };
+  lb.querySelector('[data-lb-x]')!.addEventListener('click', lbClose);
+  lb.querySelector('[data-lb-prev]')!.addEventListener('click', () => lbGo(lbAt - 1));
+  lb.querySelector('[data-lb-next]')!.addEventListener('click', () => lbGo(lbAt + 1));
+  document.addEventListener('keydown', (e) => {
+    if (lb.hidden) return;
+    if (e.key === 'Escape') lbClose();
+    else if (e.key === 'ArrowLeft') lbGo(lbAt - 1);
+    else if (e.key === 'ArrowRight') lbGo(lbAt + 1);
+  });
+  // drag / swipe: the track follows the finger; past 15% of the width it moves to the next one
+  let dragX: number | null = null, dragDx = 0, dragId = 0;
+  lbStage.addEventListener('pointerdown', (e) => {
+    if ((e.target as HTMLElement).closest('video') || lbN < 2) return; // leave the video's own controls alone
+    dragX = e.clientX; dragDx = 0; dragId = e.pointerId;
+    lbStage.setPointerCapture(e.pointerId);
+    lbTrack.style.transition = 'none';
+  });
+  lbStage.addEventListener('pointermove', (e) => {
+    if (dragX === null || e.pointerId !== dragId) return;
+    dragDx = e.clientX - dragX;
+    const edge = (lbAt === 0 && dragDx > 0) || (lbAt === lbN - 1 && dragDx < 0) ? 0.35 : 1; // resist past the ends
+    lbTrack.style.transform = `translateX(calc(${-lbAt * 100}% + ${dragDx * edge}px))`;
+  });
+  const dragEnd = (e: PointerEvent) => {
+    if (dragX === null || e.pointerId !== dragId) return;
+    const far = Math.abs(dragDx) > lbStage.clientWidth * 0.15;
+    dragX = null;
+    lbGo(far ? lbAt + (dragDx < 0 ? 1 : -1) : lbAt);
+  };
+  lbStage.addEventListener('pointerup', dragEnd);
+  lbStage.addEventListener('pointercancel', dragEnd);
+  // a tap on the dark area around the photo (not a drag) closes it
+  lbStage.addEventListener('click', (e) => {
+    if (Math.abs(dragDx) < 6 && (e.target as HTMLElement).classList.contains('wz-lb-slide')) lbClose();
   });
   $<HTMLInputElement>('[data-wz-photos]', wz).addEventListener('change', async (e) => {
     const input = e.target as HTMLInputElement;
@@ -743,8 +839,6 @@ const payload = JSON.stringify({
       return `<li style="--i:${k}"><span><i class="wz-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>${esc(i)}</span><b>${p === null ? price() : price(p)}</b></li>`;
     }).join('');
     $('[data-wz-sumtotal]', wz).textContent = data.odoo ? `from ${price(total)}` : price();
-    $('[data-wz-pickup]', wz).hidden = c.onsiteOnly;
-    $('[data-wz-onsite]', wz).hidden = !c.onsiteOnly;
     paintWzMode();
     if (data.odoo) acctStart();
   };
@@ -832,9 +926,15 @@ const payload = JSON.stringify({
   $('[data-acc-verify]', wz).addEventListener('click', async () => {
     const code = accCode.value.replace(/\D/g, '');
     if (code.length !== 6) { say(accMsg, 'Enter the 6-digit code from WhatsApp.'); accCode.focus(); return; }
+    const passBox = $('[data-acc-passbox]', wz), passIn = $<HTMLInputElement>('[data-acc-pass]', wz);
     const r = await api('/api/account/phone-verify', { phone: accPhone.value, country: accCc.value.toUpperCase(), code,
-      purpose: accPurpose, name: accName.value.trim(), email: accEmail.value.trim() });
+      purpose: accPurpose, name: accName.value.trim(), email: accEmail.value.trim(),
+      ...(passBox.hidden ? {} : { password: passIn.value }) });
+    if (r.needPassword) {   // the code was right; this account must confirm its password once
+      passBox.hidden = false; say(accMsg, r.error || 'Enter your password once to confirm this is your account.'); passIn.focus(); return;
+    }
     if (!r.ok) { say(accMsg, r.error || 'That code did not work.'); return; }
+    passBox.hidden = true; passIn.value = '';
     say(accMsg, '', false);
     const who = await api('/api/account/me');
     accWho = who.ok ? who : r;
@@ -889,6 +989,52 @@ const payload = JSON.stringify({
     af('building').focus();
   }
   $('[data-acc-addnew]', wz).addEventListener('click', openAddressForm);
+  // Postal code -> wilayat / city, governorate and areas, as on 369 Mart: Odoo's
+  // /369mart/pincode/<pin> (an Oman 3-digit code is looked up there too). What the lookup
+  // filled is replaced when the code changes; what the customer typed is kept.
+  let pinT = 0, autoTown = '', autoArea = '', autoState = '';
+  const pinHelp = $('[data-af-pinhelp]', wz), pinHint = $('[data-af-pinhint]', wz), pinAreas = $('[data-af-areas]', wz);
+  const pinSay = (m: string, cls = '') => { pinHelp.hidden = !m; pinHint.textContent = m; pinHint.className = `wz-pinhint ${cls}`; };
+  af('pin').addEventListener('input', () => {
+    clearTimeout(pinT);
+    const pc = af('pin').value.replace(/\D/g, '');
+    pinAreas.hidden = true;
+    if (pc.length !== 3) { pinSay(''); return; }
+    pinSay('Finding your area…', 'busy');
+    pinT = window.setTimeout(async () => {
+      const r = await api(`/api/account/pincode?pin=${pc}`);
+      if (af('pin').value.replace(/\D/g, '') !== pc) return;
+      if (!r?.ok) { pinSay("We couldn't find this postal code — please type the city.", 'none'); return; }
+      const st = af('state_id') as unknown as HTMLSelectElement;
+      if (!af('town').value.trim() || (autoTown && af('town').value === autoTown)) af('town').value = autoTown = r.town || '';
+      if (!af('area').value.trim() || (autoArea && af('area').value === autoArea)) af('area').value = autoArea = r.areas?.[0] || '';
+      if (r.state_id && (!st.value || st.value === autoState)) { st.value = autoState = String(r.state_id); }
+      pinSay([r.town, r.state].filter(Boolean).join(', '), 'good');
+      // areas to tap: the code's own area, then our service areas nearest the code's map point
+      const near = r.lat && r.lng
+        ? Object.entries(areaGeo).map(([n, at]) => [n, km([r.lat, r.lng], at)] as [string, number])
+            .filter(([, d]) => d <= 6).sort((a, b) => a[1] - b[1]).map(([n]) => n)
+        : [];
+      const list = [...new Set([...(r.areas || []), ...near])].slice(0, 8);
+      if (list.length) {
+        $('[data-af-areastitle]', wz).textContent = `Areas in ${pc}`;
+        $('[data-af-arealist]', wz).innerHTML = list.map((a) => `<button type="button" data-pick-area="${esc(a)}" aria-pressed="${a === af('area').value}">${esc(a)}</button>`).join('');
+        pinAreas.hidden = false;
+      }
+      saveWz();
+    }, 350);
+  });
+  $('[data-af-arealist]', wz).addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-pick-area]');
+    if (!b) return;
+    af('area').value = b.dataset.pickArea!; autoArea = '';   // the customer's choice now
+    $$('[data-pick-area]', wz).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    saveWz();
+  });
+  // typing in a field the lookup filled makes it the customer's own
+  af('town').addEventListener('input', () => { autoTown = ''; });
+  af('area').addEventListener('input', () => { autoArea = ''; });
+  af('state_id').addEventListener('change', () => { autoState = ''; });
   $('[data-af-loc]', wz).addEventListener('click', async () => {
     const at = await gps();
     if (!at) { say(accAMsg, "We couldn't get your location — the address is enough."); return; }
@@ -922,7 +1068,7 @@ const payload = JSON.stringify({
     btn.disabled = true; btn.textContent = 'Booking…';
     const ref = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
     const r = await api('/api/booking', {
-      ref, mode, source: 'wizard', address_id: accPicked, problem: problemIn.value.trim(), page: location.pathname,
+      ref, mode: 'doorstep', source: 'wizard', address_id: accPicked, problem: problemIn.value.trim(), page: location.pathname,
       lines: odooLines(),
     });
     btn.disabled = false; btn.textContent = 'Book now';
@@ -930,6 +1076,7 @@ const payload = JSON.stringify({
     $('[data-acc-addrbox]', wz).hidden = true;
     $('[data-acc-done]', wz).hidden = false;
     $('[data-acc-ref]', wz).textContent = r.ref;
+    forgetWz();   // booked: a reload now starts a fresh booking
     if ((media.photos.length || media.video) && r.upload_token) {
       const up = $('[data-acc-upmsg]', wz);
       say(up, 'Sending your photos…', false);
@@ -1097,7 +1244,7 @@ const payload = JSON.stringify({
       method: 'POST', keepalive: true, credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        ref, mode, source: 'wizard', name, phone: ph.full, area: wzArea.value.trim(),
+        ref, mode: 'doorstep', source: 'wizard', name, phone: ph.full, area: wzArea.value.trim(),
         ...(wzAt ? { lat: wzAt[0], lng: wzAt[1] } : {}),
         note: areaState === 'listed' ? '' : areaState === 'far' ? 'Area outside the listed areas' : 'Area not on the list - please confirm',
         page: location.pathname,
@@ -1117,6 +1264,79 @@ const payload = JSON.stringify({
     ].join('\n');
     window.open(waUrl(msg), '_blank', 'noopener');
   });
+
+  // ---------- keep the booking where the customer left it ----------
+  // A reload (or the site updating) must not start the booking again from scratch. The choices,
+  // the text and the half-typed address are kept for this tab (sessionStorage); the photos and
+  // the video, too big for that, in IndexedDB. Both are forgotten once the booking is made.
+  const WZ_KEY = 'wz-progress';
+  const AF_KEYS = ['label', 'name', 'phone', 'alt', 'building', 'way', 'flat', 'area', 'town', 'state_id', 'pin', 'landmark'];
+  function saveWz() {
+    if (!wzReady) return;
+    try {
+      sessionStorage.setItem(WZ_KEY, JSON.stringify({
+        step: wzState.step, cat: wzState.cat, brand: wzState.brand, model: wzState.model,
+        modelId: wzState.modelId, seriesId: wzState.seriesId, issues: [...wzState.issues],
+        problem: problemIn.value, phone: accPhone.value,
+        af: Object.fromEntries(AF_KEYS.map((k) => [k, af(k).value])),
+      }));
+    } catch {}
+  }
+  const mediaDb = () => new Promise<IDBDatabase | null>((res) => {
+    try {
+      const r = indexedDB.open('wz-media', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('m');
+      r.onsuccess = () => res(r.result); r.onerror = () => res(null);
+    } catch { res(null); }
+  });
+  async function saveMedia() {
+    const db = await mediaDb(); if (!db) return;
+    try { db.transaction('m', 'readwrite').objectStore('m').put({ photos: media.photos, video: media.video }, 'media'); } catch {}
+  }
+  async function loadMedia(): Promise<{ photos: Blob[]; video: File | null } | null> {
+    const db = await mediaDb(); if (!db) return null;
+    return new Promise((res) => {
+      try { const g = db.transaction('m').objectStore('m').get('media'); g.onsuccess = () => res(g.result || null); g.onerror = () => res(null); }
+      catch { res(null); }
+    });
+  }
+  async function forgetWz() {
+    try { sessionStorage.removeItem(WZ_KEY); } catch {}
+    const db = await mediaDb(); if (!db) return;
+    try { db.transaction('m', 'readwrite').objectStore('m').delete('media'); } catch {}
+  }
+  // typing anywhere in the wizard (problem text, mobile, address form) is kept, a moment later
+  let saveT = 0;
+  wz.addEventListener('input', () => { clearTimeout(saveT); saveT = window.setTimeout(saveWz, 300); });
+  wz.addEventListener('change', () => saveWz());
+  async function restoreWz() {
+    let s: any = null;
+    try { s = JSON.parse(sessionStorage.getItem(WZ_KEY) || 'null'); } catch {}
+    if (!s?.cat || !data.categories.some((c) => c.id === s.cat)) return false;
+    setWzCat(s.cat);
+    if (s.brand) {
+      wzState.brand = s.brand;
+      const tile = wz.querySelector<HTMLElement>(`[data-wz-brand="${CSS.escape(s.brand)}"]`);
+      if (tile) wz.style.setProperty('--mh', tile.style.getPropertyValue('--h'));
+      $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x.dataset.wzBrand === s.brand));
+    }
+    wzState.model = s.model || ''; wzState.modelId = s.modelId || 0; wzState.seriesId = s.seriesId || 0;
+    showWzModels(); showIssues();
+    for (const v of s.issues || []) {
+      const b = wz.querySelector<HTMLButtonElement>(`[data-wz-issues="${CSS.escape(s.cat)}"] .wz-iss[data-iss="${CSS.escape(v)}"]`);
+      if (b && !b.hidden) { wzState.issues.add(v); b.setAttribute('aria-pressed', 'true'); }
+    }
+    problemIn.value = s.problem || '';
+    if (s.phone) accPhone.value = s.phone;
+    for (const k of AF_KEYS) if (s.af?.[k]) af(k).value = s.af[k];
+    const m = await loadMedia();
+    if (m) { media.photos = m.photos || []; media.video = m.video || null; drawThumbs(); }
+    wzGo(s.step || 1);
+    if ((s.step || 1) > 1) requestAnimationFrame(() => wz.scrollIntoView({ block: 'start' }));
+    // the address form was being filled in: open it again with what was typed
+    if (s.step === LAST && (s.af?.building || s.af?.way || s.af?.pin)) setTimeout(() => { if ($('[data-acc-addrbox]', wz).hidden === false) openAddressForm(); }, 1200);
+    return true;
+  }
 
   // footer + progress
   $('[data-wz-back]', wz).addEventListener('click', () => wzGo(wzState.step - 1));
@@ -1138,7 +1358,8 @@ const payload = JSON.stringify({
 
   // Deep links from the home page and nav menu: ?mode=pickup, ?cat=printer, ?q=Samsung
   const q = new URLSearchParams(location.search);
-  wzDeepLink(q.get('cat'), q.get('q'));
+  if (q.get('cat') || q.get('q')) { wzReady = true; wzDeepLink(q.get('cat'), q.get('q')); }
+  else restoreWz().finally(() => { wzReady = true; saveWz(); });
   const startMode = q.get('mode');
   setMode(startMode && data.coverage[startMode] ? startMode : 'doorstep');
   // ?area= from the home-page location search: pre-check coverage and pre-fill the booking
@@ -1367,6 +1588,19 @@ const payload = JSON.stringify({
   .wz-ti { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--violet); flex: none; }
   .wz-ti svg { width: 20px; height: 20px; }
   .wz-onsite { font-size: 12.5px; color: var(--ink-3); }
+  .wz-how { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .wz-how li { display: flex; align-items: flex-start; gap: 12px; }
+  .wz-how li[hidden] { display: none; }
+  .wz-how .wz-tt { display: grid; gap: 2px; }
+  .wz-how .wz-tt b { font-size: 14.5px; }
+  .wz-how .wz-tt small { font-size: 13px; color: var(--ink-3); line-height: 1.45; }
+  .wz-next-steps { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .wz-next-steps h5 { margin: 0 0 10px; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+  .wz-next-steps ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: nx; }
+  .wz-next-steps li { position: relative; display: grid; gap: 2px; padding-left: 34px; counter-increment: nx; }
+  .wz-next-steps li::before { content: counter(nx); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft, #eef2ff); color: var(--violet); font-size: 12.5px; font-weight: 800; }
+  .wz-next-steps b { font-size: 14px; }
+  .wz-next-steps small { font-size: 12.5px; color: var(--ink-3); line-height: 1.45; }
   .wz-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
   .wz-add, .wz-now { display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 14px; font-weight: 700; font-size: 14.5px; transition: transform .2s; }
   .wz-add { border: 1.5px solid var(--violet); background: var(--surface); color: var(--violet); }
@@ -1435,10 +1669,28 @@ const payload = JSON.stringify({
   .wz-mbtn svg { width: 22px; height: 22px; color: var(--violet); }
   .wz-mbtn span { display: grid; } .wz-mbtn small { color: var(--ink-3); font-size: 12px; }
   .wz-thumbs { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
-  .wz-thumbs li { position: relative; }
-  .wz-thumbs img { width: 76px; height: 76px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
-  .wz-thumbs .vid span { display: flex; align-items: center; height: 76px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
-  .wz-thumbs button { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: #111; color: #fff; cursor: pointer; line-height: 1; }
+  /* thumbnails are drawn by the script (innerHTML), so :global; small 76px squares */
+  .wz-thumbs :global(li) { position: relative; }
+  .wz-thumbs :global(img) { display: block; width: 76px; height: 76px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+  .wz-thumbs :global(.vid span) { display: flex; align-items: center; height: 76px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+  .wz-thumbs :global([data-open]) { cursor: zoom-in; }
+  /* preview pop-up (built by the script on <body>, hence :global) */
+  :global(.wz-lb) { position: fixed; inset: 0; z-index: 120; display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; background: rgba(10, 14, 20, .92); touch-action: pan-y; }
+  :global(.wz-lb[hidden]) { display: none; }
+  :global(.wz-lb-stage) { grid-column: 2; height: 100vh; height: 100dvh; overflow: hidden; cursor: grab; user-select: none; }
+  :global(.wz-lb-stage:active) { cursor: grabbing; }
+  :global(.wz-lb-track) { display: flex; height: 100%; will-change: transform; }
+  :global(.wz-lb-slide) { flex: 0 0 100%; min-width: 0; height: 100%; display: flex; align-items: center; justify-content: center; padding: 56px 8px; box-sizing: border-box; }
+  /* always fits the screen and stays centred, whatever the photo or video size */
+  :global(.wz-lb-slide img), :global(.wz-lb-slide video) { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 112px); max-height: calc(100dvh - 112px); object-fit: contain; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); pointer-events: auto; -webkit-user-drag: none; }
+  :global(.wz-lb-x) { position: absolute; top: 14px; right: 14px; z-index: 2; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }
+  :global(.wz-lb-nav) { z-index: 2; justify-self: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; }
+  :global(.wz-lb-nav.prev) { grid-column: 1; grid-row: 1; } :global(.wz-lb-nav.next) { grid-column: 3; grid-row: 1; }
+  :global(.wz-lb-nav[hidden]) { visibility: hidden; display: block; }
+  :global(.wz-lb-x:hover), :global(.wz-lb-nav:hover) { background: rgba(255,255,255,.26); }
+  :global(.wz-lb-count) { position: absolute; left: 0; right: 0; bottom: 16px; margin: 0; text-align: center; color: rgba(255,255,255,.8); font-size: 13px; font-weight: 600; }
+  @media (max-width: 600px) { :global(.wz-lb) { grid-template-columns: 0 1fr 0; } :global(.wz-lb-nav) { display: none; } }
+  .wz-thumbs :global(button) { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: #111; color: #fff; cursor: pointer; line-height: 1; }
   .wz-merr, .wz-acc-msg { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
   .wz-merr, .wz-acc-msg.bad { color: #9F1239; }
   .wz-acct { margin-top: 20px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; display: grid; gap: 14px; }
@@ -1451,6 +1703,20 @@ const payload = JSON.stringify({
   .wz-acct .wz-now:disabled { opacity: .5; cursor: not-allowed; }
   .wz-addrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
   /* the address cards are drawn by the script (innerHTML), so they need :global to get these styles */
+  /* postal code help, as on 369 Mart: a status line and area chips (the chips are drawn by the script) */
+  .wz-pinhelp { grid-column: 1 / -1; display: grid; gap: 8px; margin-top: -4px; }
+  .wz-pinhelp[hidden] { display: none; }
+  .wz-pinhint { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+  .wz-pinhint.good { color: #15803D; }
+  .wz-pinhint.good::before { content: '✓ '; }
+  .wz-pinhint.busy::before { content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 7px; vertical-align: -1px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: pinSpin .8s linear infinite; }
+  @keyframes pinSpin { to { transform: rotate(360deg); } }
+  .wz-pinareas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .wz-pinareas[hidden] { display: none; }
+  .wz-pinareas small { font-size: 12px; color: var(--ink-3); margin-right: 4px; }
+  .wz-pinareas span { display: contents; }
+  .wz-pinareas :global(button) { padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-2); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .wz-pinareas :global(button[aria-pressed="true"]) { border-color: var(--violet); color: var(--violet); background: color-mix(in srgb, var(--violet) 8%, var(--surface)); }
   .wz-addrs :global(.wz-addr) { display: grid; gap: 3px; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; font: inherit; }
   .wz-addrs :global(.wz-addr[aria-checked="true"]) { border-color: var(--violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 18%, transparent); }
   .wz-addrs :global(.wz-addr span) { font-size: 13.5px; } .wz-addrs :global(.wz-addr small) { font-size: 12px; color: var(--ink-3); }
