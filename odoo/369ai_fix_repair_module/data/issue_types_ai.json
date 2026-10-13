@@ -1,0 +1,767 @@
+{
+ "source": "mobile_repair_ai (Alphalize Repair AI Agent) data/issue_type_data.xml + extended_issue_type_data.xml",
+ "existing": [
+  {
+   "existing": "screen_cracked",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "display_not_working",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "backlight_not_working",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "touch_not_working",
+   "name": null,
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "speaker_not_working",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "earpiece_not_working",
+   "name": null,
+   "categories": [
+    "Mobile Phone"
+   ]
+  },
+  {
+   "existing": "microphone_not_working",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "audio_jack_issue",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone"
+   ]
+  },
+  {
+   "existing": "battery_drain",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "device_dead",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "random_restart",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "battery_not_charging",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "charging_port_damaged",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "camera_not_working",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "wifi_bluetooth",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "network_signal",
+   "name": null,
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "fingerprint_face",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "buttons_not_working",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "water_damage",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "boot_loop",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "slow_performance",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "password_frp",
+   "name": null,
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "data_recovery",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "hdd_ssd_issue",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "ram_issue",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "motherboard_issue",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "keyboard_issue",
+   "name": null,
+   "categories": [
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "trackpad_mouse",
+   "name": null,
+   "categories": [
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "hinge_damaged",
+   "name": null,
+   "categories": [
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "overheating",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "fan_cooling",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "bios_issue",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "vibration_not_working",
+   "name": null,
+   "categories": [
+    "Mobile Phone"
+   ]
+  },
+  {
+   "existing": "usb_port",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Printer"
+   ]
+  },
+  {
+   "existing": "driver_issue",
+   "name": null,
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": "virus_malware",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "sim_not_detected",
+   "name": null,
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "os_reinstall",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "hdmi_display_port",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": "software_issue",
+   "name": null,
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "back_glass_broken",
+   "name": null,
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": "physical_damage",
+   "name": null,
+   "categories": []
+  }
+ ],
+ "new": [
+  {
+   "existing": null,
+   "name": "Display Flickering",
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Lines on Display",
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Display Discoloration / Dead Pixels",
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Ghost Touch / Phantom Touches",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Touch Working Partially",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "No Sound / Audio",
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Battery Swollen",
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Slow Charging",
+   "categories": [
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Wireless Charging Not Working",
+   "categories": [
+    "Mobile Phone"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Rear Camera Not Working",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Front Camera Not Working",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Camera Blurry / Out of Focus",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Webcam Not Working",
+   "categories": [
+    "Laptop"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Home Button Not Working",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Mute / Silent Switch Not Working",
+   "categories": [
+    "Mobile Phone"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Software Update Failed",
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Storage Full / Insufficient",
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Short Circuit",
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Back Panel / Housing Damaged",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Frame Bent / Damaged",
+   "categories": [
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Firmware Issue",
+   "categories": [
+    "Desktop",
+    "Laptop",
+    "Mobile Phone",
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Other Issue",
+   "categories": []
+  },
+  {
+   "existing": null,
+   "name": "Printer Not Printing",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Paper Jam",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Poor Print Quality / Faded",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Streaks / Lines on Print",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Printer Offline / Not Detected",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "WiFi / Network Connection Issue",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Toner / Ink Cartridge Issue",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Drum Unit Replacement",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Scanner Not Working",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Paper Feeder / Tray Issue",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Error Code / Blinking Light",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Printer Not Turning On",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Print Head Clogged / Damaged",
+   "categories": [
+    "Printer"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "No Display Output",
+   "categories": [
+    "Desktop"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Graphics Card / GPU Failure",
+   "categories": [
+    "Desktop"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Power Supply (PSU) Failure",
+   "categories": [
+    "Desktop"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Dust Cleaning / Thermal Paste",
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Blue Screen / BSOD",
+   "categories": [
+    "Desktop",
+    "Laptop"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Network Card / Ethernet Issue",
+   "categories": [
+    "Desktop"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Watch Not Charging",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Watch Screen Cracked",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Watch Band / Strap Broken",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Heart Rate / Health Sensor Issue",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Crown / Button Not Working",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Bluetooth Pairing Issue",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Watch Battery Draining Fast",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Watch Touch Not Responding",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Watch Water Damage",
+   "categories": [
+    "Smartwatch"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Stylus / Apple Pencil Not Working",
+   "categories": [
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Keyboard Accessory Not Connecting",
+   "categories": [
+    "Tablet"
+   ]
+  },
+  {
+   "existing": null,
+   "name": "Tablet Bent / Frame Damaged",
+   "categories": [
+    "Tablet"
+   ]
+  }
+ ]
+}

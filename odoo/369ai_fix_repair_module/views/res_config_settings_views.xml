@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_visit_fee" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.visit.fee</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="mobile_repair.res_config_settings_view_form_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//setting[field[@name='inspection_charge_product_id']]" position="after">
+                <setting string="Visit fee + quote"
+                         help="New job cards start as a Paid Inspection: the customer pays the visit fee (the Inspection Charge Product) and the technician quotes after inspection. The fee is waived when the quotation includes a repair.">
+                    <field name="repair_visit_fee_mode"/>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

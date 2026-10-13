@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- Required Services: only the services for this card's device. A service's
+         categories / brand / series / model either match the card or are empty. -->
+    <record id="view_job_card_form_repair_services" model="ir.ui.view">
+        <field name="name">job.card.form.repair.services</field>
+        <field name="model">job.card</field>
+        <field name="inherit_id" ref="mobile_repair.view_job_card_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='service_line_ids']/list/field[@name='product_id']" position="attributes">
+                <attribute name="domain">[('type', '=', 'service'),
+                    '|', ('repair_category_ids', '=', False), ('repair_category_ids', 'in', parent.device_category_id and [parent.device_category_id] or []),
+                    '|', ('device_brand_id', '=', False), ('device_brand_id', '=', parent.brand_id),
+                    '|', ('device_series_id', '=', False), ('device_series_id', '=', parent.series_id),
+                    '|', ('device_model_id', '=', False), ('device_model_id', '=', parent.model_id)]</attribute>
+            </xpath>
+            <!-- Issue Types: only the issues for this device (or for every device) -->
+            <xpath expr="//field[@name='issue_type_ids']" position="attributes">
+                <attribute name="domain">['|', ('device_category_ids', '=', False), ('device_category_ids', 'in', device_category_id and [device_category_id] or [])]</attribute>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

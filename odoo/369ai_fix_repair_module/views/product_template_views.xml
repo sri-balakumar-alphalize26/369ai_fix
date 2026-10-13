@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- Product (template) form: Device categories next to mobile_repair's Device Information -->
+    <record id="product_template_form_repair_categories" model="ir.ui.view">
+        <field name="name">product.template.form.repair.categories</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="mobile_repair.view_spare_part_product_form_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='device_info']/field[@name='device_brand_id']" position="before">
+                <field name="repair_category_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="repair_issue_type_ids" widget="many2many_tags" options="{'no_create': True}"
+                       invisible="type != 'service'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Product variant form (opened from Products > Services / Spare Parts):
+         mobile_repair only shows Device Information on the template form -->
+    <record id="product_normal_form_repair_device" model="ir.ui.view">
+        <field name="name">product.product.form.repair.device</field>
+        <field name="model">product.product</field>
+        <field name="inherit_id" ref="product.product_normal_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='group_general']" position="after">
+                <group string="Device Information" name="repair_device_info">
+                    <field name="repair_category_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <field name="repair_issue_type_ids" widget="many2many_tags" options="{'no_create': True}"
+                           invisible="type != 'service'"/>
+                    <field name="device_brand_id"/>
+                    <field name="device_series_id" domain="[('brand_id', '=', device_brand_id)]"/>
+                    <field name="device_model_id" domain="[('series_id', '=', device_series_id)]"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Configuration > Issue Types: which devices each issue applies to -->
+    <record id="view_job_card_issue_type_list_devices" model="ir.ui.view">
+        <field name="name">job.card.issue.type.list.devices</field>
+        <field name="model">job.card.issue.type</field>
+        <field name="inherit_id" ref="mobile_repair.view_job_card_issue_type_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="device_category_ids" widget="many2many_tags" options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_job_card_issue_type_form_devices" model="ir.ui.view">
+        <field name="name">job.card.issue.type.form.devices</field>
+        <field name="model">job.card.issue.type</field>
+        <field name="inherit_id" ref="mobile_repair.view_job_card_issue_type_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='sequence']" position="before">
+                <field name="device_category_ids" widget="many2many_tags" options="{'no_create': True}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_job_card_issue_type_search_devices" model="ir.ui.view">
+        <field name="name">job.card.issue.type.search.devices</field>
+        <field name="model">job.card.issue.type</field>
+        <field name="inherit_id" ref="mobile_repair.view_job_card_issue_type_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="device_category_ids"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Products > Services list: which devices each service is for -->
+    <record id="view_service_product_list_repair" model="ir.ui.view">
+        <field name="name">product.product.service.list.repair</field>
+        <field name="model">product.product</field>
+        <field name="inherit_id" ref="mobile_repair.view_service_product_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="default_code" optional="hide"/>
+                <field name="repair_category_ids" widget="many2many_tags" optional="show"/>
+                <field name="repair_issue_type_ids" widget="many2many_tags" optional="show"/>
+                <field name="device_brand_id" string="Brand" optional="show"/>
+                <field name="device_model_id" string="Model" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

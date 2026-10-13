@@ -1,0 +1,673 @@
+{
+ "categories": [
+  {
+   "code": "mobile",
+   "odoo_category": "Mobile Phone",
+   "website_name": "Mobile Phones",
+   "onsite_only": false,
+   "repairs": [
+    {
+     "name": "Screen replacement",
+     "default_code": "MOB-SCREEN-REPLACEMENT",
+     "note": "Cracked or broken screen",
+     "sequence": 10,
+     "photo": "screen.jpg"
+    },
+    {
+     "name": "Battery replacement",
+     "default_code": "MOB-BATTERY-REPLACEMENT",
+     "note": "Original batteries",
+     "sequence": 20,
+     "photo": "battery.jpg"
+    },
+    {
+     "name": "Charging port",
+     "default_code": "MOB-CHARGING-PORT",
+     "note": "Fix charging issues",
+     "sequence": 30,
+     "photo": "charging.jpg"
+    },
+    {
+     "name": "Back glass",
+     "default_code": "MOB-BACK-GLASS",
+     "note": "Cracked back panel",
+     "sequence": 40,
+     "photo": "backglass.jpg"
+    },
+    {
+     "name": "Camera",
+     "default_code": "MOB-CAMERA",
+     "note": "Front & rear camera",
+     "sequence": 50,
+     "photo": "camera.jpg"
+    },
+    {
+     "name": "Speaker / microphone",
+     "default_code": "MOB-SPEAKER-MICROPHONE",
+     "note": "No sound or muffled audio",
+     "sequence": 60,
+     "photo": "speaker.jpg"
+    },
+    {
+     "name": "Water damage",
+     "default_code": "MOB-WATER-DAMAGE",
+     "note": "Cleaning & recovery",
+     "sequence": 70,
+     "photo": "water.jpg"
+    },
+    {
+     "name": "Software & data",
+     "default_code": "MOB-SOFTWARE-AND-DATA",
+     "note": "OS update and troubleshooting",
+     "sequence": 80,
+     "photo": "software.jpg"
+    }
+   ],
+   "brands": []
+  },
+  {
+   "code": "tablet",
+   "odoo_category": "Tablet",
+   "website_name": "Tablets & iPads",
+   "onsite_only": false,
+   "repairs": [
+    {
+     "name": "Screen / glass",
+     "default_code": "TAB-SCREEN-GLASS",
+     "note": "Cracked glass or display",
+     "sequence": 10,
+     "photo": "tab-screen.jpg"
+    },
+    {
+     "name": "Display / touch not working",
+     "default_code": "TAB-DISPLAY-TOUCH-NOT-WORKING",
+     "note": "Lines, dead pixels, no touch",
+     "sequence": 20,
+     "photo": "tab-display.jpg"
+    },
+    {
+     "name": "Battery replacement",
+     "default_code": "TAB-BATTERY-REPLACEMENT",
+     "note": "Original batteries",
+     "sequence": 30,
+     "photo": "tab-battery.jpg"
+    },
+    {
+     "name": "Charging port",
+     "default_code": "TAB-CHARGING-PORT",
+     "note": "Fix charging issues",
+     "sequence": 40,
+     "photo": "tab-charging.jpg"
+    },
+    {
+     "name": "Buttons",
+     "default_code": "TAB-BUTTONS",
+     "note": "Power and volume keys",
+     "sequence": 50,
+     "photo": "tab-buttons.jpg"
+    },
+    {
+     "name": "Software & data",
+     "default_code": "TAB-SOFTWARE-AND-DATA",
+     "note": "OS update and troubleshooting",
+     "sequence": 60,
+     "photo": "tab-software.jpg"
+    }
+   ],
+   "brands": []
+  },
+  {
+   "code": "laptop",
+   "odoo_category": "Laptop",
+   "website_name": "Laptops & MacBooks",
+   "onsite_only": false,
+   "repairs": [
+    {
+     "name": "Screen replacement",
+     "default_code": "LAP-SCREEN-REPLACEMENT",
+     "note": "Cracked or broken screen",
+     "sequence": 10,
+     "photo": "lap-screen.jpg"
+    },
+    {
+     "name": "Keyboard / trackpad",
+     "default_code": "LAP-KEYBOARD-TRACKPAD",
+     "note": "Keys, backlight, trackpad",
+     "sequence": 20,
+     "photo": "lap-keyboard.jpg"
+    },
+    {
+     "name": "Battery replacement",
+     "default_code": "LAP-BATTERY-REPLACEMENT",
+     "note": "Original batteries",
+     "sequence": 30,
+     "photo": "lap-battery.jpg"
+    },
+    {
+     "name": "Hinge repair",
+     "default_code": "LAP-HINGE-REPAIR",
+     "note": "Loose or broken hinges",
+     "sequence": 40,
+     "photo": "lap-hinge.jpg"
+    },
+    {
+     "name": "Not powering on",
+     "default_code": "LAP-NOT-POWERING-ON",
+     "note": "No power, no display",
+     "sequence": 50,
+     "photo": "lap-power.jpg"
+    },
+    {
+     "name": "Motherboard repair",
+     "default_code": "LAP-MOTHERBOARD-REPAIR",
+     "note": "Board-level repair",
+     "sequence": 60,
+     "photo": "lap-board.jpg"
+    },
+    {
+     "name": "SSD / RAM upgrade",
+     "default_code": "LAP-SSD-RAM-UPGRADE",
+     "note": "Faster, more storage",
+     "sequence": 70,
+     "photo": ""
+    },
+    {
+     "name": "OS install & virus removal",
+     "default_code": "LAP-OS-INSTALL-AND-VIRUS-REMOVAL",
+     "note": "Clean install, malware removal",
+     "sequence": 80,
+     "photo": ""
+    },
+    {
+     "name": "Overheating / fan",
+     "default_code": "LAP-OVERHEATING-FAN",
+     "note": "Cleaning and fan replacement",
+     "sequence": 90,
+     "photo": "lap-fan.jpg"
+    }
+   ],
+   "brands": []
+  },
+  {
+   "code": "desktop",
+   "odoo_category": "Desktop",
+   "website_name": "Desktops & All-in-ones",
+   "onsite_only": false,
+   "repairs": [
+    {
+     "name": "Not powering on",
+     "default_code": "DSK-NOT-POWERING-ON",
+     "note": "No power, no display",
+     "sequence": 10,
+     "photo": "desk-power-on.jpg"
+    },
+    {
+     "name": "Power supply",
+     "default_code": "DSK-POWER-SUPPLY",
+     "note": "Dead or faulty PSU",
+     "sequence": 20,
+     "photo": "desk-psu.jpg"
+    },
+    {
+     "name": "Motherboard repair",
+     "default_code": "DSK-MOTHERBOARD-REPAIR",
+     "note": "Board-level repair",
+     "sequence": 30,
+     "photo": "desk-board.jpg"
+    },
+    {
+     "name": "SSD / RAM upgrade",
+     "default_code": "DSK-SSD-RAM-UPGRADE",
+     "note": "Faster, more storage",
+     "sequence": 40,
+     "photo": "desk-ssd.jpg"
+    },
+    {
+     "name": "Graphics card",
+     "default_code": "DSK-GRAPHICS-CARD",
+     "note": "No display, artefacts, upgrades",
+     "sequence": 50,
+     "photo": "desk-gpu.jpg"
+    },
+    {
+     "name": "OS install & virus removal",
+     "default_code": "DSK-OS-INSTALL-AND-VIRUS-REMOVAL",
+     "note": "Clean install, malware removal",
+     "sequence": 60,
+     "photo": ""
+    },
+    {
+     "name": "Custom PC build",
+     "default_code": "DSK-CUSTOM-PC-BUILD",
+     "note": "Gaming, office or workstation",
+     "sequence": 70,
+     "photo": "desk-build.jpg"
+    }
+   ],
+   "brands": []
+  },
+  {
+   "code": "printer",
+   "odoo_category": "Printer",
+   "website_name": "Printers",
+   "onsite_only": false,
+   "repairs": [
+    {
+     "name": "Paper jam",
+     "default_code": "PRN-PAPER-JAM",
+     "note": "Clear and fix feed rollers",
+     "sequence": 10,
+     "photo": ""
+    },
+    {
+     "name": "Poor print quality",
+     "default_code": "PRN-POOR-PRINT-QUALITY",
+     "note": "Streaks, fading, smudges",
+     "sequence": 20,
+     "photo": ""
+    },
+    {
+     "name": "Head cleaning / alignment",
+     "default_code": "PRN-HEAD-CLEANING-ALIGNMENT",
+     "note": "",
+     "sequence": 30,
+     "photo": ""
+    },
+    {
+     "name": "Toner / cartridge issue",
+     "default_code": "PRN-TONER-CARTRIDGE-ISSUE",
+     "note": "",
+     "sequence": 40,
+     "photo": ""
+    },
+    {
+     "name": "Not connecting (Wi-Fi / USB)",
+     "default_code": "PRN-NOT-CONNECTING-WI-FI-USB",
+     "note": "",
+     "sequence": 50,
+     "photo": ""
+    },
+    {
+     "name": "Error codes",
+     "default_code": "PRN-ERROR-CODES",
+     "note": "",
+     "sequence": 60,
+     "photo": ""
+    },
+    {
+     "name": "Roller & fuser replacement",
+     "default_code": "PRN-ROLLER-AND-FUSER-REPLACEMENT",
+     "note": "",
+     "sequence": 70,
+     "photo": ""
+    },
+    {
+     "name": "Setup & installation",
+     "default_code": "PRN-SETUP-AND-INSTALLATION",
+     "note": "",
+     "sequence": 80,
+     "photo": ""
+    }
+   ],
+   "brands": []
+  },
+  {
+   "code": "cctv",
+   "odoo_category": "CCTV Installation",
+   "website_name": "CCTV Installation",
+   "onsite_only": true,
+   "repairs": [
+    {
+     "name": "New CCTV installation",
+     "default_code": "CCTV-NEW-CCTV-INSTALLATION",
+     "note": "Survey and full install",
+     "sequence": 10,
+     "photo": ""
+    },
+    {
+     "name": "Add more cameras",
+     "default_code": "CCTV-ADD-MORE-CAMERAS",
+     "note": "",
+     "sequence": 20,
+     "photo": ""
+    },
+    {
+     "name": "DVR / NVR setup",
+     "default_code": "CCTV-DVR-NVR-SETUP",
+     "note": "Recording and storage",
+     "sequence": 30,
+     "photo": ""
+    },
+    {
+     "name": "Mobile remote viewing",
+     "default_code": "CCTV-MOBILE-REMOTE-VIEWING",
+     "note": "Watch cameras on your phone",
+     "sequence": 40,
+     "photo": ""
+    },
+    {
+     "name": "Camera not showing",
+     "default_code": "CCTV-CAMERA-NOT-SHOWING",
+     "note": "",
+     "sequence": 50,
+     "photo": ""
+    },
+    {
+     "name": "Recording / hard disk issue",
+     "default_code": "CCTV-RECORDING-HARD-DISK-ISSUE",
+     "note": "",
+     "sequence": 60,
+     "photo": ""
+    },
+    {
+     "name": "Cabling & re-wiring",
+     "default_code": "CCTV-CABLING-AND-RE-WIRING",
+     "note": "",
+     "sequence": 70,
+     "photo": ""
+    },
+    {
+     "name": "Annual maintenance",
+     "default_code": "CCTV-ANNUAL-MAINTENANCE",
+     "note": "",
+     "sequence": 80,
+     "photo": ""
+    }
+   ],
+   "brands": [
+    {
+     "name": "Hikvision",
+     "models": [
+      "2MP Dome camera",
+      "2MP Bullet camera",
+      "4MP IP camera",
+      "ColorVu night camera",
+      "PTZ camera",
+      "DVR (4 / 8 / 16 ch)",
+      "NVR (4 / 8 / 16 ch)"
+     ]
+    },
+    {
+     "name": "Dahua",
+     "models": [
+      "HDCVI Dome camera",
+      "HDCVI Bullet camera",
+      "IP camera 4MP",
+      "Full-color camera",
+      "XVR recorder",
+      "NVR recorder"
+     ]
+    },
+    {
+     "name": "CP Plus",
+     "models": [
+      "Dome camera",
+      "Bullet camera",
+      "Wi-Fi camera (EZYKAM)",
+      "IP camera",
+      "DVR",
+      "NVR"
+     ]
+    },
+    {
+     "name": "Home Wi-Fi cameras",
+     "models": [
+      "TP-Link Tapo C200",
+      "TP-Link Tapo C320WS",
+      "Imou Ranger 2",
+      "Mi 360° Home Camera",
+      "Qubo Home Cam",
+      "Video doorbell"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "network",
+   "odoo_category": "Networking & Wi-Fi",
+   "website_name": "Networking & Wi-Fi",
+   "onsite_only": true,
+   "repairs": [
+    {
+     "name": "Wi-Fi setup",
+     "default_code": "NET-WI-FI-SETUP",
+     "note": "Router and mesh setup",
+     "sequence": 10,
+     "photo": ""
+    },
+    {
+     "name": "Weak Wi-Fi / dead zones",
+     "default_code": "NET-WEAK-WI-FI-DEAD-ZONES",
+     "note": "Coverage survey and fix",
+     "sequence": 20,
+     "photo": ""
+    },
+    {
+     "name": "Mesh Wi-Fi install",
+     "default_code": "NET-MESH-WI-FI-INSTALL",
+     "note": "",
+     "sequence": 30,
+     "photo": ""
+    },
+    {
+     "name": "LAN cabling",
+     "default_code": "NET-LAN-CABLING",
+     "note": "",
+     "sequence": 40,
+     "photo": ""
+    },
+    {
+     "name": "Router / firewall config",
+     "default_code": "NET-ROUTER-FIREWALL-CONFIG",
+     "note": "",
+     "sequence": 50,
+     "photo": ""
+    },
+    {
+     "name": "Switch & rack setup",
+     "default_code": "NET-SWITCH-AND-RACK-SETUP",
+     "note": "",
+     "sequence": 60,
+     "photo": ""
+    },
+    {
+     "name": "Office network",
+     "default_code": "NET-OFFICE-NETWORK",
+     "note": "",
+     "sequence": 70,
+     "photo": ""
+    }
+   ],
+   "brands": [
+    {
+     "name": "TP-Link",
+     "models": [
+      "Archer router",
+      "Deco mesh",
+      "Omada access point",
+      "Managed switch"
+     ]
+    },
+    {
+     "name": "Ubiquiti",
+     "models": [
+      "UniFi access point",
+      "UniFi Dream Machine",
+      "UniFi switch"
+     ]
+    },
+    {
+     "name": "Cisco",
+     "models": [
+      "Catalyst switch",
+      "Meraki access point",
+      "Small business router"
+     ]
+    },
+    {
+     "name": "D-Link / Netgear",
+     "models": [
+      "D-Link router",
+      "D-Link switch",
+      "Netgear Orbi mesh",
+      "Netgear Nighthawk"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "data",
+   "odoo_category": "Data Recovery",
+   "website_name": "Data Recovery",
+   "onsite_only": false,
+   "repairs": [
+    {
+     "name": "Deleted files",
+     "default_code": "DATA-DELETED-FILES",
+     "note": "Recover lost files",
+     "sequence": 10,
+     "photo": ""
+    },
+    {
+     "name": "Drive not detected",
+     "default_code": "DATA-DRIVE-NOT-DETECTED",
+     "note": "Dead or failing drives",
+     "sequence": 20,
+     "photo": ""
+    },
+    {
+     "name": "Clicking / dead hard disk",
+     "default_code": "DATA-CLICKING-DEAD-HARD-DISK",
+     "note": "",
+     "sequence": 30,
+     "photo": ""
+    },
+    {
+     "name": "Formatted drive",
+     "default_code": "DATA-FORMATTED-DRIVE",
+     "note": "",
+     "sequence": 40,
+     "photo": ""
+    },
+    {
+     "name": "Water / fire damage",
+     "default_code": "DATA-WATER-FIRE-DAMAGE",
+     "note": "",
+     "sequence": 50,
+     "photo": ""
+    },
+    {
+     "name": "Phone data recovery",
+     "default_code": "DATA-PHONE-DATA-RECOVERY",
+     "note": "",
+     "sequence": 60,
+     "photo": ""
+    }
+   ],
+   "brands": [
+    {
+     "name": "Hard disks",
+     "models": [
+      "Laptop HDD (2.5\")",
+      "Desktop HDD (3.5\")",
+      "External HDD (WD / Seagate)",
+      "NAS / RAID"
+     ]
+    },
+    {
+     "name": "SSDs",
+     "models": [
+      "SATA SSD",
+      "NVMe SSD",
+      "MacBook soldered SSD",
+      "External SSD (Samsung T7 / SanDisk)"
+     ]
+    },
+    {
+     "name": "Flash & cards",
+     "models": [
+      "USB pen drive",
+      "SD / microSD card",
+      "CCTV hard disk"
+     ]
+    }
+   ]
+  },
+  {
+   "code": "itsupport",
+   "odoo_category": "IT Support",
+   "website_name": "IT Support",
+   "onsite_only": true,
+   "repairs": [
+    {
+     "name": "Software installation",
+     "default_code": "ITS-SOFTWARE-INSTALLATION",
+     "note": "",
+     "sequence": 10,
+     "photo": ""
+    },
+    {
+     "name": "Email & Microsoft 365 setup",
+     "default_code": "ITS-EMAIL-AND-MICROSOFT-365-SETUP",
+     "note": "",
+     "sequence": 20,
+     "photo": ""
+    },
+    {
+     "name": "Slow computer tune-up",
+     "default_code": "ITS-SLOW-COMPUTER-TUNE-UP",
+     "note": "",
+     "sequence": 30,
+     "photo": ""
+    },
+    {
+     "name": "Virus & malware removal",
+     "default_code": "ITS-VIRUS-AND-MALWARE-REMOVAL",
+     "note": "",
+     "sequence": 40,
+     "photo": ""
+    },
+    {
+     "name": "Printer & network setup",
+     "default_code": "ITS-PRINTER-AND-NETWORK-SETUP",
+     "note": "",
+     "sequence": 50,
+     "photo": ""
+    },
+    {
+     "name": "Annual maintenance contract",
+     "default_code": "ITS-ANNUAL-MAINTENANCE-CONTRACT",
+     "note": "",
+     "sequence": 60,
+     "photo": ""
+    }
+   ],
+   "brands": [
+    {
+     "name": "Windows PCs",
+     "models": [
+      "Windows 11",
+      "Windows 10",
+      "Windows Server"
+     ]
+    },
+    {
+     "name": "Apple macOS",
+     "models": [
+      "macOS Sequoia",
+      "macOS Sonoma",
+      "macOS Ventura"
+     ]
+    },
+    {
+     "name": "Office & email",
+     "models": [
+      "Microsoft 365",
+      "Google Workspace",
+      "Outlook / Exchange"
+     ]
+    }
+   ]
+  }
+ ]
+}
