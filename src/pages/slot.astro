@@ -1,0 +1,153 @@
+---
+// The link from WhatsApp after a booking is approved: /slot?o=<order>&t=<token>.
+// Shows the estimate, then either "order the missing part?" (yes / no), "waiting for the
+// part", or the free visit times to pick from. Everything goes through /api/visit.
+import Base from '../layouts/Base.astro';
+import { site } from '../data/site';
+---
+
+<Base title="Pick a time" description="Choose when we come for your repair." quiet>
+  <section class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">Your repair</span>
+      <h1 class="h-xl">Pick a <span class="grad-text">time</span></h1>
+      <p class="lead" data-v-lead>Loading your booking…</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap vs" data-vs>
+      <div class="vs-card" data-v-est hidden>
+        <h3>Your estimate <small data-v-ref></small></h3>
+        <ul data-v-lines></ul>
+        <p class="vs-note">The technician confirms the price after checking the device, before any work starts.</p>
+      </div>
+
+      <div class="vs-card" data-v-parts hidden>
+        <h3>A part must be ordered</h3>
+        <p><b data-v-partnames></b> is not in stock. It takes about <b data-v-days></b> days to arrive.</p>
+        <p>Shall we order it? We only order with your OK, and you pick the visit time once it's here.</p>
+        <div class="vs-acts">
+          <button type="button" class="vs-btn" data-v-yes>Yes, order it</button>
+          <button type="button" class="vs-btn ghost" data-v-no>No thanks</button>
+        </div>
+      </div>
+
+      <div class="vs-card" data-v-wait hidden>
+        <h3>We're getting your part</h3>
+        <p>We'll send you a WhatsApp message with this link as soon as it arrives, so you can pick a time.</p>
+      </div>
+
+      <div class="vs-card" data-v-pick hidden>
+        <h3 data-v-picktitle>Choose a time</h3>
+        <p class="vs-booked" data-v-booked hidden></p>
+        <div class="vs-days" data-v-days-list></div>
+        <p class="vs-note" data-v-none hidden>No free times right now — please call us on <b>{site.phone.display}</b>.</p>
+      </div>
+
+      <div class="vs-card" data-v-bye hidden>
+        <h3>Booking closed</h3>
+        <p>Nothing was ordered. We're here whenever you need us.</p>
+      </div>
+
+      <p class="vs-msg" data-v-msg role="alert" hidden></p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { site } from '../data/site';
+  const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const q = new URLSearchParams(location.search);
+  const o = q.get('o') || '', t = q.get('t') || '';
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  const msg = (m: string) => { const el = $('[data-v-msg]'); el.textContent = m; el.hidden = !m; };
+  const show = (k: string) => ['est', 'parts', 'wait', 'pick', 'bye'].forEach((n) => ($(`[data-v-${n}]`).hidden = !k.split(' ').includes(n)));
+  const ERR: Record<string, string> = {
+    expired: `This link has expired — please call us on ${site.phone.display}.`,
+    unknown: `This link doesn't work — please call us on ${site.phone.display}.`,
+    cancelled: 'This booking is closed.',
+    full: 'Sorry, that time just filled up — please choose another.',
+    'too late to change': 'It is too close to your visit to change it now — please call us.',
+    'parts not ready': 'The part has not arrived yet — we will message you.',
+  };
+  let state: any = null;
+
+  async function load() {
+    const r = await fetch(`/api/visit?page=slot&o=${encodeURIComponent(o)}&t=${encodeURIComponent(t)}`).then((x) => x.json()).catch(() => ({ ok: false, error: 'unavailable' }));
+    if (!r.ok) { $('[data-v-lead]').textContent = ''; show(''); msg(ERR[r.error] || "We can't load your booking right now. Please try again in a minute."); return; }
+    state = r;
+    $('[data-v-lead]').textContent = `Hi ${r.customer || 'there'} — booking ${r.ref}.`;
+    $('[data-v-ref]').textContent = r.ref;
+    $('[data-v-lines]').innerHTML = r.estimate.map((l: string) => `<li>${esc(l.replace(/^•\s*/, ''))}</li>`).join('');
+    if (r.state === 'ask_parts') {
+      $('[data-v-partnames]').textContent = r.parts.join(', ');
+      $('[data-v-days]').textContent = String(r.parts_days || '?');
+      show('est parts');
+    } else if (r.state === 'waiting_parts') show('est wait');
+    else drawDays();
+  }
+
+  function drawDays() {
+    show('est pick');
+    const booked = $('[data-v-booked]');
+    booked.hidden = !state.booked;
+    if (state.booked) booked.innerHTML = `Booked: <b>${esc(state.booked.label)}</b>${state.can_change ? ' — you can change it below.' : ''}`;
+    $('[data-v-picktitle]').textContent = state.booked ? 'Your visit time' : 'Choose a time';
+    const canPick = !state.booked || state.can_change;
+    $('[data-v-days-list]').innerHTML = canPick ? state.days.map((d: any) => `
+      <div class="vs-day"><b>${esc(d.label)}</b>
+        <div class="vs-wins">${d.windows.map((w: any) => `<button type="button" class="vs-win${w.mine ? ' mine' : ''}" data-slot="${w.slot_id}" data-date="${d.date}" ${w.free > 0 ? '' : 'disabled'}>${esc(w.label)}<small>${w.mine ? 'your time' : w.free > 0 ? `${w.free} left` : 'full'}</small></button>`).join('')}</div>
+      </div>`).join('') : '';
+    $('[data-v-none]').hidden = !canPick || state.days.length > 0;
+  }
+
+  $('[data-v-days-list]').addEventListener('click', async (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-slot]');
+    if (!b || b.disabled) return;
+    b.disabled = true; msg('');
+    const r = await fetch('/api/visit', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ o, t, action: 'book', slot_id: Number(b.dataset.slot), date: b.dataset.date }) }).then((x) => x.json()).catch(() => ({ ok: false }));
+    if (!r.ok) { msg(ERR[r.error] || 'That did not work — please try again.'); await load(); return; }
+    await load();
+    msg('');
+    $('[data-v-lead]').textContent = `Thank you! Your visit is booked: ${r.booked.label}. We'll send you a WhatsApp reminder.`;
+  });
+
+  async function answer(yes: boolean) {
+    const r = await fetch('/api/visit', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ o, t, action: 'parts', yes }) }).then((x) => x.json()).catch(() => ({ ok: false }));
+    if (!r.ok) { msg(ERR[r.error] || 'That did not work — please try again.'); return; }
+    if (r.state === 'declined') { show('bye'); $('[data-v-lead]').textContent = ''; return; }
+    await load();
+  }
+  $('[data-v-yes]').addEventListener('click', () => answer(true));
+  $('[data-v-no]').addEventListener('click', () => answer(false));
+
+  if (!o || !t) { show(''); msg(ERR.unknown); } else load();
+</script>
+
+<style>
+  .vs { display: grid; gap: 16px; max-width: 760px; }
+  .vs-card { padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); display: grid; gap: 10px; }
+  .vs-card[hidden] { display: none; }
+  .vs-card h3 { margin: 0; font-size: 18px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .vs-card h3 small { font-size: 13px; color: var(--ink-3); font-weight: 600; }
+  .vs-card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+  /* lists, days and time buttons are drawn by the script (innerHTML), so they need :global */
+  .vs-card ul :global(li:last-child) { font-weight: 700; list-style: none; margin-left: -18px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .vs-note { margin: 0; font-size: 13px; color: var(--ink-3); }
+  .vs-acts { display: flex; flex-wrap: wrap; gap: 10px; }
+  .vs-btn { height: 48px; padding: 0 20px; border: 0; border-radius: 14px; background: var(--violet); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  .vs-btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  .vs-days { display: grid; gap: 14px; }
+  .vs-card :global(.vs-day) { display: grid; gap: 8px; }
+  .vs-card :global(.vs-wins) { display: flex; flex-wrap: wrap; gap: 8px; }
+  .vs-card :global(.vs-win) { display: grid; gap: 2px; min-width: 110px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
+  .vs-card :global(.vs-win small) { font-weight: 500; font-size: 12px; color: var(--ink-3); }
+  .vs-card :global(.vs-win:disabled) { opacity: .45; cursor: not-allowed; text-decoration: line-through; }
+  .vs-card :global(.vs-win.mine) { border-color: var(--violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 18%, transparent); }
+  .vs-booked { margin: 0; }
+  .vs-msg { margin: 0; color: #9F1239; font-weight: 600; }
+  .vs-msg[hidden] { display: none; }
+</style>

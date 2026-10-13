@@ -121,7 +121,9 @@ const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis 
   (window as any).__offerClosed = () => sput('offer-seen', today);
   (window as any).__openOffer = () => { const t = offerType(); if (t === 'slot') (window as any).__openSlot?.(); else if (t === 'spin') (window as any).__openSpin?.(); else open(); };
   const adminGate = new URLSearchParams(location.search).has('admin'); // ?admin= pop-up gets the screen to itself
-  if (!adminGate && (sget('offer-seen') !== today || qOffer)) setTimeout(() => (window as any).__openOffer(), offerType() === 'slot' ? 1500 : ((window as any).__poDelay ?? 4000));
+  // Pages opened from a WhatsApp link (/slot, /quote) are a task to finish: no welcome offer on top.
+  const quietPage = document.documentElement.dataset.quiet === '1';
+  if (!adminGate && !quietPage && (sget('offer-seen') !== today || qOffer)) setTimeout(() => (window as any).__openOffer(), offerType() === 'slot' ? 1500 : ((window as any).__poDelay ?? 4000));
   po.querySelectorAll('[data-po-x]').forEach((b) => b.addEventListener('click', close));
   po.querySelectorAll('[data-po-go]').forEach((b) => b.addEventListener('click', () => sput('offer-seen', today)));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !po.hidden) close(); });

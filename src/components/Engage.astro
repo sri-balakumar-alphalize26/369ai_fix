@@ -141,7 +141,8 @@ import { DIAL as dial } from '../lib/phone';
     import { checkEmail } from '../lib/email';
   const idle = document.querySelector<HTMLElement>('[data-idle]');
   const sl = document.querySelector<HTMLElement>('[data-slide-in]');
-  if (idle && sl) {
+  // Not on quiet pages (/slot, /quote): the customer came from a WhatsApp link to finish one task.
+  if (idle && sl && document.documentElement.dataset.quiet !== '1') {
     const tel = idle.dataset.tel!;
     const ss = (k: string) => { try { return sessionStorage.getItem(k); } catch { return null; } };
     const sset = (k: string) => { try { sessionStorage.setItem(k, '1'); } catch {} };

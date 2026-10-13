@@ -14,9 +14,11 @@ import { categories } from '../data/devices';
 interface Props {
   title?: string;
   description?: string;
+  /** No welcome offer or idle pop-ups (pages opened from a WhatsApp link). */
+  quiet?: boolean;
 }
 
-const { title, description = `${site.tagline} — screens, batteries and more for every major phone brand.` } = Astro.props;
+const { title, description = `${site.tagline} — screens, batteries and more for every major phone brand.`, quiet = false } = Astro.props;
 const fullTitle = title ? `${title} · ${site.name}` : `${site.name} — ${site.tagline}`;
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 
@@ -24,7 +26,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 ---
 
 <!doctype html>
-<html lang="en" data-theme="danat" data-menu="1" data-reviews="1">
+<html lang="en" data-theme="danat" data-menu="1" data-reviews="1" data-quiet={quiet ? '1' : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

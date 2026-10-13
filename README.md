@@ -65,6 +65,39 @@ and the key as `ODOO_KEY_<DB>` in the website's `.env`.
 databases that have it: `odoo-bin -c /etc/odoo19.conf -d DUBAI_TEST -u 369ai_fix_customer_module --stop-after-init --no-http`.
 The website itself redeploys from GitHub `main` automatically (`danatfix-deploy.timer`).
 
+## Repair catalogue: repairs as products in Odoo
+
+Odoo module: `odoo/369ai_fix_repair_module` (Odoo 19, depends on `mobile_repair`; it only
+extends it). Repairs are IT & Mobile Repair's own **Products ▸ Services**, priced on the product.
+The module adds three things:
+
+- **Device categories on products.** Together with the product's Brand / Series / Model
+  (already in mobile_repair), a service is either general ("Screen replacement", Mobile Phone,
+  15.000) or for one device ("Screen replacement - iPhone 13", Apple / iPhone 13, 45.000).
+  The Services list shows categories, brand and model.
+- **Job card ▸ Required Services** only offers the services whose categories, brand, series
+  and model match the card or are empty. The price comes from the product, as before. Spare
+  parts keep their own price. Give repair services a *price-included* 5% VAT so the price is
+  what the customer pays.
+- **Settings ▸ Inspection ▸ Visit fee + quote:**
+  - New job cards start as *Paid Inspection*. The fee is mobile_repair's *Inspection Charge
+    Product*.
+  - On *Create Quotation*, a card with a repair has the fee waived.
+  - A card with only the visit-fee line (the customer declined) bills that line alone.
+    Either way the fee is never charged twice.
+- **Install only:** adds the CCTV Installation, Networking & Wi-Fi, Data Recovery and IT Support
+  categories (with their brands and models), the website's 65 repairs as services at price 0,
+  and an *Inspection / Visit Fee* product if none is set. Existing records are never changed.
+  The data is `data/seed_repairs.json`, built from `src/data/` by
+  `node scripts/export-repair-seed.mjs`.
+
+**Local Odoo:** the folder is linked into the server's addons folder (a junction, as for
+369Mart). Restart the `odoo-server-19.0` service after adding a new module.
+
+**Deploy:** copy the folder to `/opt/odoo/369ai_fix_addons/`, then install with
+`odoo-bin -c /etc/odoo19.conf -d DUBAI_TEST -i 369ai_fix_repair_module --stop-after-init --no-http`.
+Use `-u` instead of `-i` for later updates.
+
 ## Automatic currency conversion
 
 Visitors see prices in their own country's currency; stored prices never change.
