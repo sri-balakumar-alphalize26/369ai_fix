@@ -31,15 +31,22 @@ export function originOk(request: Request): boolean {
 export const ipOf =(request: Request, socket?: string) =>
   request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for')?.split(',')[0].trim() || socket || '';
 
-/** The Odoo database (and its key) for this host, or null when this host is not connected. */
-export function targetFor(host: string): { db: string; key: string } | null {
-  let db = '';
+/** The Odoo database for this host (ODOO_ROUTES, else ODOO_DB), or ''. */
+export function dbFor(host: string): string {
   for (const part of (env('ODOO_ROUTES') || '').split(';')) {
     const [hosts, name] = part.split('=');
     if (!hosts || !name) continue;
-    if (hosts.split(',').map((h) => h.trim().toLowerCase()).includes(host)) { db = name.trim(); break; }
+    if (hosts.split(',').map((h) => h.trim().toLowerCase()).includes(host)) return name.trim();
   }
-  db = db || env('ODOO_DB') || '';
+  return env('ODOO_DB') || '';
+}
+
+/** Odoo's address, without a trailing slash. */
+export const odooUrl = () => (env('ODOO_URL') || 'http://127.0.0.1:8069').replace(/\/$/, '');
+
+/** The Odoo database (and its key) for this host, or null when this host is not connected. */
+export function targetFor(host: string): { db: string; key: string } | null {
+  const db = dbFor(host);
   const key = env(`ODOO_KEY_${db.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`) || env('ODOO_API_KEY') || '';
   return db && key ? { db, key } : null;
 }

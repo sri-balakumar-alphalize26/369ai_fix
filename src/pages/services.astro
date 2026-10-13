@@ -1,9 +1,17 @@
 ---
 import Base from '../layouts/Base.astro';
 import { serviceModes, price, site } from '../data/site';
-import { categories, totals, iconPaths } from '../data/devices';
+import { iconPaths } from '../data/devices';
 import { coverage } from '../data/coverage';
 import { DIAL } from '../lib/phone';
+import { getCatalog } from '../lib/catalog';
+import { hostOf } from '../lib/odoo';
+// Rendered per request: devices, brands, models and repairs (with prices) come from Odoo,
+// so what staff add there shows here within minutes. Odoo down: the site's own lists.
+export const prerender = false;
+const catalog = await getCatalog(hostOf(Astro.request));
+const { categories, totals } = catalog;
+const money = (n: number | null) => (n === null ? '' : price(n));
 // Brand logo for each wizard brand id: [file in public/brand/makers, colour] — no colour = multi-colour SVG shown as <img>
 const LOGO: Record<string, [string, string?]> = {
   apple: ['apple', '#1d1d1f'], ipad: ['apple', '#1d1d1f'], macbook: ['apple', '#1d1d1f'], imac: ['apple', '#1d1d1f'], macos: ['apple', '#1d1d1f'],
@@ -49,12 +57,15 @@ const faqs = [
 ];
 
 const payload = JSON.stringify({
+  odoo: catalog.odoo,
   categories: categories.map((c) => ({
     id: c.id,
+    odooId: c.odooId,
     name: c.name,
     onsiteOnly: !!c.onsiteOnly,
     issues: c.issues,
-    brands: c.brands.map((b) => ({ id: b.id, name: b.name, models: b.models })),
+    services: c.services,
+    brands: c.brands.map((b) => ({ id: b.id, odooId: b.odooId, name: b.name, models: b.models, items: b.items })),
   })),
   coverage,
 });
@@ -197,7 +208,7 @@ const payload = JSON.stringify({
 
       <div class="wz" data-wz data-reveal>
         <ol class="wz-steps" aria-label="Progress">
-          {['Device', 'Brand & model', 'Service', 'Estimate'].map((t, i) => (
+          {['Device', 'Brand & model', 'Service', 'Details', 'Book'].map((t, i) => (
             <li class:list={['wz-step', { on: i === 0 }]} data-wz-dot={i + 1}><button type="button" data-wz-goto={i + 1}><b>{i + 1}<span class="wz-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></b><span>{t}</span></button></li>
           ))}
           <span class="wz-rail" aria-hidden="true"><i data-wz-fill></i></span>
@@ -246,10 +257,15 @@ const payload = JSON.stringify({
               </div>
               <p class="wz-mhint" data-wz-mhint>Pick a brand to see its models.</p>
               <ul class="wz-mlist" data-wz-mlist>
-                {categories.flatMap((c) => c.brands.flatMap((b) => b.models.map((m) => (
-                  <li hidden><button type="button" class="wz-model" data-model={m} data-model-brand={b.id} data-model-cat={c.id} data-q={`${b.name} ${m}`.toLowerCase()}><span>{m}<small>{b.name}</small></span><i aria-hidden="true">→</i></button></li>
+                {categories.flatMap((c) => c.brands.flatMap((b) => b.items.map((m) => (
+                  <li hidden><button type="button" class="wz-model" data-model={m.name} data-model-id={m.id ?? ''} data-series-id={m.seriesId ?? ''}
+                    data-model-brand={b.id} data-model-cat={c.id} data-q={`${b.name} ${m.series} ${m.name}`.toLowerCase()}><span>{m.name}<small>{m.series || b.name}</small></span><i aria-hidden="true">→</i></button></li>
                 ))))}
               </ul>
+              <div class="wz-typed" data-wz-typed-box hidden>
+                <label class="wz-search"><input data-wz-typed maxlength="60" placeholder="Not in the list? Type your model" aria-label="Type your model" /></label>
+                <button type="button" class="wz-skip" data-wz-typed-go>Use this model →</button>
+              </div>
               <button type="button" class="wz-skip" data-wz-skip>I don't know my model — skip →</button>
             </div>
           </div>
@@ -260,10 +276,12 @@ const payload = JSON.stringify({
           <h3 class="wz-q">What's the problem? <small>Choose one or more</small></h3>
           {categories.map((c) => (
             <div class="wz-issues" data-wz-issues={c.id} hidden>
-              {c.issues.map((iss) => (
-                <button type="button" class="wz-iss" data-iss={iss} aria-pressed="false" style={`--h:${c.hue}`}>
-                  <span class="wz-ii" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${issueSvg(iss)}</svg>`} />
-                  <span class="wz-in"><b>{iss}</b><small>{issueNote(iss)}</small></span>
+              {c.services.map((sv) => (
+                <button type="button" class="wz-iss" data-iss={sv.name} data-pid={sv.id ?? ''} data-price={sv.price ?? ''}
+                  data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''} aria-pressed="false" style={`--h:${c.hue}`}
+                  hidden={!!(sv.b || sv.s || sv.m)}>
+                  <span class="wz-ii" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${issueSvg(sv.name)}</svg>`} />
+                  <span class="wz-in"><b>{sv.name}</b><small>{catalog.odoo && sv.price ? `from ${money(sv.price)}` : issueNote(sv.name)}</small></span>
                   <span class="wz-ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
                 </button>
               ))}
@@ -271,8 +289,28 @@ const payload = JSON.stringify({
           ))}
         </div>
 
-        <!-- 4 · estimate -->
+        <!-- 4 · details: the customer's own words, photos and a video -->
         <div class="wz-panel" data-wz-panel="4" hidden>
+          <h3 class="wz-q">Tell us more <small>Optional — it helps the technician come prepared</small></h3>
+          <div class="wz-det">
+            <label class="wz-fl wz-dfl"><span>What happened?</span>
+              <textarea data-wz-problem maxlength="500" rows="4" placeholder="e.g. Dropped it yesterday — the top half of the screen is black and touch doesn't work."></textarea>
+            </label>
+            <div class="wz-media">
+              <label class="wz-mbtn"><input type="file" accept="image/*" multiple data-wz-photos hidden />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                <span><b>Add photos</b><small>up to 5</small></span></label>
+              <label class="wz-mbtn"><input type="file" accept="video/*" data-wz-video hidden />
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>
+                <span><b>Add a video</b><small>1, up to 30 MB</small></span></label>
+            </div>
+            <ul class="wz-thumbs" data-wz-thumbs></ul>
+            <p class="wz-merr" data-wz-merr role="alert" hidden></p>
+          </div>
+        </div>
+
+        <!-- 5 · estimate + book -->
+        <div class="wz-panel" data-wz-panel="5" hidden>
           <h3 class="wz-q">Your estimate</h3>
           <div class="wz-est">
             <div class="wz-sum">
@@ -282,7 +320,7 @@ const payload = JSON.stringify({
               </div>
               <ul data-wz-sumlist></ul>
               <div class="wz-tear" aria-hidden="true"></div>
-              <div class="wz-total"><span>Estimated cost</span><b>{price()}</b></div>
+              <div class="wz-total"><span>Estimated cost</span><b data-wz-sumtotal>{price()}</b></div>
               <p class="wz-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Price confirmed after diagnosis — before any work starts.</p>
             </div>
             <div class="wz-time">
@@ -300,6 +338,68 @@ const payload = JSON.stringify({
                 </button>
               </div>
               <p class="wz-onsite" data-wz-onsite hidden>This service is done on-site, so it is booked as a doorstep visit.</p>
+            </div>
+          </div>
+
+          <!-- Signed-in booking (Odoo connected): one 369 Mart account, saved addresses -->
+          <div class="wz-acct" data-wz-acct hidden>
+            <div class="wz-acc-in" data-acc-signin>
+              <h4>Sign in with your mobile <small>We send a 6-digit code on WhatsApp</small></h4>
+              <div class="wz-f">
+                <div class="wz-fl"><span>Mobile number</span>
+                  <div class="wz-ph">
+                    <select data-acc-cc aria-label="Country code">{DIAL.map((d) => <option value={d.cc} selected={d.cc === 'om'}>{d.code} {d.name}</option>)}</select>
+                    <input data-acc-phone inputmode="tel" maxlength="16" autocomplete="tel-national" placeholder="9123 4567" aria-label="Mobile number" />
+                  </div>
+                </div>
+                <div class="wz-fl" data-acc-newbox hidden><span>Your name</span><span class="wz-ic"><input data-acc-name autocomplete="name" maxlength="60" placeholder="Full name" /></span></div>
+                <div class="wz-fl" data-acc-newbox hidden><span>Email <small>(optional)</small></span><span class="wz-ic"><input data-acc-email type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" /></span></div>
+                <div class="wz-fl" data-acc-codebox hidden><span>Code from WhatsApp</span><span class="wz-ic"><input data-acc-code inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 digits" /></span></div>
+              </div>
+              <p class="wz-acc-msg" data-acc-msg role="status" hidden></p>
+              <div class="wz-acts">
+                <button type="button" class="wz-now" data-acc-send>Send code</button>
+                <button type="button" class="wz-now" data-acc-verify hidden>Sign in</button>
+              </div>
+            </div>
+
+            <div class="wz-acc-addr" data-acc-addrbox hidden>
+              <h4>Where should we come? <small data-acc-who></small> <button type="button" class="linkish" data-acc-out>Not you?</button></h4>
+              <div class="wz-addrs" data-acc-list role="radiogroup" aria-label="Your addresses"></div>
+              <button type="button" class="wz-skip" data-acc-addnew>+ Add a new address</button>
+              <div class="wz-newaddr" data-acc-form hidden>
+                <div class="wz-f wz-f2">
+                  <label class="wz-fl"><span>Label</span><span class="wz-ic"><select data-af="label"><option>Home</option><option>Work</option><option>Other</option></select></span></label>
+                  <label class="wz-fl"><span>Contact name</span><span class="wz-ic"><input data-af="name" maxlength="60" /></span></label>
+                  <label class="wz-fl"><span>Mobile</span><span class="wz-ic"><input data-af="phone" inputmode="tel" maxlength="20" /></span></label>
+                  <label class="wz-fl"><span>Alternative number <small>(optional)</small></span><span class="wz-ic"><input data-af="alt" inputmode="tel" maxlength="20" /></span></label>
+                  <label class="wz-fl"><span>Building / Villa no.</span><span class="wz-ic"><input data-af="building" maxlength="60" placeholder="e.g. Villa 12" /></span></label>
+                  <label class="wz-fl"><span>Way / Street no.</span><span class="wz-ic"><input data-af="way" maxlength="60" placeholder="e.g. Way 3421" /></span></label>
+                  <label class="wz-fl"><span>Flat / Floor <small>(optional)</small></span><span class="wz-ic"><input data-af="flat" maxlength="40" /></span></label>
+                  <label class="wz-fl"><span>Area</span><span class="wz-ic"><input data-af="area" maxlength="80" list="wz-areas" placeholder="e.g. Al Khuwair" /></span></label>
+                  <label class="wz-fl"><span>Wilayat / City</span><span class="wz-ic"><input data-af="town" maxlength="60" placeholder="e.g. Bawshar" /></span></label>
+                  <label class="wz-fl" data-af-statebox hidden><span>Governorate</span><span class="wz-ic"><select data-af="state_id"><option value="">Choose…</option></select></span></label>
+                  <label class="wz-fl"><span>Postal code (PC)</span><span class="wz-ic"><input data-af="pin" inputmode="numeric" maxlength="6" placeholder="e.g. 133" /></span></label>
+                  <label class="wz-fl"><span>Landmark <small>(optional)</small></span><span class="wz-ic"><input data-af="landmark" maxlength="80" placeholder="e.g. near Lulu" /></span></label>
+                  <div class="wz-fl"><span>Map pin <small>(recommended)</small></span>
+                    <button type="button" class="wz-loc" data-af-loc><span>Use my location</span></button>
+                    <small data-af-at></small>
+                  </div>
+                </div>
+                <datalist id="wz-areas">{coverage.doorstep.zones.concat(coverage.pickup.zones).flatMap((z) => z.areas).filter((a, i, all) => all.indexOf(a) === i).map((a) => <option value={a} />)}</datalist>
+                <div class="wz-acts"><button type="button" class="wz-now" data-af-save>Save address</button></div>
+              </div>
+              <p class="wz-acc-msg" data-acc-amsg role="alert" hidden></p>
+              <div class="wz-acts">
+                <button type="button" class="wz-now" data-acc-book disabled>Book now</button>
+              </div>
+            </div>
+
+            <div class="wz-done" data-acc-done hidden>
+              <h4>Booking received ✅</h4>
+              <p>Your booking <b data-acc-ref></b> is with our team. We'll check it and send you the price and a link to pick a time on WhatsApp.</p>
+              <p class="wz-acc-msg" data-acc-upmsg hidden></p>
+              <a class="wz-skip" href="/track">Follow it on My Orders →</a>
             </div>
           </div>
 
@@ -370,8 +470,13 @@ const payload = JSON.stringify({
   import { checkPhone, bindPhone, limitPhone, dialFor } from '../lib/phone';
   import { areaGeo, branchGeo, km } from '../lib/areaGeo';
 
-  type Cat = { id: string; name: string; onsiteOnly: boolean; issues: string[]; brands: { id: string; name: string; models: string[] }[] };
+  type Svc = { id: number | null; name: string; price: number | null; b: number | null; s: number | null; m: number | null };
+  type Cat = {
+    id: string; odooId: number | null; name: string; onsiteOnly: boolean; issues: string[]; services: Svc[];
+    brands: { id: string; odooId: number | null; name: string; models: string[] }[];
+  };
   type Data = {
+    odoo: boolean;
     categories: Cat[];
     coverage: Record<string, { eta: string; zones: { name: string; areas: string[] }[] }>;
   };
@@ -466,7 +571,8 @@ const payload = JSON.stringify({
 
   // ---------- booking wizard: 1 device → 2 brand & model → 3 issues → 4 estimate ----------
   const wz = $('[data-wz]');
-  const wzState = { step: 1, cat: '', brand: '', model: '', issues: new Set<string>() };
+  const wzState = { step: 1, cat: '', brand: '', model: '', modelId: 0, seriesId: 0, issues: new Set<string>() };
+  const LAST = 5;   // 1 device · 2 brand & model · 3 repairs · 4 details · 5 book
   const tel = site.phone.tel.replace('+', '');
   const waUrl = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
   const wzCat = () => data.categories.find((c) => c.id === wzState.cat);
@@ -482,28 +588,28 @@ const payload = JSON.stringify({
   }
   $$<HTMLButtonElement>('[data-wz-mode]', wz).forEach((b) => b.addEventListener('click', () => setMode(b.dataset.wzMode!)));
 
-  const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? true : wzState.step === 3 ? wzState.issues.size > 0 : false);
+  const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? true : wzState.step === 3 ? wzState.issues.size > 0 : wzState.step === 4);
   const wzGo = (n: number) => {
     if (n > 1 && !wzState.cat) n = 1;
     if (n > 3 && !wzState.issues.size) n = 3;
     wzState.step = n;
     $$('[data-wz-panel]', wz).forEach((p) => { const on = p.dataset.wzPanel === String(n); p.hidden = !on; p.classList.toggle('on', on); });
     $$('[data-wz-dot]', wz).forEach((d) => { const k = Number(d.dataset.wzDot); d.classList.toggle('on', k === n); d.classList.toggle('done', k < n); });
-    $('[data-wz-fill]', wz).style.width = `${((n - 1) / 3) * 100}%`;
+    $('[data-wz-fill]', wz).style.width = `${((n - 1) / (LAST - 1)) * 100}%`;
     $('[data-wz-back]', wz).hidden = n === 1;
     const next = $<HTMLButtonElement>('[data-wz-next]', wz);
-    next.hidden = n === 4;
+    next.hidden = n === LAST;
     next.disabled = !canNext();
-    next.textContent = n === 2 && !wzState.model ? 'Skip model →' : 'Continue →';
+    next.textContent = n === 2 && !wzState.model ? 'Skip model →' : n === 4 ? 'Continue to booking →' : 'Continue →';
     const c = wzCat();
     $('[data-wz-crumb]', wz).textContent = [c?.name, wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name, wzState.model].filter(Boolean).join(' › ');
-    if (n === 4) renderEstimate();
+    if (n === LAST) renderEstimate();
     if (wz.getBoundingClientRect().top < 0) wz.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // step 1
   const setWzCat = (id: string) => {
-    if (wzState.cat !== id) { wzState.brand = ''; wzState.model = ''; wzState.issues.clear(); }
+    if (wzState.cat !== id) { wzState.brand = ''; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0; wzState.issues.clear(); }
     wzState.cat = id;
     $$('[data-wz-cat]', wz).forEach((b) => b.classList.toggle('on', b.dataset.wzCat === id));
     const c = wzCat()!;
@@ -513,8 +619,21 @@ const payload = JSON.stringify({
     $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.setAttribute('aria-pressed', 'false'));
     wzSearch.value = '';
     showWzModels();
+    showIssues();
     if (c.onsiteOnly && mode === 'pickup') setMode('doorstep'); else paintWzMode();
   };
+  // Repairs for one brand / series / model only show once that device is chosen.
+  const brandOdooId = () => wzCat()?.brands.find((b) => b.id === wzState.brand)?.odooId || 0;
+  function showIssues() {
+    const g = wz.querySelector<HTMLElement>(`[data-wz-issues="${wzState.cat}"]`);
+    if (!g) return;
+    const fits = (v: string | undefined, have: number) => !v || (have > 0 && Number(v) === have);
+    g.querySelectorAll<HTMLButtonElement>('.wz-iss').forEach((b) => {
+      const ok = fits(b.dataset.b, brandOdooId()) && fits(b.dataset.s, wzState.seriesId) && fits(b.dataset.m, wzState.modelId);
+      b.hidden = !ok;
+      if (!ok && wzState.issues.has(b.dataset.iss!)) { wzState.issues.delete(b.dataset.iss!); b.setAttribute('aria-pressed', 'false'); }
+    });
+  }
   $$('[data-wz-cat]', wz).forEach((b) => b.addEventListener('click', () => { setWzCat(b.dataset.wzCat!); wzGo(2); }));
 
   // step 2
@@ -528,22 +647,32 @@ const payload = JSON.stringify({
       if (ok) n++;
     });
     wz.querySelector('.wz-models')!.classList.toggle('empty', !q && !wzState.brand);
-    $('[data-wz-mhint]', wz).textContent = q ? (n ? `${n} match${n === 1 ? '' : 'es'}` : 'No match — try a shorter word, or skip.') : wzState.brand ? `${n} models` : 'Pick a brand to see its models.';
+    $('[data-wz-mhint]', wz).textContent = q ? (n ? `${n} match${n === 1 ? '' : 'es'}` : 'No match — type your model below, or skip.') : wzState.brand ? `${n} models` : 'Pick a brand to see its models.';
+    $('[data-wz-typed-box]', wz).hidden = !(data.odoo && wzState.brand);
   };
+  // Model not in Odoo's list: the customer types it; the job card gets it as text.
+  const typedIn = $<HTMLInputElement>('[data-wz-typed]', wz);
+  $('[data-wz-typed-go]', wz).addEventListener('click', () => {
+    const v = typedIn.value.trim();
+    if (v.length < 2) { typedIn.focus(); return; }
+    wzState.model = v; wzState.modelId = 0; wzState.seriesId = 0;
+    showWzModels(); showIssues(); wzGo(3);
+  });
   $$('[data-wz-brand]', wz).forEach((b) => b.addEventListener('click', () => {
-    wzState.brand = b.dataset.wzBrand!; wzState.model = '';
+    wzState.brand = b.dataset.wzBrand!; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0;
     wz.style.setProperty('--mh', b.style.getPropertyValue('--h')); // model panel takes the brand's colour
     $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x === b));
     wzSearch.value = '';
-    showWzModels(); wzGo(2);
+    showWzModels(); showIssues(); wzGo(2);
   }));
   wzSearch.addEventListener('input', showWzModels);
   $$('.wz-model', wz).forEach((m) => m.addEventListener('click', () => {
     wzState.model = m.dataset.model!; wzState.brand = m.dataset.modelBrand!;
+    wzState.modelId = Number(m.dataset.modelId) || 0; wzState.seriesId = Number(m.dataset.seriesId) || 0;
     $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x.dataset.wzBrand === wzState.brand));
-    showWzModels(); wzGo(3);
+    showWzModels(); showIssues(); wzGo(3);
   }));
-  $('[data-wz-skip]', wz).addEventListener('click', () => { wzState.model = ''; wzGo(3); });
+  $('[data-wz-skip]', wz).addEventListener('click', () => { wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0; showIssues(); wzGo(3); });
 
   // step 3
   $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.addEventListener('click', () => {
@@ -553,20 +682,85 @@ const payload = JSON.stringify({
     $<HTMLButtonElement>('[data-wz-next]', wz).disabled = !canNext();
   }));
 
-  // step 4
+  // step 4 · details: the customer's own words, photos (max 5, shrunk here) and one video
+  const MAX_PHOTOS = 5, VIDEO_BYTES = 30 * 1024 * 1024;
+  const media: { photos: Blob[]; video: File | null } = { photos: [], video: null };
+  const problemIn = $<HTMLTextAreaElement>('[data-wz-problem]', wz);
+  const merr = $('[data-wz-merr]', wz);
+  const mErr = (m: string) => { merr.textContent = m; merr.hidden = !m; };
+  const shrink = (file: File) => new Promise<Blob>((res) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d')!.drawImage(img, 0, 0, cv.width, cv.height);
+      cv.toBlob((b) => res(b || file), 'image/jpeg', 0.85);
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => res(file);
+    img.src = URL.createObjectURL(file);
+  });
+  const drawThumbs = () => {
+    const ul = $('[data-wz-thumbs]', wz);
+    ul.innerHTML = media.photos.map((p, i) => `<li><img src="${URL.createObjectURL(p)}" alt="Photo ${i + 1}" /><button type="button" data-rm="p${i}" aria-label="Remove photo">×</button></li>`).join('')
+      + (media.video ? `<li class="vid"><span>🎬 ${esc(media.video.name)}</span><button type="button" data-rm="v" aria-label="Remove video">×</button></li>` : '');
+  };
+  $('[data-wz-thumbs]', wz).addEventListener('click', (e) => {
+    const rm = (e.target as HTMLElement).closest<HTMLElement>('[data-rm]')?.dataset.rm;
+    if (!rm) return;
+    if (rm === 'v') media.video = null; else media.photos.splice(Number(rm.slice(1)), 1);
+    mErr(''); drawThumbs();
+  });
+  $<HTMLInputElement>('[data-wz-photos]', wz).addEventListener('change', async (e) => {
+    const input = e.target as HTMLInputElement;
+    const files = [...(input.files || [])].filter((f) => f.type.startsWith('image/'));
+    if (media.photos.length + files.length > MAX_PHOTOS) mErr(`Up to ${MAX_PHOTOS} photos — the first ones were kept.`); else mErr('');
+    for (const f of files.slice(0, MAX_PHOTOS - media.photos.length)) media.photos.push(await shrink(f));
+    input.value = ''; drawThumbs();
+  });
+  $<HTMLInputElement>('[data-wz-video]', wz).addEventListener('change', (e) => {
+    const input = e.target as HTMLInputElement;
+    const f = input.files?.[0];
+    if (f && f.size > VIDEO_BYTES) { mErr('That video is over 30 MB — please send a shorter one.'); input.value = ''; return; }
+    media.video = f || null; mErr(''); input.value = ''; drawThumbs();
+  });
+
+  // step 5 · estimate
   const brandName = () => wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name ?? '';
+  const issueBtn = (name: string) => wz.querySelector<HTMLElement>(`[data-wz-issues="${wzState.cat}"] .wz-iss[data-iss="${CSS.escape(name)}"]`);
+  const issuePrice = (name: string) => { const p = issueBtn(name)?.dataset.price; return p ? Number(p) : null; };
   const renderEstimate = () => {
     const c = wzCat()!;
     $('[data-wz-sumico]', wz).innerHTML = wz.querySelector(`[data-wz-cat="${c.id}"] .wz-di`)!.innerHTML;
     $('[data-wz-sumdev]', wz).textContent = c.name;
     wz.style.setProperty('--eh', wz.querySelector<HTMLElement>(`[data-wz-cat="${c.id}"]`)!.style.getPropertyValue('--h')); // receipt header colour
     $('[data-wz-summodel]', wz).textContent = [brandName(), wzState.model].filter(Boolean).join(' · ') || 'Model not specified';
-    $('[data-wz-sumlist]', wz).innerHTML = [...wzState.issues].map((i, k) => `<li style="--i:${k}"><span><i class="wz-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>${esc(i)}</span><b>${price()}</b></li>`).join('');
+    let total = 0;
+    $('[data-wz-sumlist]', wz).innerHTML = [...wzState.issues].map((i, k) => {
+      const p = data.odoo ? issuePrice(i) : null;
+      total += p || 0;
+      return `<li style="--i:${k}"><span><i class="wz-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>${esc(i)}</span><b>${p === null ? price() : price(p)}</b></li>`;
+    }).join('');
+    $('[data-wz-sumtotal]', wz).textContent = data.odoo ? `from ${price(total)}` : price();
     $('[data-wz-pickup]', wz).hidden = c.onsiteOnly;
     $('[data-wz-onsite]', wz).hidden = !c.onsiteOnly;
     paintWzMode();
+    if (data.odoo) acctStart();
   };
   const currentItem = () => ({ cat: wzState.cat, device: wzCat()!.name, model: [brandName(), wzState.model].filter(Boolean).join(' '), issues: [...wzState.issues] });
+  /** Booking lines with Odoo's ids (category, brand, series, model, repair service). */
+  const odooLines = () => {
+    const c = wzCat()!;
+    return [...wzState.issues].map((issue) => {
+      const pid = Number(issueBtn(issue)?.dataset.pid) || undefined;
+      return {
+        device: c.name, model: [brandName(), wzState.model].filter(Boolean).join(' '), issue, qty: 1,
+        category_id: c.odooId || undefined, brand_id: brandOdooId() || undefined,
+        series_id: wzState.seriesId || undefined, model_id: wzState.modelId || undefined, product_id: pid,
+      };
+    });
+  };
   $('[data-wz-add]', wz).addEventListener('click', () => {
     const it = currentItem();
     (window as any).danatCart?.add({ device: it.device, model: it.model, issues: it.issues }, { open: true });
@@ -577,7 +771,180 @@ const payload = JSON.stringify({
     wzGo(1);
   });
 
-  // ---------- step 4 details: name, phone, area → one WhatsApp message ----------
+  // ---------- step 5 with Odoo: 369 Mart account (WhatsApp code) + saved address → Book ----------
+  const acct = $('[data-wz-acct]', wz);
+  const accCc = $<HTMLSelectElement>('[data-acc-cc]', wz);
+  const accPhone = $<HTMLInputElement>('[data-acc-phone]', wz);
+  const accName = $<HTMLInputElement>('[data-acc-name]', wz);
+  const accEmail = $<HTMLInputElement>('[data-acc-email]', wz);
+  const accCode = $<HTMLInputElement>('[data-acc-code]', wz);
+  const accMsg = $('[data-acc-msg]', wz);
+  const accAMsg = $('[data-acc-amsg]', wz);
+  const say = (el: HTMLElement, m: string, bad = true) => { el.textContent = m; el.hidden = !m; el.classList.toggle('bad', bad); };
+  let accPurpose: 'signin' | 'signup' = 'signin';
+  let accWho: any = null;
+  let accAddrs: any[] = [];
+  let accPicked = 0;
+  let afAt: [number, number] | null = null;
+  const api = async (url: string, body?: unknown) => {
+    const r = await fetch(url, body === undefined ? { credentials: 'same-origin' } : {
+      method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    let j: any = {};
+    try { j = await r.json(); } catch {}
+    return { status: r.status, ...j };
+  };
+  bindPhone(accPhone, () => accCc.value, (m) => say(accMsg, m));
+
+  async function acctStart() {
+    $('[data-wz-who]', wz).hidden = true;
+    acct.hidden = false;
+    $('[data-acc-done]', wz).hidden = true;
+    if (accWho) return showAddresses();
+    const who = await api('/api/account/me');
+    if (who.ok) { accWho = who; showAddresses(); } else showSignin();
+  }
+  function showSignin() {
+    $('[data-acc-signin]', wz).hidden = false;
+    $('[data-acc-addrbox]', wz).hidden = true;
+  }
+  $('[data-acc-send]', wz).addEventListener('click', async () => {
+    const ph = checkPhone(accCc.value, accPhone.value);
+    if (!ph.ok) { say(accMsg, ph.msg); accPhone.focus(); return; }
+    if (accPurpose === 'signup' && accName.value.trim().length < 2) { say(accMsg, 'Please enter your name.'); accName.focus(); return; }
+    const btn = $<HTMLButtonElement>('[data-acc-send]', wz);
+    btn.disabled = true;
+    const r = await api('/api/account/phone-start', { phone: accPhone.value, country: accCc.value.toUpperCase(), purpose: accPurpose, name: accName.value.trim() });
+    btn.disabled = false;
+    if (r.signup) {          // no account with this number yet: sign up with a name
+      accPurpose = 'signup';
+      $$('[data-acc-newbox]', wz).forEach((x) => (x.hidden = false));
+      say(accMsg, "New here? Add your name, then we'll send the code.", false);
+      accName.focus(); return;
+    }
+    if (r.signin) { accPurpose = 'signin'; }
+    if (!r.ok) { say(accMsg, r.error || "We couldn't send the code. Try again in a moment."); return; }
+    $('[data-acc-codebox]', wz).hidden = false;
+    $('[data-acc-verify]', wz).hidden = false;
+    btn.textContent = 'Send again';
+    say(accMsg, 'Code sent on WhatsApp — it expires in 10 minutes.', false);
+    accCode.focus();
+  });
+  $('[data-acc-verify]', wz).addEventListener('click', async () => {
+    const code = accCode.value.replace(/\D/g, '');
+    if (code.length !== 6) { say(accMsg, 'Enter the 6-digit code from WhatsApp.'); accCode.focus(); return; }
+    const r = await api('/api/account/phone-verify', { phone: accPhone.value, country: accCc.value.toUpperCase(), code,
+      purpose: accPurpose, name: accName.value.trim(), email: accEmail.value.trim() });
+    if (!r.ok) { say(accMsg, r.error || 'That code did not work.'); return; }
+    say(accMsg, '', false);
+    const who = await api('/api/account/me');
+    accWho = who.ok ? who : r;
+    showAddresses();
+  });
+  $('[data-acc-out]', wz).addEventListener('click', async () => {
+    await api('/api/account/logout', {});
+    accWho = null; accAddrs = []; accPicked = 0; accPurpose = 'signin';
+    showSignin();
+  });
+
+  async function showAddresses() {
+    $('[data-acc-signin]', wz).hidden = true;
+    $('[data-acc-addrbox]', wz).hidden = false;
+    $('[data-acc-who]', wz).textContent = accWho?.name ? `Signed in as ${accWho.name}` : '';
+    const r = await api('/api/account/addresses');
+    if (r.status === 401) { accWho = null; return showSignin(); }
+    accAddrs = r.addresses || [];
+    accPicked = accAddrs.some((a) => a.id === accPicked) ? accPicked : (r.selected || accAddrs[0]?.id || 0);
+    drawAddresses();
+    if (!accAddrs.length) openAddressForm();
+  }
+  function drawAddresses() {
+    $('[data-acc-list]', wz).innerHTML = accAddrs.map((a) => `
+      <button type="button" role="radio" class="wz-addr" data-addr="${a.id}" aria-checked="${a.id === accPicked}">
+        <b>${esc(a.label || 'Address')}</b>
+        <span>${esc([a.line, a.area, a.town, a.pin && 'PC ' + a.pin].filter(Boolean).join(', '))}</span>
+        <small>${esc([a.name, a.phone, a.alt && 'alt. ' + a.alt].filter(Boolean).join(' · '))}</small>
+      </button>`).join('');
+    $<HTMLButtonElement>('[data-acc-book]', wz).disabled = !accPicked;
+  }
+  $('[data-acc-list]', wz).addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-addr]');
+    if (!b) return;
+    accPicked = Number(b.dataset.addr); drawAddresses();
+  });
+  const af = (k: string) => $<HTMLInputElement>(`[data-af="${k}"]`, wz);
+  let afStates: { id: number; name: string }[] | null = null;
+  async function openAddressForm() {
+    $('[data-acc-form]', wz).hidden = false;
+    if (afStates === null) {
+      // Governorates only when Odoo has them for Oman (then the 369 Mart address book requires one)
+      const f = await api('/api/account/address-form');
+      afStates = Array.isArray(f.states) ? f.states : [];
+      const sel = af('state_id') as unknown as HTMLSelectElement;
+      sel.innerHTML = '<option value="">Choose…</option>' + afStates.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      $('[data-af-statebox]', wz).hidden = !afStates.length;
+    }
+    if (!af('name').value) af('name').value = accWho?.name || '';
+    if (!af('phone').value) af('phone').value = accWho?.phone || '';
+    if (!af('area').value && wzArea.value) af('area').value = wzArea.value;
+    af('building').focus();
+  }
+  $('[data-acc-addnew]', wz).addEventListener('click', openAddressForm);
+  $('[data-af-loc]', wz).addEventListener('click', async () => {
+    const at = await gps();
+    if (!at) { say(accAMsg, "We couldn't get your location — the address is enough."); return; }
+    afAt = at; $('[data-af-at]', wz).textContent = `Pinned: ${at[0].toFixed(5)}, ${at[1].toFixed(5)}`; say(accAMsg, '', false);
+  });
+  $('[data-af-save]', wz).addEventListener('click', async () => {
+    const need: [string, string][] = [['name', 'contact name'], ['phone', 'mobile'], ['building', 'building / villa no.'],
+      ['way', 'way / street no.'], ['area', 'area'], ['town', 'wilayat / city'], ['pin', 'postal code (PC)']];
+    const miss = need.find(([k]) => !af(k).value.trim());
+    if (miss) { say(accAMsg, `Please add the ${miss[1]}.`); af(miss[0]).focus(); return; }
+    if (!/^\d{3,10}$/.test(af('pin').value.trim())) { say(accAMsg, 'The postal code is 3 digits, e.g. 133.'); af('pin').focus(); return; }
+    if (afStates?.length && !af('state_id').value) { say(accAMsg, 'Please choose the governorate.'); af('state_id').focus(); return; }
+    const line = [af('building').value, af('way').value, af('flat').value].map((v) => v.trim()).filter(Boolean).join(', ');
+    const r = await api('/api/account/addresses', {
+      label: af('label').value, name: af('name').value.trim(), phone: af('phone').value.trim(), alt: af('alt').value.trim(),
+      line, area: af('area').value.trim(), town: af('town').value.trim(), pin: af('pin').value.trim(),
+      landmark: af('landmark').value.trim(), ...(afAt ? { lat: afAt[0], lng: afAt[1] } : {}),
+      ...(af('state_id').value ? { state_id: af('state_id').value } : {}),
+    });
+    if (!r.ok) { say(accAMsg, r.error || "We couldn't save the address."); if (r.field && af(r.field === 'line' ? 'building' : r.field)) af(r.field === 'line' ? 'building' : r.field).focus(); return; }
+    say(accAMsg, '', false);
+    $('[data-acc-form]', wz).hidden = true;
+    accPicked = r.address?.id || 0;
+    await showAddresses();
+  });
+
+  // Book: the booking (Odoo makes the job card), then the photos/video with the upload token.
+  $('[data-acc-book]', wz).addEventListener('click', async () => {
+    const btn = $<HTMLButtonElement>('[data-acc-book]', wz);
+    if (!accPicked) { say(accAMsg, 'Choose the address for the visit.'); return; }
+    btn.disabled = true; btn.textContent = 'Booking…';
+    const ref = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+    const r = await api('/api/booking', {
+      ref, mode, source: 'wizard', address_id: accPicked, problem: problemIn.value.trim(), page: location.pathname,
+      lines: odooLines(),
+    });
+    btn.disabled = false; btn.textContent = 'Book now';
+    if (!r.ok) { say(accAMsg, r.error === 'too many' ? 'Too many bookings from this number — please call us.' : "We couldn't send the booking. Please try again, or message us on WhatsApp."); return; }
+    $('[data-acc-addrbox]', wz).hidden = true;
+    $('[data-acc-done]', wz).hidden = false;
+    $('[data-acc-ref]', wz).textContent = r.ref;
+    if ((media.photos.length || media.video) && r.upload_token) {
+      const up = $('[data-acc-upmsg]', wz);
+      say(up, 'Sending your photos…', false);
+      const fd = new FormData();
+      fd.append('ref', r.ref); fd.append('token', r.upload_token);
+      media.photos.forEach((p, i) => fd.append('files', p, `photo-${i + 1}.jpg`));
+      if (media.video) fd.append('files', media.video, media.video.name);
+      try {
+        const u = await (await fetch('/api/booking-media', { method: 'POST', credentials: 'same-origin', body: fd })).json();
+        say(up, u.ok ? 'Photos received ✓' : "Your booking is in, but the photos didn't go through — you can send them on WhatsApp.", !u.ok);
+      } catch { say(up, "Your booking is in, but the photos didn't go through — you can send them on WhatsApp.", true); }
+    }
+  });
+
+  // ---------- step 5 without Odoo (fallback): name, phone, area → one WhatsApp message ----------
   const wzName = $<HTMLInputElement>('[data-wz-name]', wz);
   const wzPhone = $<HTMLInputElement>('[data-wz-phone]', wz);
   const wzCc = $<HTMLSelectElement>('[data-wz-cc]', wz);
@@ -911,8 +1278,9 @@ const payload = JSON.stringify({
   .cat-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
   .cat-head h2 { margin-top: 14px; }
   .wz { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); overflow: hidden; }
-  .wz-steps { position: relative; list-style: none; margin: 0; padding: 26px 40px 22px; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); background: var(--tint); }
-  .wz-rail { position: absolute; left: calc(40px + 12.5% - 0px); right: calc(40px + 12.5%); top: 45px; height: 3px; border-radius: 3px; background: var(--line); z-index: 0; }
+  .wz-steps { position: relative; list-style: none; margin: 0; padding: 26px 40px 22px; display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); background: var(--tint); }
+  /* rail runs from the first dot to the last: half a column (of 5) in from each side */
+  .wz-rail { position: absolute; left: calc(40px + (100% - 80px) / 10); right: calc(40px + (100% - 80px) / 10); top: 45px; height: 3px; border-radius: 3px; background: var(--line); z-index: 0; }
   .wz-rail i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--violet); transition: width .5s cubic-bezier(.2,.8,.2,1); }
   .wz-step { position: relative; z-index: 1; display: grid; justify-items: center; }
   .wz-step button { display: grid; justify-items: center; gap: 8px; border: 0; background: none; padding: 0; font-size: 13.5px; font-weight: 600; color: var(--ink-3); }
@@ -1028,7 +1396,7 @@ const payload = JSON.stringify({
 
   @media (max-width: 900px) {
     .wz-steps { padding: 20px 12px 16px; }
-    .wz-rail { left: 12.5%; right: 12.5%; top: 39px; }
+    .wz-rail { left: calc(12px + (100% - 24px) / 10); right: calc(12px + (100% - 24px) / 10); top: 39px; }
     .wz-step button span:last-child { font-size: 11.5px; }
     .wz-panel { padding: 22px 18px; }
     .wz-bm, .wz-est { grid-template-columns: 1fr; }
@@ -1059,6 +1427,38 @@ const payload = JSON.stringify({
   @keyframes wzShake { 20% { translate: -6px; } 40% { translate: 5px; } 60% { translate: -3px; } 80% { translate: 2px; } }
   .wz-now { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
   @media (max-width: 640px) { .wz-f, .wz-acts { grid-template-columns: 1fr; } .wz-who { padding: 18px; } }
+  /* ===== step 4 details + step 5 account / address (Odoo connected) ===== */
+  .wz-det { display: grid; gap: 14px; }
+  .wz-dfl textarea { width: 100%; min-height: 110px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; resize: vertical; }
+  .wz-media { display: flex; flex-wrap: wrap; gap: 10px; }
+  .wz-mbtn { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border: 1px dashed var(--line); border-radius: 14px; cursor: pointer; }
+  .wz-mbtn svg { width: 22px; height: 22px; color: var(--violet); }
+  .wz-mbtn span { display: grid; } .wz-mbtn small { color: var(--ink-3); font-size: 12px; }
+  .wz-thumbs { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+  .wz-thumbs li { position: relative; }
+  .wz-thumbs img { width: 76px; height: 76px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+  .wz-thumbs .vid span { display: flex; align-items: center; height: 76px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+  .wz-thumbs button { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: #111; color: #fff; cursor: pointer; line-height: 1; }
+  .wz-merr, .wz-acc-msg { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+  .wz-merr, .wz-acc-msg.bad { color: #9F1239; }
+  .wz-acct { margin-top: 20px; padding: 22px; border: 1px solid var(--line); border-radius: 20px; display: grid; gap: 14px; }
+  .wz-acct h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 16px; margin: 0 0 6px; }
+  .wz-acct h4 small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+  .wz-acc-in, .wz-acc-addr { display: grid; gap: 12px; }
+  .wz-acct .linkish { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--violet); text-decoration: underline; cursor: pointer; }
+  .wz-acct .wz-acts { grid-template-columns: 1fr; }
+  .wz-acct .wz-now { background: var(--violet); box-shadow: none; }
+  .wz-acct .wz-now:disabled { opacity: .5; cursor: not-allowed; }
+  .wz-addrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  /* the address cards are drawn by the script (innerHTML), so they need :global to get these styles */
+  .wz-addrs :global(.wz-addr) { display: grid; gap: 3px; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; font: inherit; }
+  .wz-addrs :global(.wz-addr[aria-checked="true"]) { border-color: var(--violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 18%, transparent); }
+  .wz-addrs :global(.wz-addr span) { font-size: 13.5px; } .wz-addrs :global(.wz-addr small) { font-size: 12px; color: var(--ink-3); }
+  .wz-newaddr { display: grid; gap: 12px; padding-top: 6px; border-top: 1px dashed var(--line); }
+  .wz-done { display: grid; gap: 8px; }
+  .wz-done h4 { margin: 0; font-size: 18px; }
+  .wz-typed { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .wz-typed .wz-search { flex: 1 1 200px; }
   /* ===== redesign: step 2 brand & model ===== */
   .wz-brand { position: relative; padding: 12px 14px; border-radius: 18px; box-shadow: 0 1px 2px rgba(16,24,40,.04); transition: border-color .25s, transform .25s cubic-bezier(.3,1.4,.5,1), box-shadow .25s, background .25s; }
   .wz-panel.on .wz-brand:not([hidden]) { animation: wzPop .45s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i, 0) * 45ms); }
