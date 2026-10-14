@@ -169,7 +169,7 @@ const cols = [0, 1, 2].map((k) => reviews.map((r, i) => ({ r, i })).filter(({ i 
   .s-stage { display: grid; width: min(900px, 100%); margin: 10px 0; }
   .s-q { grid-area: 1 / 1; margin: 0; display: grid; justify-items: center; gap: 22px; opacity: 0; transform: translateY(14px); transition: opacity .5s, transform .6s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
   .s-q.on { opacity: 1; transform: none; pointer-events: auto; }
-  .s-q blockquote { font-family: var(--display); font-size: clamp(28px, 3.6vw, 48px); line-height: 1.18; font-weight: 700; letter-spacing: -.025em; }
+  .s-q blockquote { font-family: var(--display); font-size: 22px; line-height: 1.3; font-weight: 700; letter-spacing: -.025em; }
   .s-q blockquote::before { content: '“'; color: var(--violet); }
   .s-q blockquote::after { content: '”'; color: var(--violet); }
   .s-q figcaption { font-size: 15px; color: var(--ink-2); }

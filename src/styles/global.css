@@ -221,7 +221,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--body);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
@@ -251,7 +251,7 @@ img, video, svg { display: block; max-width: 100%; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -265,10 +265,17 @@ img, video, svg { display: block; max-width: 100%; }
   background: var(--grad);
 }
 
-.h-xl { font-size: clamp(38px, 6vw, 80px); text-transform: var(--head-case); letter-spacing: -.01em; }
-.h-lg { font-size: clamp(32px, 4.4vw, 56px); }
-.h-md { font-size: clamp(22px, 2.4vw, 30px); }
-.lead { font-size: clamp(16px, 1.4vw, 19px); color: var(--ink-2); max-width: 60ch; }
+/* Fixed type sizes (owner, 2026-10-14: smaller, and not growing with the screen) — one step down on phones */
+.h-xl { font-size: 40px; text-transform: var(--head-case); letter-spacing: -.01em; }
+.h-lg { font-size: 30px; }
+.h-md { font-size: 20px; }
+.lead { font-size: 16px; color: var(--ink-2); max-width: 60ch; }
+@media (max-width: 720px) {
+  .h-xl { font-size: 30px; }
+  .h-lg { font-size: 24px; }
+  .h-md { font-size: 18px; }
+  .lead { font-size: 15px; }
+}
 
 .grad-text {
   background: var(--grad-hot);
@@ -377,8 +384,8 @@ img, video, svg { display: block; max-width: 100%; }
    stage for the media, calmer cards and more breathing room.
    ================================================================ */
 h1, h2, h3, h4 { letter-spacing: -0.035em; font-weight: 800; }
-.h-xl { letter-spacing: -0.04em; line-height: .98; }
-.h-lg { letter-spacing: -0.035em; line-height: 1.02; }
+.h-xl { letter-spacing: -0.03em; line-height: 1.08; }
+.h-lg { letter-spacing: -0.03em; line-height: 1.1; }
 .lead { line-height: 1.65; }
 .eyebrow { color: var(--cyan); font-weight: 700; letter-spacing: .16em; }
 .eyebrow::before { background: currentColor; width: 22px; }
@@ -391,7 +398,7 @@ h1, h2, h3, h4 { letter-spacing: -0.035em; font-weight: 800; }
   padding: 0 .06em; border-radius: 4px;
 }
 
-.btn { padding: 15px 26px; font-weight: 700; letter-spacing: -.005em; }
+.btn { padding: 11px 20px; font-size: 14px; font-weight: 700; letter-spacing: -.005em; }
 .btn-primary { background: var(--violet); box-shadow: 0 14px 30px -14px rgba(var(--a1), .8); }
 .btn-primary:hover { background: var(--cyan); box-shadow: 0 18px 36px -14px rgba(var(--a1), .8); }
 .glass { border-radius: 24px; }

@@ -167,6 +167,13 @@ const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis 
   .gift:hover { padding-left: 16px; }
   .gift-ico { font-size: 22px; animation: giftShake 2.4s ease-in-out infinite; }
   .gift-t { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 13px; font-weight: 800; letter-spacing: .06em; }
+  /* On phones the side tab covered the hero title, so it becomes a small round button in the bottom-left corner */
+  @media (max-width: 720px) {
+    .gift { top: auto; bottom: 22px; left: 14px; transform: none; width: 48px; height: 48px; padding: 0; justify-content: center; border-radius: 50%; }
+    .gift:hover { padding-left: 0; }
+    .gift-t { display: none; }
+    .gift-ico { font-size: 22px; }
+  }
   @keyframes giftShake { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(-16deg) scale(1.15); } 82% { transform: rotate(14deg) scale(1.15); } 88% { transform: rotate(-8deg); } }
 
   /* 1 · announcement bar */
@@ -225,7 +232,7 @@ const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis 
   .po-body { display: grid; gap: 12px; align-content: center; padding: 34px 32px 26px; }
   .po-badge { justify-self: start; display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px; background: #ffe9e6; color: #d0342c; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
   .po-badge i { width: 8px; height: 8px; border-radius: 50%; background: #e0362c; animation: annBlink 1s infinite; }
-  .po-body h2 { font-size: clamp(26px, 3vw, 34px); line-height: 1.1; }
+  .po-body h2 { font-size: 24px; line-height: 1.1; }
   .po-body p { color: var(--ink-2); font-size: 15px; }
   .po-timer { display: flex; gap: 8px; }
   .po-timer span { display: grid; justify-items: center; min-width: 62px; padding: 8px 6px; border-radius: 14px; background: var(--navy); color: #fff; }
