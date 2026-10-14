@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- mobile_repair's job cards, only the ones that came from a website order.
+         Same list, form and search as IT & Mobile Repair > Job Cards. -->
+    <record id="action_fix_job_cards" model="ir.actions.act_window">
+        <field name="name">Job Cards</field>
+        <field name="res_model">job.card</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="mobile_repair.view_job_card_search"/>
+        <field name="domain">[('online_order_id', '!=', False)]</field>
+        <field name="context">{'create': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No website job cards yet</p>
+            <p>Each website booking makes its job card here automatically.</p>
+        </field>
+    </record>
+</odoo>

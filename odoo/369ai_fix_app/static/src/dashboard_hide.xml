@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!-- The Online Service and Website bookings boxes live in the 369 ai Fix app
+         now, so they come off the IT & Mobile Repair dashboard. -->
+    <t t-inherit="mobile_repair.Dashboard" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('stats-box')][h5[text()='Website bookings']]" position="replace"/>
+        <xpath expr="//div[hasclass('stats-box')][h5[text()='Online Service']]" position="replace"/>
+    </t>
+</templates>

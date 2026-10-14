@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_fix_dashboard" model="ir.actions.client">
+        <field name="name">Dashboard</field>
+        <field name="tag">369ai_fix_dashboard</field>
+    </record>
+</odoo>
