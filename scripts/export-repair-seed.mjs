@@ -1,4 +1,4 @@
-// Writes odoo/369ai_fix_repair_module/data/seed_repairs.json from the site's
+// Writes odoo/369ai_fix/repair/data/seed_repairs.json from the site's
 // own repair list (src/data/devices.ts, menu.ts, photos.ts) and copies the
 // repair photos into the module. Run once after changing those files:
 //   node scripts/export-repair-seed.mjs
@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const moduleDir = join(root, 'odoo', '369ai_fix_repair_module');
+const moduleDir = join(root, 'odoo', '369ai_fix');
 const tmp = join(root, '.cache', 'repair-seed.mjs');
 
 // Website category -> Odoo device.category name and product code prefix.
@@ -47,7 +47,7 @@ await build({
 });
 const { categories, issueNotes, photo } = await import(pathToFileURL(tmp).href);
 
-mkdirSync(join(moduleDir, 'data'), { recursive: true });
+mkdirSync(join(moduleDir, 'repair', 'data'), { recursive: true });
 mkdirSync(join(moduleDir, 'static', 'seed'), { recursive: true });
 
 const out = categories.map((c) => {
@@ -73,7 +73,7 @@ const out = categories.map((c) => {
   };
 });
 
-const target = join(moduleDir, 'data', 'seed_repairs.json');
+const target = join(moduleDir, 'repair', 'data', 'seed_repairs.json');
 writeFileSync(target, JSON.stringify({ categories: out }, null, 1) + '\n');
 const repairs = out.reduce((n, c) => n + c.repairs.length, 0);
 const photos = out.reduce((n, c) => n + c.repairs.filter((r) => r.photo).length, 0);

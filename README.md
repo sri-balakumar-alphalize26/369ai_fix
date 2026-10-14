@@ -30,7 +30,16 @@ in `astro.config.mjs`.
 
 ## Online Service: bookings into Odoo, alarm, WhatsApp status, "My Orders"
 
-Odoo module: `odoo/369ai_fix_customer_module` (Odoo 19, depends on `mobile_repair`).
+Odoo add-on: `odoo/369ai_fix` (Odoo 19). It is one add-on with a folder per part: `customer/`
+(website orders, below), `repair/` (repair catalogue), `visits/` (doorstep visits), `booking/`
+(website booking → job card), `website/` (the *Fix Website* pictures app) and `app/` (the *369 ai Fix*
+home-screen app). Until October 2026 these were six add-ons (`369ai_fix_customer_module`,
+`369ai_fix_repair_module`, ...); `odoo/369ai_fix/tools/merge_old_modules.sql` moves a database that
+has them onto the merged add-on without losing data (run it with Odoo stopped, then `-u 369ai_fix`).
+The Live Screen, alarm and staff WhatsApp poll are in `odoo_modules/danatfix_repair_booking`,
+which depends on `369ai_fix` and adds its menus to the 369 ai Fix app.
+
+The `customer/` part
 It adds **IT & Mobile Repair ▸ Online Service**: Doorstep Service / Pickup & Service /
 All Orders, *Create Job Card*, an alarm on every Odoo page for new orders, a WhatsApp
 message to the customer at every status (order + job card; through the
@@ -62,13 +71,16 @@ and the key as `ODOO_KEY_<DB>` in the website's `.env`.
 
 **Deploy the Odoo module:** the server runs it from `/opt/odoo/369ai_fix_addons/`
 (in `addons_path`). After changing it, copy the folder there and upgrade only the
-databases that have it: `odoo-bin -c /etc/odoo19.conf -d DUBAI_TEST -u 369ai_fix_customer_module --stop-after-init --no-http`.
+databases that have it: `odoo-bin -c /etc/odoo19.conf -d DUBAI_TEST -u 369ai_fix --stop-after-init --no-http`.
+A database that still has the old `369ai_fix_customer_module` (DUBAI_TEST, October 2026): back it up,
+replace the old folder with `369ai_fix` (and `danatfix_repair_booking`), run
+`psql -d DUBAI_TEST -v ON_ERROR_STOP=1 -f 369ai_fix/tools/merge_old_modules.sql` with Odoo stopped,
+then `-u 369ai_fix,danatfix_repair_booking`.
 The website itself redeploys from GitHub `main` automatically (`danatfix-deploy.timer`).
 
 ## Repair catalogue: repairs as products in Odoo
 
-Odoo module: `odoo/369ai_fix_repair_module` (Odoo 19, depends on `mobile_repair`; it only
-extends it). Repairs are IT & Mobile Repair's own **Products ▸ Services**, priced on the product.
+The `repair/` part of `odoo/369ai_fix` (it only extends `mobile_repair`). Repairs are IT & Mobile Repair's own **Products ▸ Services**, priced on the product.
 The module adds three things:
 
 - **Device categories on products.** Together with the product's Brand / Series / Model
@@ -88,15 +100,14 @@ The module adds three things:
 - **Install only:** adds the CCTV Installation, Networking & Wi-Fi, Data Recovery and IT Support
   categories (with their brands and models), the website's 65 repairs as services at price 0,
   and an *Inspection / Visit Fee* product if none is set. Existing records are never changed.
-  The data is `data/seed_repairs.json`, built from `src/data/` by
+  The data is `odoo/369ai_fix/repair/data/seed_repairs.json`, built from `src/data/` by
   `node scripts/export-repair-seed.mjs`.
 
-**Local Odoo:** the folder is linked into the server's addons folder (a junction, as for
-369Mart). Restart the `odoo-server-19.0` service after adding a new module.
+**Local Odoo:** `odoo/369ai_fix` and `odoo_modules/danatfix_repair_booking` are linked into the
+server's addons folder (junctions, as for 369Mart). Restart the `odoo-server-19.0` service after
+adding a new add-on.
 
-**Deploy:** copy the folder to `/opt/odoo/369ai_fix_addons/`, then install with
-`odoo-bin -c /etc/odoo19.conf -d DUBAI_TEST -i 369ai_fix_repair_module --stop-after-init --no-http`.
-Use `-u` instead of `-i` for later updates.
+**Deploy:** see the Online Service section above (one add-on, `369ai_fix`).
 
 ## Automatic currency conversion
 
