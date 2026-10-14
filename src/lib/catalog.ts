@@ -7,14 +7,18 @@ import { categories as staticCategories, type Icon } from '../data/devices';
 import { PRICE } from '../data/site';
 import { odooCall } from './odoo';
 
-export type WzService = { id: number | null; name: string; price: number | null; b: number | null; s: number | null; m: number | null };
+// image / logo / photo: picture URLs chosen in Odoo (369ai_fix_website_content), relative
+// (/web/image/...), served through the site's /web/image passthrough; null = use the site's own.
+export type WzService = { id: number | null; name: string; price: number | null; b: number | null; s: number | null; m: number | null; image?: string | null };
 export type WzModel = { id: number | null; name: string; series: string; seriesId: number | null };
-export type WzBrand = { id: string; odooId: number | null; name: string; hue: number; models: string[]; items: WzModel[] };
+export type WzBrand = { id: string; odooId: number | null; name: string; hue: number; models: string[]; items: WzModel[]; logo?: string | null };
 export type WzCategory = {
   id: string; odooId: number | null; name: string; short: string; icon: Icon; hue: number; onsiteOnly?: boolean;
   issues: string[]; services: WzService[]; brands: WzBrand[];
+  image?: string | null;   // shown instead of the device drawing (only when Odoo's look is "photo")
+  photo?: string | null;   // the category's chosen photo, whatever the look
 };
-export type Catalog = { odoo: boolean; categories: WzCategory[]; totals: { categories: number; brands: number; models: number } };
+export type Catalog = { odoo: boolean; deviceLook: 'drawing' | 'photo'; categories: WzCategory[]; totals: { categories: number; brands: number; models: number } };
 
 // Odoo's category names -> the website's own look for that category.
 const LOOK: Record<string, string> = {
@@ -25,6 +29,7 @@ const TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; data: Catalog }>();
 
 const slug = (s: string) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'x';
+const url = (v: unknown) => (typeof v === 'string' && v ? v : null);
 const hueOf = (s: string) => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
 
 function totalsOf(categories: WzCategory[]) {
@@ -45,7 +50,7 @@ export function staticCatalog(): Catalog {
       items: b.models.map((m) => ({ id: null, name: m, series: '', seriesId: null })),
     })),
   }));
-  return { odoo: false, categories, totals: totalsOf(categories) };
+  return { odoo: false, deviceLook: 'drawing', categories, totals: totalsOf(categories) };
 }
 
 function fromOdoo(raw: any): Catalog {
@@ -54,7 +59,7 @@ function fromOdoo(raw: any): Catalog {
   for (const cat of raw.categories || []) {
     const services: WzService[] = (cat.services || []).map((s: any) => ({
       id: s.id, name: s.name, price: typeof s.price === 'number' ? s.price : null,
-      b: s.brand_id || null, s: s.series_id || null, m: s.model_id || null,
+      b: s.brand_id || null, s: s.series_id || null, m: s.model_id || null, image: url(s.image),
     }));
     if (!services.length) continue;                    // nothing to book for this device
     const look = looks.get(LOOK[cat.name] || '');
@@ -66,7 +71,7 @@ function fromOdoo(raw: any): Catalog {
       const items: WzModel[] = (b.series || []).flatMap((s: any) =>
         (s.models || []).map((m: any) => ({ id: m.id, name: m.name, series: s.name, seriesId: s.id })));
       const known = look?.brands.find((x) => x.name.toLowerCase() === String(b.name).toLowerCase());
-      return { id, odooId: b.id, name: b.name, hue: known?.hue ?? hueOf(b.name), models: items.map((i) => i.name), items };
+      return { id, odooId: b.id, name: b.name, hue: known?.hue ?? hueOf(b.name), models: items.map((i) => i.name), items, logo: url(b.logo) };
     }).filter((b: WzBrand) => b.items.length);
     out.push({
       id: look?.id || slug(cat.name),
@@ -80,12 +85,14 @@ function fromOdoo(raw: any): Catalog {
       issues: [...new Set(services.filter((s) => !s.b && !s.s && !s.m).map((s) => s.name))],
       services,
       brands,
+      image: url(cat.image),
+      photo: url(cat.photo),
     });
   }
   // the website's own order first, then anything new staff added in Odoo
   const order = staticCategories.map((c) => c.id);
   out.sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
-  return { odoo: true, categories: out, totals: totalsOf(out) };
+  return { odoo: true, deviceLook: raw.device_look === 'photo' ? 'photo' : 'drawing', categories: out, totals: totalsOf(out) };
 }
 
 export async function getCatalog(host: string): Promise<Catalog> {

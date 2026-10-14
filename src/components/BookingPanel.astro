@@ -1,11 +1,22 @@
 ---
-// "Our Services" booking panel (restored design): category sidebar, device
-// banner, repair photo cards, sticky Book on WhatsApp / Add to cart bar.
+// "Our Services" booking panel (restored design): category sidebar, device banner, then
+// the same order as the booking wizard — brand → model → repair cards with Add / − n + —
+// into the site cart; the bar opens the wizard's Cart step to book everything together.
 import DeviceArt from './DeviceArt.astro';
-import { price, site } from '../data/site';
-import { categories, iconPaths } from '../data/devices';
+import { price } from '../data/site';
+import { iconPaths } from '../data/devices';
 import { artFor, note } from '../data/menu';
-const wa = (m: string) => `https://wa.me/${site.phone.tel.replace('+', '')}?text=${encodeURIComponent(m)}`;
+import { staticCatalog, type WzCategory } from '../lib/catalog';
+interface Props { categories?: WzCategory[]; odoo?: boolean }
+// The wizard's catalogue (Odoo's when connected), so brands, models and repairs carry Odoo's ids.
+const { categories = staticCatalog().categories, odoo = false } = Astro.props;
+// brands and models for the script (models are drawn there - some brands have hundreds)
+const bkData = JSON.stringify(categories.map((c) => ({ id: c.id, odooId: c.odooId, name: c.name,
+  brands: c.brands.map((b) => ({ id: b.id, odooId: b.odooId, name: b.name, logo: b.logo ?? null, items: b.items })) })));
+// Pictures chosen in Odoo sit over the site's own art (has-pic hides it); one that fails to load
+// removes itself and the art shows again.
+const PIC_FAIL = "this.parentElement.classList.remove('has-pic');this.remove()";
+const picOf = (c: WzCategory, name: string, image?: string | null) => image || (photo[`${c.id}:${name}`] ? `/media/repairs/${photo[`${c.id}:${name}`]}.jpg` : '');
 
 // Real repair photos (public/media/repairs) — one shared list; others fall back to the illustration.
 import { photo } from '../data/photos';
@@ -36,42 +47,17 @@ const issueIcon = (s: string) => {
   ];
   return I.find(([re]) => re.test(t))?.[1] ?? '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/>';
 };
-import { reviews, sample } from '../data/reviews';
-import Testimonials from '../components/Testimonials.astro';
-import { serviceModes, price, site } from '../data/site';
-import { categories, totals, iconPaths } from '../data/devices';
-import { coverage } from '../data/coverage';
-import { homeServices, milestones, awards, awardsSample, wa } from '../data/home';
-import { statSync } from 'node:fs';
-
-const stamp = (f: string) => { try { return `/media/${f}?v=${Math.floor(statSync(`public/media/${f}`).mtimeMs / 1000)}`; } catch { return `/media/${f}`; } };
-const heroVideo = stamp('kling.mp4');
-const heroPoster = stamp('kling.jpg');
-const coverageCount = new Set(Object.values(coverage).flatMap((m) => m.zones.flatMap((z) => z.areas))).size;
-
-const allBrands = [...new Set(categories.flatMap((c) => c.brands.map((b) => b.name)))];
-
-const formats = [
-  { id: 'image', label: 'Image' },
-  { id: 'post', label: 'Post' },
-  { id: 'video', label: 'Video' },
-] as const;
-const angles = [
-  { id: 'flat', label: '0° Flat' },
-  { id: 'tilt', label: '15° Tilt' },
-  { id: 'iso', label: '3D Isometric' },
-] as const;
 ---
 
-      <div class="bk" data-bk>
+      <div class="bk" data-bk data-odoo={odoo ? '1' : ''} data-cats={bkData}>
         <aside class="bk-side">
           <h3>Our Services</h3>
-          <p>Choose a category to find the service you need.</p>
+          <p>Choose a category, then your brand and model.</p>
           <div class="bk-cats" role="tablist" aria-label="Service category">
             {categories.map((c, k) => (
               <button type="button" role="tab" class="bk-cat" data-bk-tab={c.id} aria-selected={k === 0 ? 'true' : 'false'} style={`--h:${c.hue}`}>
                 <span class="bk-ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" set:html={iconPaths[c.icon]} /></span>
-                <span class="bk-cn"><b>{c.name}</b><small>{c.issues.length} services</small></span>
+                <span class="bk-cn"><b>{c.name}</b><small>{c.brands.length} brands · {c.issues.length} services</small></span>
                 <span class="bk-cc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
               </button>
             ))}
@@ -84,8 +70,8 @@ const angles = [
               <div class="bk-hero">
                 <div class="bk-hero-copy">
                   <span class="bk-eye">{c.name} services</span>
-                  <h3>{heroCopy[c.id][0]}</h3>
-                  <p>{heroCopy[c.id][1]}</p>
+                  <h3>{(heroCopy[c.id] ?? [c.name, c.short])[0]}</h3>
+                  <p>{(heroCopy[c.id] ?? [c.name, c.short])[1]}</p>
                   <ul class="bk-feats">
                     <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span><b>Fast Service</b><small>In most areas</small></span></li>
                     <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span><b>Genuine Parts</b><small>Trusted repairs</small></span></li>
@@ -94,57 +80,163 @@ const angles = [
                 </div>
                 <div class="bk-hero-art">
                   <span class="bk-orb"></span>
-                  <span class="bk-dev"><DeviceArt kind={artFor[c.id]} /></span>
+                  <span class:list={['bk-dev', { 'has-pic': !!c.image }]}>{c.image && <img class="bk-devpic" src={c.image} alt="" onerror={PIC_FAIL} />}<DeviceArt kind={artFor[c.id] ?? 'phone'} /></span>
                   <span class="bk-from"><small>From</small><b>{price()}</b><i></i></span>
                 </div>
               </div>
-              <div class="bk-sel-head">
-                <h4><span>1.</span> Select the repair service</h4>
-                <small>Showing <b data-count={c.issues.length}>{c.issues.length}</b> services</small>
-              </div>
-              <div class="bk-grid" role="radiogroup" aria-label={`Services for ${c.name}`}>
-                {c.issues.map((iss, i) => (
-                  <button type="button" role="radio" class="bk-card" aria-checked={i === 0 ? 'true' : 'false'} data-name={iss} data-wa={wa(`Hi Danat Fix, I want to book a ${iss} service for my ${c.name.replace(/ &.*$/, '').replace(/s$/, '').toLowerCase()}.`)}>
-                    <span class:list={['bk-pic', { photo: photo[`${c.id}:${iss}`] }]}>{photo[`${c.id}:${iss}`] ? <img src={`/media/repairs/${photo[`${c.id}:${iss}`]}.jpg`} alt={iss} loading="lazy" width="360" height="200" /> : <span class="bk-pic-art"><DeviceArt kind={artFor[c.id]} /></span>}<span class="bk-badge" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${issueIcon(iss)}</svg>`} /></span>
-                    <b>{iss}</b>
-                    <small>{note(iss)}</small>
-                    <span class="bk-foot"><span>From <em>{price()}</em></span><span class="bk-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
-                  </button>
-                ))}
+              <!-- 1 brand · 2 model (drawn by the script), then 3 repairs -->
+              <div class="bk-pick" data-bk-pick></div>
+              <div class="bk-repairs" data-bk-repairs hidden>
+                <div class="bk-sel-head">
+                  <h4><span>3.</span> Add repairs</h4>
+                  <small>Tap Add — use + for more than one</small>
+                </div>
+                <div class="bk-grid" aria-label={`Repairs for ${c.name}`}>
+                  {c.services.map((sv) => (
+                    <div class="bk-card" data-name={sv.name} data-pid={sv.id ?? ''} data-price={sv.price ?? ''} data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''}>
+                      <span class:list={['bk-pic', { photo: !!picOf(c, sv.name, sv.image) }]}>{picOf(c, sv.name, sv.image) ? <img src={picOf(c, sv.name, sv.image)} alt={sv.name} loading="lazy" width="360" height="200" onerror="this.parentElement.classList.remove('photo');this.remove()" /> : null}<span class="bk-pic-art"><DeviceArt kind={artFor[c.id] ?? 'phone'} /></span><span class="bk-badge" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${issueIcon(sv.name)}</svg>`} /></span>
+                      <b>{sv.name}</b>
+                      <small>{note(sv.name)}</small>
+                      <span class="bk-foot">
+                        <span>{odoo && sv.price ? <>from <em>{price(sv.price)}</em></> : <>From <em>{price()}</em></>}</span>
+                        <button type="button" class="bk-add" data-bk-inc aria-label={`Add ${sv.name}`}>Add</button>
+                        <span class="bk-qty" role="group" aria-label={`${sv.name} quantity`} hidden><button type="button" data-bk-dec aria-label="One less">−</button><output>1</output><button type="button" data-bk-inc aria-label="One more">+</button></span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
           <div class="bk-bar">
-            <div class="bk-bar-t"><h4><span>2.</span> Book on WhatsApp</h4><small>Click the button and send your request.</small></div>
-            <button type="button" class="bk-addcart" data-bk-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1l1.8-7.3H6"/><circle cx="9.5" cy="19.8" r="1.4"/><circle cx="17" cy="19.8" r="1.4"/></svg>Add to cart</button>
-            <a class="bk-cta" data-bk-cta target="_blank" rel="noopener" href={wa(`Hi Danat Fix, I want to book a ${categories[0].issues[0]} service for my mobile phone.`)}><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg> <span>Book <b data-bk-name>{categories[0].issues[0]}</b> on WhatsApp</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-            <p class="bk-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>Your message is pre-filled.<br />Just press send.</p>
+            <div class="bk-bar-t"><h4><span>4.</span> Book them together</h4><small data-bk-sum>Your repairs go into one cart — add more devices any time.</small></div>
+            <button type="button" class="bk-cta" data-bk-checkout disabled><span data-bk-go>View cart &amp; book</span> <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           </div>
         </div>
       </div>
 <script>
-  // Booking: category sidebar → service cards → one WhatsApp button
+  // Our Services: category → brand → model → repairs (Add / − n +) into the site cart, keyed
+  // exactly like the booking wizard's lines; "View cart & book" opens the wizard's Cart step.
+  type Model = { id: number | null; name: string; series: string; seriesId: number | null };
+  type Cat = { id: string; odooId: number | null; name: string; brands: { id: string; odooId: number | null; name: string; logo: string | null; items: Model[] }[] };
   const bk = document.querySelector<HTMLElement>('[data-bk]');
   if (bk) {
-    const cta = bk.querySelector<HTMLAnchorElement>('[data-bk-cta]')!;
-    bk.querySelector('[data-bk-add]')!.addEventListener('click', () => {
-      const card = bk.querySelector<HTMLElement>('.bk-panel:not([hidden]) .bk-card[aria-checked="true"]')!;
-      const dev = bk.querySelector<HTMLElement>('[data-bk-tab][aria-selected="true"] b')!.textContent!;
-      (window as any).danatCart?.add({ device: dev, model: '', issues: [card.dataset.name!] });
+    const cats: Cat[] = JSON.parse(bk.dataset.cats!);
+    const odoo = !!bk.dataset.odoo;
+    const cart = () => (window as any).danatCart;
+    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const st = { cat: cats[0]?.id ?? '', brand: '', model: '', modelId: 0, seriesId: 0, picked: false, q: '' };
+    const cat = () => cats.find((c) => c.id === st.cat)!;
+    const brand = () => cat()?.brands.find((b) => b.id === st.brand);
+    const panel = () => bk.querySelector<HTMLElement>(`[data-bk-panel="${st.cat}"]`)!;
+    /** The device as the cart keys it - the same as the wizard's (category name + "Brand Model"). */
+    const dev = () => ({
+      device: cat().name, model: [brand()?.name, st.model].filter(Boolean).join(' '), cat: st.cat, brand: st.brand,
+      ids: { category_id: cat().odooId || undefined, brand_id: brand()?.odooId || undefined, series_id: st.seriesId || undefined, model_id: st.modelId || undefined },
     });
-    const setCta = (card: HTMLElement) => { cta.href = card.dataset.wa!; bk.querySelector('[data-bk-name]')!.textContent = card.dataset.name!; };
-    bk.querySelectorAll<HTMLElement>('.bk-card').forEach((card) => card.addEventListener('click', () => {
-      card.parentElement!.querySelectorAll('.bk-card').forEach((o) => o.setAttribute('aria-checked', String(o === card)));
-      setCta(card);
-    }));
-    bk.querySelectorAll<HTMLElement>('[data-bk-tab]').forEach((t) => t.addEventListener('click', () => {
-      bk.querySelectorAll('[data-bk-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
-      bk.querySelectorAll<HTMLElement>('[data-bk-panel]').forEach((p) => (p.hidden = p.dataset.bkPanel !== t.dataset.bkTab));
-      const panel = bk.querySelector<HTMLElement>(`[data-bk-panel="${t.dataset.bkTab}"]`)!;
-      setCta(panel.querySelector<HTMLElement>('.bk-card[aria-checked="true"]')!);
-      panel.querySelectorAll<HTMLElement>('[data-count]').forEach((n) => (window as any).__countUp?.(n));
+    const MAX = 60;   // models listed before asking to search
+
+    function drawPick() {
+      const c = cat(), b = brand();
+      const box = panel().querySelector<HTMLElement>('[data-bk-pick]')!;
+      const crumb = b ? `<div class="bk-crumb"><span>${esc(c.name)} › <b>${esc(b.name)}</b>${st.picked ? ` › <b>${esc(st.model || 'Model not chosen')}</b>` : ''}</span>
+        <button type="button" data-bk-reset="${st.picked ? 'model' : 'brand'}">Change</button></div>` : '';
+      if (!b) {
+        box.innerHTML = `<div class="bk-sel-head"><h4><span>1.</span> Choose the brand</h4><small>${c.brands.length} brands</small></div>
+          <div class="bk-brands">${c.brands.map((x) => `<button type="button" class="bk-brand" data-bk-brand="${esc(x.id)}"><span${x.logo ? ' class="has-logo"' : ''}>${x.logo ? `<img src="${esc(x.logo)}" alt="" loading="lazy" onerror="this.parentElement.className='';this.remove()" />` : ''}<i>${esc(x.name[0])}</i></span><b>${esc(x.name)}</b><small>${x.items.length} models</small></button>`).join('')}</div>`;
+      } else if (!st.picked) {
+        const q = norm(st.q);
+        const all = b.items.filter((m) => !q || norm(`${m.series} ${m.name}`).includes(q));
+        const shown = all.slice(0, MAX);
+        box.innerHTML = `${crumb}<div class="bk-sel-head"><h4><span>2.</span> Choose the model</h4><small>${all.length} model${all.length === 1 ? '' : 's'}</small></div>
+          <div class="bk-mbox">
+            <label class="bk-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" data-bk-q value="${esc(st.q)}" placeholder="Search ${esc(b.name)} models" aria-label="Search models" autocomplete="off" /></label>
+            <div class="bk-models">${shown.map((m) => `<button type="button" class="bk-model" data-bk-model="${esc(m.name)}" data-id="${m.id ?? ''}" data-sid="${m.seriesId ?? ''}">${esc(m.name)}${m.series && m.series !== m.name ? `<small>${esc(m.series)}</small>` : ''}</button>`).join('')}</div>
+            ${all.length > MAX ? `<p class="bk-mmore">Showing ${MAX} of ${all.length} — search to find yours.</p>` : ''}
+            ${!all.length ? '<p class="bk-mmore">No match — type your model below, or skip.</p>' : ''}
+            <div class="bk-mrow">
+              ${odoo ? `<label class="bk-search sm"><input data-bk-typed maxlength="60" placeholder="Not in the list? Type your model" aria-label="Type your model" /></label><button type="button" class="bk-link" data-bk-typed-go>Use this model →</button>` : ''}
+              <button type="button" class="bk-link" data-bk-skip>I don't know my model — skip →</button>
+            </div>
+          </div>`;
+      } else {
+        box.innerHTML = crumb;
+      }
+      panel().querySelector<HTMLElement>('[data-bk-repairs]')!.hidden = !st.picked;
+      if (st.picked) paintCards();
+    }
+
+    // repairs for one brand / series / model only show once that device is chosen (as in the wizard)
+    function paintCards() {
+      const fits = (v: string | undefined, have: number) => !v || (have > 0 && Number(v) === have);
+      const d = dev();
+      panel().querySelectorAll<HTMLElement>('.bk-card').forEach((card) => {
+        card.hidden = !(fits(card.dataset.b, brand()?.odooId || 0) && fits(card.dataset.s, st.seriesId) && fits(card.dataset.m, st.modelId));
+        const n = cart()?.qty(d, card.dataset.name!) ?? 0;
+        card.classList.toggle('in', n > 0);
+        card.querySelector<HTMLElement>('.bk-add')!.hidden = n > 0;
+        card.querySelector<HTMLElement>('.bk-qty')!.hidden = !n;
+        card.querySelector('.bk-qty output')!.textContent = String(n || 1);
+      });
+    }
+    function paintBar() {
+      const n: number = cart()?.count() ?? 0;
+      const devices: number = cart()?.items().length ?? 0;
+      bk.querySelector<HTMLButtonElement>('[data-bk-checkout]')!.disabled = !n;
+      bk.querySelector('.bk-bar')!.classList.toggle('empty', !n);
+      document.documentElement.classList.toggle('bk-bar-on', !!n && bkSeen);
+      bk.querySelector('[data-bk-go]')!.textContent = n ? `View cart (${n}) & book` : 'View cart & book';
+      bk.querySelector('[data-bk-sum]')!.textContent = n
+        ? `${n} repair${n === 1 ? '' : 's'} on ${devices} device${devices === 1 ? '' : 's'} in your cart.`
+        : 'Your repairs go into one cart — add more devices any time.';
+    }
+    const choose = (model: string, modelId = 0, seriesId = 0) => { st.model = model; st.modelId = modelId; st.seriesId = seriesId; st.picked = true; st.q = ''; drawPick(); };
+
+    bk.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+      if (!t || !bk.contains(t)) return;
+      if (t.dataset.bkBrand) { st.brand = t.dataset.bkBrand; st.picked = false; st.model = ''; st.modelId = 0; st.seriesId = 0; st.q = ''; drawPick(); return; }
+      if (t.dataset.bkModel) { choose(t.dataset.bkModel, Number(t.dataset.id) || 0, Number(t.dataset.sid) || 0); return; }
+      if (t.matches('[data-bk-skip]')) { choose(''); return; }
+      if (t.matches('[data-bk-typed-go]')) {
+        const inp = panel().querySelector<HTMLInputElement>('[data-bk-typed]')!;
+        if (inp.value.trim().length < 2) { inp.focus(); return; }
+        choose(inp.value.trim()); return;
+      }
+      if (t.dataset.bkReset) {
+        if (t.dataset.bkReset === 'brand') st.brand = '';
+        st.picked = false; st.model = ''; st.modelId = 0; st.seriesId = 0; st.q = '';
+        drawPick(); return;
+      }
+      const card = t.closest<HTMLElement>('.bk-card');
+      if (card && cart() && (t.matches('[data-bk-inc]') || t.matches('[data-bk-dec]'))) {
+        const d = dev(), name = card.dataset.name!;
+        cart().set(d, name, cart().qty(d, name) + (t.matches('[data-bk-dec]') ? -1 : 1),
+          { pid: Number(card.dataset.pid) || undefined, px: card.dataset.price ? Number(card.dataset.price) : null });
+        return;
+      }
+      if (t.matches('[data-bk-checkout]')) window.dispatchEvent(new CustomEvent('danat-checkout'));
+    });
+    bk.addEventListener('input', (e) => {
+      const t = e.target as HTMLInputElement;
+      if (!t.matches('[data-bk-q]')) return;
+      st.q = t.value; drawPick();
+      const q = panel().querySelector<HTMLInputElement>('[data-bk-q]')!;
+      q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+    });
+    bk.querySelectorAll<HTMLElement>('[data-bk-tab]').forEach((tab) => tab.addEventListener('click', () => {
+      bk.querySelectorAll('[data-bk-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === tab)));
+      bk.querySelectorAll<HTMLElement>('[data-bk-panel]').forEach((p) => (p.hidden = p.dataset.bkPanel !== tab.dataset.bkTab));
+      if (st.cat !== tab.dataset.bkTab) { st.cat = tab.dataset.bkTab!; st.brand = ''; st.picked = false; st.model = ''; st.modelId = 0; st.seriesId = 0; st.q = ''; }
+      drawPick();
       if (bk.getBoundingClientRect().top < 0) bk.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }));
+    let bkSeen = false;   // while the panel is on screen its bar sticks to the bottom: lift the floating buttons
+    new IntersectionObserver(([en]) => { bkSeen = en.isIntersecting; paintBar(); }).observe(bk);
+    window.addEventListener('danat-cart', () => { if (st.picked) paintCards(); paintBar(); });
+    const start = () => { drawPick(); paintBar(); };
+    if (cart()) start(); else document.addEventListener('DOMContentLoaded', start, { once: true });
   }
 </script>
 
@@ -152,7 +244,7 @@ const angles = [
   #all { scroll-margin-top: 90px; }
   .bk { display: grid; grid-template-columns: 318px minmax(0, 1fr); gap: 22px; align-items: start; --g: var(--violet); --g2: var(--deep, #0f6b37); }
   .bk-side { position: sticky; top: 96px; padding: 22px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 26px; box-shadow: var(--shadow); }
-  .bk-side h3 { font-size: 22px; padding: 0 8px; }
+  .bk-side h3 { font-size: 18px; padding: 0 8px; }
   .bk-side > p { font-size: 13px; color: var(--ink-3); padding: 2px 8px 14px; }
   .bk-cats { display: grid; gap: 6px; }
   .bk-cat { display: flex; align-items: center; gap: 14px; padding: 10px 12px; border: 0; border-radius: 16px; background: none; text-align: left; transition: background .2s; }
@@ -176,7 +268,7 @@ const angles = [
   .bk-hero { position: relative; display: grid; grid-template-columns: 1.3fr 1fr; align-items: center; min-height: 290px; padding: 30px 34px; border-radius: 28px; overflow: hidden; background: linear-gradient(120deg, #f4faf5 0%, #e3f3e7 55%, #c9ead3 100%); }
   .bk-eye { display: inline-flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; color: #3e4c45; }
   .bk-eye::before { content: ''; width: 26px; height: 2px; background: var(--g); }
-  .bk-hero h3 { font-family: var(--display); font-size: clamp(30px, 3.2vw, 46px); font-weight: 800; line-height: 1.02; letter-spacing: -.02em; color: var(--ink); margin: 10px 0 12px; max-width: 14ch; }
+  .bk-hero h3 { font-family: var(--display); font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); margin: 10px 0 12px; max-width: 14ch; }
   .bk-hero p { font-size: 16px; color: #45524b; max-width: 40ch; }
   .bk-feats { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px 18px; }
   .bk-feats li { white-space: nowrap; }
@@ -190,20 +282,19 @@ const angles = [
   @keyframes bkFloat { 50% { transform: translateY(-8px) rotate(-2deg); } }
   .bk-from { position: absolute; right: 0; bottom: 34px; display: grid; justify-items: center; padding: 12px 22px; border-radius: 18px; background: #fff; box-shadow: 0 16px 30px -14px rgba(0,0,0,.3); transform: rotate(-6deg); }
   .bk-from small { font-size: 14px; font-weight: 600; color: #16211b; }
-  .bk-from b { font-family: var(--display); font-size: 30px; font-weight: 800; color: var(--g2); line-height: 1; }
+  .bk-from b { font-family: var(--display); font-size: 24px; font-weight: 800; color: var(--g2); line-height: 1; }
   .bk-from i { position: absolute; right: -14px; top: -16px; width: 22px; height: 22px; background: radial-gradient(circle, var(--g) 30%, transparent 32%) 0 0 / 8px 8px; opacity: .6; }
 
   .bk-sel-head { display: flex; justify-content: space-between; align-items: center; padding: 0 4px; }
-  .bk-sel-head h4, .bk-bar h4 { font-size: 20px; }
+  .bk-sel-head h4, .bk-bar h4 { font-size: 17px; }
   .bk-sel-head h4 span, .bk-bar h4 span { color: var(--g2); }
   .bk-sel-head small { font-size: 13px; color: var(--ink-3); }
   .bk-sel-head b { color: var(--g2); }
   .bk-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
   .bk-card { display: flex; flex-direction: column; gap: 4px; padding: 10px 10px 14px; border: 1.5px solid var(--line); border-radius: 18px; background: var(--surface); text-align: left; transition: border-color .2s, transform .25s, box-shadow .25s; }
   .bk-card:hover { transform: translateY(-4px); box-shadow: 0 18px 30px -20px rgba(0,0,0,.4); }
-  .bk-card[aria-checked='true'] { border-color: var(--g); box-shadow: 0 0 0 3px rgba(31,138,76,.12); }
+  .bk-card.in { border-color: var(--g); box-shadow: 0 0 0 3px rgba(31,138,76,.12); }
   .bk-pic { position: relative; display: grid; place-items: center; height: 118px; margin-bottom: 8px; border-radius: 12px; background: linear-gradient(160deg, hsl(var(--h) 60% 96%), hsl(var(--h) 55% 90%)); overflow: hidden; }
-  .bk-card[aria-checked='true'] .bk-pic { background: linear-gradient(160deg, #eef8f0, #d7efdd); }
   .bk-pic.photo { background: #111; }
   .bk-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .45s cubic-bezier(.2,.8,.2,1); }
   .bk-card:hover .bk-pic img { transform: scale(1.08); }
@@ -215,9 +306,6 @@ const angles = [
   .bk-card > small { font-size: 12.5px; color: var(--ink-3); padding: 0 4px; }
   .bk-foot { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding: 10px 4px 0; font-size: 13px; color: var(--ink-2); }
   .bk-foot em { font-style: normal; font-family: var(--display); font-size: 18px; font-weight: 800; color: var(--g2); }
-  .bk-go { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); color: var(--ink); transition: background .2s, color .2s; }
-  .bk-go svg { width: 16px; height: 16px; }
-  .bk-card:hover .bk-go, .bk-card[aria-checked='true'] .bk-go { background: var(--g); border-color: var(--g); color: #fff; }
 
   .bk-bar { position: sticky; bottom: 14px; z-index: 5; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 22px; padding: 16px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 20px 40px -24px rgba(0,0,0,.35); }
   .bk-bar-t h4 { white-space: nowrap; }
@@ -226,13 +314,8 @@ const angles = [
   .bk-cta:hover { transform: translateY(-2px); }
   .bk-cta > svg:first-child { width: 22px; height: 22px; flex: none; }
   .bk-cta > svg:last-child { width: 18px; height: 18px; flex: none; }
-  .bk-addcart { display: inline-flex; align-items: center; gap: 8px; justify-self: end; padding: 14px 20px; border: 1.5px solid var(--g); border-radius: 999px; background: var(--surface); color: var(--g2); font-weight: 700; font-size: 15px; white-space: nowrap; transition: transform .2s; }
-  .bk-addcart:hover { transform: translateY(-2px); background: #eef8f0; }
-  .bk-addcart svg { width: 19px; height: 19px; }
-  .bk-info { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-radius: 14px; background: #eef8f0; font-size: 13px; color: #33443a; }
-  .bk-info svg { width: 22px; height: 22px; color: var(--g); flex: none; }
 
-  @media (max-width: 1799px) { .bk-info { display: none; } .bk-bar { grid-template-columns: auto 1fr auto; } }
+
   @media (max-width: 1200px) { .bk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .bk-bar { grid-template-columns: 1fr; justify-items: start; } .bk-cta { justify-self: stretch; justify-content: center; } }
   @media (max-width: 960px) {
     .bk { grid-template-columns: 1fr; }
@@ -269,6 +352,69 @@ const angles = [
   @media (max-width: 960px) {
     .bk-bar { grid-template-columns: minmax(0, 1fr) !important; justify-items: stretch; gap: 12px; padding: 16px; }
     .bk-bar > * { min-width: 0; }
-    .bk-addcart, .bk-cta { justify-self: stretch; justify-content: center; white-space: normal; text-align: center; }
+    .bk-cta { justify-self: stretch; justify-content: center; white-space: normal; text-align: center; }
+  }
+
+  /* ===== brand → model → repairs (the wizard's order); the pick box is drawn by the script, hence :global ===== */
+  .bk-pick { display: grid; gap: 16px; }
+  .bk-pick:empty { display: none; }
+  .bk-pick :global(.bk-sel-head) { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 0; }
+  .bk-pick :global(.bk-sel-head h4) { font-size: 17px; }
+  .bk-pick :global(.bk-sel-head h4 span) { color: var(--g2); }
+  .bk-pick :global(.bk-sel-head small) { font-size: 13px; color: var(--ink-3); }
+  .bk-pick :global(.bk-crumb) { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 16px; background: var(--accent-soft); font-size: 14px; color: var(--ink-2); }
+  .bk-pick :global(.bk-crumb b) { color: var(--ink); }
+  .bk-pick :global(.bk-crumb button) { border: 0; background: none; padding: 4px 2px; color: var(--violet); font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+  .bk-pick :global(.bk-brands) { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .bk-pick :global(.bk-brand) { display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; align-items: center; padding: 12px; border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); text-align: left; cursor: pointer; transition: border-color .2s, transform .2s; }
+  .bk-pick :global(.bk-brand:hover) { border-color: var(--violet); transform: translateY(-2px); }
+  .bk-pick :global(.bk-brand span) { grid-row: 1 / 3; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--tint); font-family: var(--display); font-weight: 800; color: var(--violet); }
+  .bk-pick :global(.bk-brand span i) { font-style: normal; }
+  .bk-pick :global(.bk-brand span.has-logo) { background: #fff; box-shadow: inset 0 0 0 1px var(--line); }
+  .bk-pick :global(.bk-brand span.has-logo i) { display: none; }
+  .bk-pick :global(.bk-brand span img) { width: 30px; height: 30px; object-fit: contain; }
+  .bk-pick :global(.bk-brand b) { font-size: 14.5px; color: var(--ink); }
+  .bk-pick :global(.bk-brand small) { font-size: 12.5px; color: var(--ink-3); }
+  .bk-pick :global(.bk-mbox) { display: grid; gap: 12px; padding: 16px; border-radius: 20px; background: var(--accent-soft); }
+  .bk-pick :global(.bk-search) { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .bk-pick :global(.bk-search svg) { width: 18px; height: 18px; color: var(--ink-3); flex: none; }
+  .bk-pick :global(.bk-search input) { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 14.5px; color: var(--ink); }
+  .bk-pick :global(.bk-search.sm) { flex: 1; min-width: 180px; height: 40px; }
+  .bk-pick :global(.bk-models) { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; max-height: 340px; overflow-y: auto; }
+  .bk-pick :global(.bk-model) { display: grid; gap: 1px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); text-align: left; font: inherit; font-size: 14px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  .bk-pick :global(.bk-model:hover) { border-color: var(--violet); }
+  .bk-pick :global(.bk-model small) { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+  .bk-pick :global(.bk-mmore) { margin: 0; font-size: 13px; color: var(--ink-2); }
+  .bk-pick :global(.bk-mrow) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .bk-pick :global(.bk-link) { border: 0; background: none; padding: 6px 2px; color: var(--violet); font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; }
+  .bk-repairs { display: grid; gap: 28px; }
+  /* Odoo's device photo over the drawing in the banner; the repair card photo over the drawing */
+  .bk-dev.has-pic > :not(.bk-devpic) { visibility: hidden; }
+  .bk-devpic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .bk-pic.photo .bk-pic-art { display: none; }
+  .bk-repairs[hidden] { display: none; }
+
+  /* repair cards: Add → − n + (Urban Company style) */
+  .bk-card[hidden] { display: none; }
+  .bk-card.in { border-color: var(--g); box-shadow: 0 0 0 3px rgba(31,138,76,.12); }
+  .bk-add { min-width: 84px; height: 36px; border: 1.5px solid var(--violet); border-radius: 10px; background: var(--surface); color: var(--violet); font: inherit; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+  .bk-add:hover { background: var(--accent-soft); }
+  .bk-add[hidden], .bk-qty[hidden] { display: none; }
+  .bk-qty { display: inline-grid; grid-template-columns: 28px 28px 28px; align-items: center; min-width: 84px; height: 36px; border-radius: 10px; background: var(--violet); color: var(--on-accent); overflow: hidden; }
+  .bk-qty button { height: 100%; border: 0; background: none; color: inherit; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+  .bk-qty output { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  .bk-bar { grid-template-columns: minmax(0, 1fr) auto; }
+  .bk-cta { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
+  .bk-cta:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
+  @media (max-width: 960px) { .bk-pick :global(.bk-brands) { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bk-pick :global(.bk-models) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* phones: the bar is one slim row, and only once something is in the cart */
+  @media (max-width: 960px) {
+    .bk-bar.empty { display: none; }
+    :global(html.bk-bar-on .fab), :global(html.bk-bar-on .gift) { bottom: 92px; }
+    .bk-bar { grid-template-columns: minmax(0, 1fr) auto !important; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; }
+    .bk-bar-t h4 { display: none; }
+    .bk-bar-t small { font-size: 12.5px; }
+    .bk-cta { justify-self: end !important; padding: 12px 16px; font-size: 14px; white-space: nowrap !important; }
   }
 </style>

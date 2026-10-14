@@ -16,7 +16,7 @@ const mostBooked = Object.entries(photo).map(([k, ph]) => {
   const [cid, iss] = k.split(':');
   const cat = categories.find((x) => x.id === cid)!;
   const short = cat.name.replace(' & MacBooks', '').replace(' & All-in-ones', '').replace(' & iPads', '').replace(/s$/, '');
-  return { photo: ph, iss, dev: short, devFull: cat.name, note: note(iss), wa: wa(`Hi Danat Fix, I want to book a ${iss} service for my ${short.toLowerCase()}.`) };
+  return { photo: ph, iss, cat: cid, dev: short, devFull: cat.name, note: note(iss), wa: wa(`Hi Danat Fix, I want to book a ${iss} service for my ${short.toLowerCase()}.`) };
 });const heroCopy: Record<string, [string, string]> = {
   mobile: ['Keep Your Phone Working Like New', 'Screen, battery, charging, camera and more – quick and reliable service.'],
   tablet: ['Your Tablet, Good as New', 'Cracked glass, batteries and charging faults fixed fast.'],
@@ -175,7 +175,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
                     <div class="uc-foot">
                       <span><em>{price()}</em></span>
                       <a class="uc-wa" target="_blank" rel="noopener" href={m.wa} aria-label={`Book ${m.iss} on WhatsApp`} set:html={WA} />
-                      <button type="button" class="uc-add" data-uc-add data-dev={m.devFull} data-iss={m.iss}><span class="p">+</span><span class="t">Add</span></button>
+                      <button type="button" class="uc-add" data-uc-add data-dev={m.devFull} data-cat={m.cat} data-iss={m.iss}><span class="p">+</span><span class="t">Add</span></button>
                     </div>
                   </div>
                 </article>
@@ -402,7 +402,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
     document.querySelector('[data-uc-prev]')!.addEventListener('click', () => nudge(-1));
     document.querySelector('[data-uc-next]')!.addEventListener('click', () => nudge(1));
     document.querySelectorAll<HTMLElement>('[data-uc-add]').forEach((b) => b.addEventListener('click', () => {
-      (window as any).danatCart?.add({ device: b.dataset.dev!, model: '', issues: [b.dataset.iss!] });
+      (window as any).danatCart?.add({ device: b.dataset.dev!, cat: b.dataset.cat, model: '', issues: [b.dataset.iss!] });
       b.classList.add('done'); b.querySelector('.t')!.textContent = 'Added';
       setTimeout(() => { b.classList.remove('done'); b.querySelector('.t')!.textContent = 'Add'; }, 1500);
     }));
@@ -516,8 +516,8 @@ const [rowA, rowB] = rowsOf(mostBooked);
     gap: clamp(32px, 5vw, 64px);
     align-items: start;
   }
-  .hero-copy h1 { margin: 16px 0 18px; font-size: clamp(36px, 4.6vw, 64px); line-height: 1.02; }
-  .devices-line { font-size: clamp(15px, 1.3vw, 18px); font-weight: 600; color: var(--ink); margin: -6px 0 16px; }
+  .hero-copy h1 { margin: 16px 0 18px; font-size: 40px; line-height: 1.08; }
+  .devices-line { font-size: 15px; font-weight: 600; color: var(--ink); margin: -6px 0 16px; }
   .hero-cta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
   .hero-facts {
     display: flex;
@@ -528,7 +528,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
     color: var(--ink-3);
     font-size: 14px;
   }
-  .hero-facts b { display: block; font-family: var(--display); font-size: 26px; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .hero-facts b { display: block; font-family: var(--display); font-size: 22px; color: var(--ink); font-variant-numeric: tabular-nums; }
 
   .lab { display: flex; flex-direction: column; gap: 18px; }
   .lab-panel { padding: 16px; display: grid; gap: 12px; }
@@ -583,7 +583,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
   .bb-kick { display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--violet); }
   .bb-kick i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 5px var(--accent-soft); animation: bbPulse 2s ease-in-out infinite; }
   @keyframes bbPulse { 50% { box-shadow: 0 0 0 9px transparent; } }
-  .bb-title { margin-top: 10px; font-size: clamp(24px, 2.6vw, 34px); letter-spacing: -.02em; }
+  .bb-title { margin-top: 10px; font-size: 26px; letter-spacing: -.02em; }
   .bb-title span { color: var(--violet); }
   .bb-stats { display: flex; gap: 10px; list-style: none; margin: 0; padding: 0; }
   .bb-stats li { display: grid; padding: 10px 18px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); text-align: center; }
@@ -662,8 +662,8 @@ const [rowA, rowB] = rowsOf(mostBooked);
     mask-image: linear-gradient(90deg, #000, transparent 60%); }
   .tst-intro { position: relative; z-index: 1; display: grid; gap: 16px; justify-items: start; }
   .tst-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; opacity: .75; }
-  .tst h2 { font-size: clamp(36px, 4.6vw, 60px); line-height: 1.02; color: #fff; }
-  .tst-intro p { font-size: 17px; opacity: .8; max-width: 34ch; }
+  .tst h2 { font-size: 30px; line-height: 1.1; color: #fff; }
+  .tst-intro p { font-size: 15px; opacity: .8; max-width: 34ch; }
   .tst-sample { padding: 5px 12px; border-radius: 999px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); font-size: 12px; font-weight: 600; }
   .tst-ctrl { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
   .tst-ctrl button { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); background: transparent; color: #fff; transition: background .2s, color .2s, transform .2s; }
@@ -693,7 +693,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
   .tq[data-pos='out'] { opacity: 0; transform: translateX(-60%) rotate(-8deg); z-index: 4; }
   .tq-mark { position: absolute; right: 26px; top: 22px; width: 54px; height: 54px; fill: var(--accent-soft); }
   .tq-tag { align-self: flex-start; padding: 5px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--violet); font-size: 12.5px; font-weight: 700; }
-  .tq blockquote { margin: 0; flex: 1; font-size: clamp(18px, 1.7vw, 22px); line-height: 1.45; font-weight: 600; letter-spacing: -.01em; }
+  .tq blockquote { margin: 0; flex: 1; font-size: 16px; line-height: 1.45; font-weight: 600; letter-spacing: -.01em; }
   .tq figcaption { display: flex; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
   .tq-av { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; background: var(--grad); color: var(--on-accent); font-weight: 800; font-size: 18px; flex: none; }
   .tq-who b { display: block; font-size: 15px; }
@@ -715,10 +715,10 @@ const [rowA, rowB] = rowsOf(mostBooked);
   .vhero h1 { color: #fff; max-width: 12ch; }
   .vhero .grad-text { color: var(--blue); -webkit-text-fill-color: currentColor; background: none; padding: 0; }
   .vhero .eyebrow { color: var(--blue); }
-  .vhero .devices-line { color: rgba(255,255,255,.85); font-weight: 600; font-size: clamp(15px, 1.4vw, 19px); }
+  .vhero .devices-line { color: rgba(255,255,255,.85); font-weight: 600; font-size: 15px; }
   .vhero-cta { display: flex; gap: 12px; flex-wrap: wrap; }
   .vhero-cta.center { justify-content: center; }
-  .btn-xl { padding: 18px 34px; font-size: 18px; box-shadow: 0 18px 40px -14px rgba(var(--a1), .8); animation: ctaGlow 2.4s ease-in-out infinite; }
+  .btn-xl { padding: 13px 24px; font-size: 15px; box-shadow: 0 18px 40px -14px rgba(var(--a1), .8); animation: ctaGlow 2.4s ease-in-out infinite; }
   .btn-xl svg { width: 20px; height: 20px; animation: ctaBob 1.4s ease-in-out infinite; }
   @keyframes ctaGlow { 50% { box-shadow: 0 18px 50px -8px rgba(var(--a1), 1); } }
   @keyframes ctaBob { 50% { transform: translateY(3px); } }
@@ -738,9 +738,9 @@ const [rowA, rowB] = rowsOf(mostBooked);
   .pt-head { display: grid; justify-items: center; gap: 12px; text-align: center; max-width: 920px; margin: 0 auto; }
   .pt-eyebrow { display: inline-flex; align-items: center; gap: 14px; font-size: 13px; font-weight: 800; letter-spacing: .28em; text-transform: uppercase; color: var(--violet); }
   .pt-eyebrow::before, .pt-eyebrow::after { content: ''; width: 36px; height: 2px; border-radius: 2px; background: currentColor; opacity: .8; }
-  .pt-title { font-size: clamp(30px, 4vw, 50px); line-height: 1.1; letter-spacing: -.02em; color: var(--ink); }
+  .pt-title { font-size: 30px; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); }
   .pt-title em { font-style: normal; color: var(--violet); }
-  .pt-head p { max-width: 700px; font-size: 17px; color: var(--ink-2); line-height: 1.6; }
+  .pt-head p { max-width: 700px; font-size: 15px; color: var(--ink-2); line-height: 1.6; }
   .pt-logos { list-style: none; margin: 46px auto 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; max-width: 960px; }
   .pt-logos li { display: grid; place-items: center; height: 110px; padding: 0 24px; }
   .pt-logos li + li { border-left: 1px solid var(--line); }
@@ -761,11 +761,12 @@ const [rowA, rowB] = rowsOf(mostBooked);
   .cta2-dots.a { left: 7%; bottom: 18%; }
   .cta2-dots.b { right: 3%; top: 14%; width: 90px; height: 130px; }
   @keyframes ctaFloat { 50% { transform: translate(-16px, 10px); } }
-  .cta2 h2 { font-size: clamp(30px, 4vw, 50px); letter-spacing: -.02em; line-height: 1.1; }
+  @media (max-width: 720px) { .tst h2, .pt-title, .cta2 h2 { font-size: 24px; } .uc h2, .bb-title { font-size: 22px; } .hero-copy h1 { font-size: 30px; } }
+  .cta2 h2 { font-size: 30px; letter-spacing: -.02em; line-height: 1.1; }
   .cta2 h2 em { font-style: normal; color: var(--violet); }
-  .cta2 > p { max-width: 640px; font-size: 17px; line-height: 1.6; color: var(--ink-2); }
+  .cta2 > p { max-width: 640px; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
   .cta2-go { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
-  .cta2-btn { display: inline-flex; align-items: center; gap: 12px; height: 60px; padding: 0 30px; border-radius: 999px; background: var(--violet); color: var(--on-accent); font-weight: 700; font-size: 17px;
+  .cta2-btn { display: inline-flex; align-items: center; gap: 12px; height: 48px; padding: 0 24px; border-radius: 999px; background: var(--violet); color: var(--on-accent); font-weight: 700; font-size: 15px;
     box-shadow: 0 16px 30px -14px var(--violet); transition: transform .25s, filter .25s; }
   .cta2-btn svg { width: 22px; height: 22px; }
   .cta2-btn svg:last-child { width: 19px; height: 19px; transition: transform .25s; }
@@ -786,7 +787,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
   /* ---------- services grid ---------- */
   #book-services { scroll-margin-top: 90px; padding-top: 72px; padding-bottom: 60px; }
   .wrap.uc { width: min(1440px, 100% - 32px); }
-  .uc h2 { font-size: clamp(26px, 2.8vw, 36px); letter-spacing: -.02em; }
+  .uc h2 { font-size: 26px; letter-spacing: -.02em; }
   .uc-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 30px; }
   .uc-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; margin-bottom: 10px; border-radius: 999px; background: var(--accent-soft); color: var(--violet); font-size: 12.5px; font-weight: 700; }
   .uc-badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--violet); animation: ucPulse 1.6s infinite; }
@@ -810,7 +811,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
   .uc-more .uc-all { padding: 13px 26px; background: var(--violet); border-color: var(--violet); color: var(--on-accent); font-size: 15px; }
   .uc-more .uc-all:hover { filter: brightness(1.08); }
   .uc-mh { display: flex; justify-content: space-between; align-items: end; gap: 14px; margin-bottom: 22px; }
-  .uc-mh h3 { font-size: 22px; letter-spacing: -.01em; }
+  .uc-mh h3 { font-size: 18px; letter-spacing: -.01em; }
   .uc-mh p { font-size: 14px; color: var(--ink-3); margin-top: 2px; }
   .uc-nav { display: flex; gap: 8px; }
   .uc-nav button { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); transition: all .2s; }
@@ -846,7 +847,7 @@ const [rowA, rowB] = rowsOf(mostBooked);
   .road::before { content: ''; position: absolute; left: 4%; right: 4%; top: 11px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, var(--violet), var(--blue, var(--violet))); }
   .rm { position: relative; display: grid; justify-items: center; gap: 6px; text-align: center; padding-top: 34px; }
   .rm-dot { position: absolute; top: 0; width: 25px; height: 25px; border-radius: 50%; background: var(--surface); border: 4px solid var(--violet); box-shadow: 0 0 0 6px rgba(var(--a1), .15); }
-  .rm-year { font-family: var(--display); font-size: 28px; font-weight: 800; color: var(--violet); }
+  .rm-year { font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--violet); }
   .rm b { font-size: 15px; }
   .rm small { font-size: 13px; color: var(--ink-3); max-width: 22ch; }
   .rm.tbc .rm-year { font-size: 16px; padding: 4px 10px; border-radius: 999px; background: #fff4d6; color: #8a5a00; }

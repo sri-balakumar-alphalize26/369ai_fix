@@ -12,6 +12,9 @@ export const prerender = false;
 const catalog = await getCatalog(hostOf(Astro.request));
 const { categories, totals } = catalog;
 const money = (n: number | null) => (n === null ? '' : price(n));
+// Pictures chosen in Odoo sit over the site's own art (class has-pic hides it); if one fails to
+// load, it removes itself and the art shows again.
+const PIC_FAIL = "const p=this.parentElement;p.classList.remove('has-pic');if(!p.querySelector('img:not(.wz-pic),i'))p.classList.remove('logo');this.remove()";
 // Brand logo for each wizard brand id: [file in public/brand/makers, colour] — no colour = multi-colour SVG shown as <img>
 const LOGO: Record<string, [string, string?]> = {
   apple: ['apple', '#1d1d1f'], ipad: ['apple', '#1d1d1f'], macbook: ['apple', '#1d1d1f'], imac: ['apple', '#1d1d1f'], macos: ['apple', '#1d1d1f'],
@@ -88,7 +91,7 @@ const payload = JSON.stringify({
   <!-- ============ OUR SERVICES (booking panel) ============ -->
   <section class="section tight" id="all">
     <div class="wrap">
-      <BookingPanel />
+      <BookingPanel categories={categories} odoo={catalog.odoo} />
     </div>
   </section>
 
@@ -202,25 +205,28 @@ const payload = JSON.stringify({
       <div class="cat-head">
         <div>
           <span class="eyebrow" data-reveal>Book a repair</span>
-          <h2 class="h-lg" data-reveal style="--d:.06s">Get your estimate in 5 steps</h2>
+          <h2 class="h-lg" data-reveal style="--d:.06s">Add repairs, then book them together</h2>
         </div>
       </div>
 
       <div class="wz" data-wz data-reveal>
         <ol class="wz-steps" aria-label="Progress">
-          {['Device', 'Brand & model', 'Service', 'Details', 'Book'].map((t, i) => (
+          {['Device', 'Model', 'Services', 'Cart', 'Book'].map((t, i) => (
             <li class:list={['wz-step', { on: i === 0 }]} data-wz-dot={i + 1}><button type="button" data-wz-goto={i + 1}><b>{i + 1}<span class="wz-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span></b><span>{t}</span></button></li>
           ))}
           <span class="wz-rail" aria-hidden="true"><i data-wz-fill></i></span>
         </ol>
 
+        <!-- steps 1-3 sit next to a live cart (wide screens); 4-5 use the full width -->
+        <div class="wz-body" data-wz-body>
+        <div class="wz-main">
         <!-- 1 · device -->
         <div class="wz-panel on" data-wz-panel="1">
           <h3 class="wz-q">What needs fixing?</h3>
           <div class="wz-devs">
             {categories.map((c) => (
               <button type="button" class="wz-dev" data-wz-cat={c.id} style={`--h:${c.hue}`}>
-                <span class="wz-di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" set:html={iconPaths[c.icon]} /></span>
+                <span class:list={['wz-di', { 'has-pic': !!c.image }]}>{c.image && <img class="wz-pic" src={c.image} alt="" loading="lazy" onerror={PIC_FAIL} />}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" set:html={iconPaths[c.icon]} /></span>
                 <b>{c.name}</b>
                 <small>{c.brands.length} brands · {c.issues.length} services</small>
               </button>
@@ -237,7 +243,7 @@ const payload = JSON.stringify({
                 const lg = LOGO[b.id];
                 return (
                   <button type="button" class="wz-brand" data-wz-brand={b.id} data-wz-brand-cat={c.id} data-name={b.name} style={`--h:${b.hue}; --i:${k}`} hidden>
-                    <span class:list={['wz-mono', { logo: !!lg }]}>
+                    <span class:list={['wz-mono', { logo: !!lg || !!b.logo, 'has-pic': !!b.logo }]}>{b.logo && <img class="wz-pic" src={b.logo} alt="" loading="lazy" onerror={PIC_FAIL} />}
                       {lg ? (lg[1] ? <i class="wz-lmask" style={`--c:${lg[1]}; -webkit-mask-image:url(/brand/makers/${lg[0]}.svg); mask-image:url(/brand/makers/${lg[0]}.svg)`} aria-hidden="true"></i> : <img src={`/brand/makers/${lg[0]}.svg`} alt="" loading="lazy" />) : b.name[0]}
                     </span>
                     <span class="wz-bt"><b>{b.name}</b><small>{b.models.length} {c.id === 'cctv' ? 'types' : 'models'}</small></span>
@@ -271,27 +277,38 @@ const payload = JSON.stringify({
           </div>
         </div>
 
-        <!-- 3 · issue -->
+        <!-- 3 · repairs, Urban Company style: Add puts it in the cart, then − n + -->
         <div class="wz-panel" data-wz-panel="3" hidden>
-          <h3 class="wz-q">What's the problem? <small>Choose one or more</small></h3>
+          <h3 class="wz-q">Add repairs <small>Tap Add — use + for more than one</small></h3>
           {categories.map((c) => (
             <div class="wz-issues" data-wz-issues={c.id} hidden>
               {c.services.map((sv) => (
-                <button type="button" class="wz-iss" data-iss={sv.name} data-pid={sv.id ?? ''} data-price={sv.price ?? ''}
-                  data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''} aria-pressed="false" style={`--h:${c.hue}`}
+                <div class="wz-iss" data-iss={sv.name} data-pid={sv.id ?? ''} data-price={sv.price ?? ''}
+                  data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''} style={`--h:${c.hue}`}
                   hidden={!!(sv.b || sv.s || sv.m)}>
-                  <span class="wz-ii" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${issueSvg(sv.name)}</svg>`} />
-                  <span class="wz-in"><b>{sv.name}</b><small>{catalog.odoo && sv.price ? `from ${money(sv.price)}` : issueNote(sv.name)}</small></span>
-                  <span class="wz-ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
-                </button>
+                  <span class:list={['wz-ii', { 'has-pic': !!sv.image }]}>{sv.image && <img class="wz-pic" src={sv.image} alt="" loading="lazy" onerror={PIC_FAIL} />}<Fragment set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${issueSvg(sv.name)}</svg>`} /></span>
+                  <span class="wz-in"><b>{sv.name}</b><small>{issueNote(sv.name)}</small><em>{catalog.odoo && sv.price ? `from ${money(sv.price)}` : `Estimate ${price()}`}</em></span>
+                  <span class="wz-act">
+                    <button type="button" class="wz-addb" data-iss-add aria-label={`Add ${sv.name}`}>Add</button>
+                    <span class="wz-qty" role="group" aria-label={`${sv.name} quantity`} hidden>
+                      <button type="button" data-iss-dec aria-label="One less">−</button><output>1</output><button type="button" data-iss-inc aria-label="One more">+</button>
+                    </span>
+                  </span>
+                </div>
               ))}
             </div>
           ))}
         </div>
 
-        <!-- 4 · details: the customer's own words, photos and a video -->
+        <!-- 4 · cart: every device and repair, grouped; details and coupon for the whole booking -->
         <div class="wz-panel" data-wz-panel="4" hidden>
-          <h3 class="wz-q">Tell us more <small>Optional — it helps the technician come prepared</small></h3>
+          <h3 class="wz-q">Your cart <small data-wz-cartsub></small></h3>
+          <p class="wz-cnote" data-wz-cnote hidden>Adding the model helps the technician bring the right part.</p>
+          <div class="wz-groups" data-wz-groups></div>
+          <button type="button" class="wz-more" data-wz-more>+ Add another device</button>
+          <div class="wz-extras">
+          <div class="wz-xbox">
+          <h4>Tell us more <small>Optional — it helps the technician come prepared</small></h4>
           <div class="wz-det">
             <label class="wz-fl wz-dfl"><span>What happened?</span>
               <textarea data-wz-problem maxlength="500" rows="4" placeholder="e.g. Dropped it yesterday — the top half of the screen is black and touch doesn't work."></textarea>
@@ -307,11 +324,22 @@ const payload = JSON.stringify({
             <ul class="wz-thumbs" data-wz-thumbs></ul>
             <p class="wz-merr" data-wz-merr role="alert" hidden></p>
           </div>
+          </div>
+          <div class="wz-xbox">
+            <h4>Coupon code</h4>
+            <form class="wz-cpf" data-wz-cpf>
+              <input data-wz-cp maxlength="30" autocomplete="off" placeholder="Enter coupon code" aria-label="Coupon code" />
+              <button type="submit">Apply</button>
+            </form>
+            <p class="wz-cpok" data-wz-cpok hidden></p>
+            <p class="wz-cpnote">The visit or pickup and the final price are confirmed after diagnosis, before any work starts.</p>
+          </div>
+          </div>
         </div>
 
         <!-- 5 · estimate + book -->
         <div class="wz-panel" data-wz-panel="5" hidden>
-          <h3 class="wz-q">Your estimate</h3>
+          <h3 class="wz-q">Book <small>One booking for everything in your cart</small></h3>
           <div class="wz-est">
             <div class="wz-sum">
               <div class="wz-rhead">
@@ -445,11 +473,36 @@ const payload = JSON.stringify({
             <p class="wz-warn" data-wz-warn role="status" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><span data-wz-warntx></span></p>
             <p class="wz-err" data-wz-err role="alert" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg><span data-wz-errtx></span></p>
             <div class="wz-acts">
-              <button type="button" class="wz-add" data-wz-add><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1l1.8-7.3H6"/><circle cx="9.5" cy="19.8" r="1.4"/><circle cx="17" cy="19.8" r="1.4"/></svg>Add to cart</button>
               <button type="button" class="wz-now" data-wz-now><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg> Send booking on WhatsApp</button>
             </div>
             </div>
           </div>
+        </div>
+
+        </div>
+        <aside class="wz-side" data-wz-side aria-label="Your cart">
+          <div class="wz-sc">
+            <h4>Cart <small data-wz-scn>0 items</small></h4>
+            <div class="wz-sce" data-wz-sce>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.4 11h10.2L20 7H6.2"/><circle cx="9" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/></svg>
+              No repairs added yet
+            </div>
+            <ul data-wz-scl></ul>
+            <div class="wz-sct" data-wz-sct hidden><span>Total</span><b data-wz-sctp></b></div>
+            <button type="button" class="wz-scgo" data-wz-viewcart hidden>View cart →</button>
+          </div>
+          <div class="wz-promise">
+            <b>Danat Promise</b>
+            <ul><li>Verified technicians</li><li>Estimate before any work</li><li>Updates on WhatsApp</li></ul>
+          </div>
+        </aside>
+        </div>
+
+        <!-- phones: the cart rides along at the bottom of the screen while the wizard is in view -->
+        <div class="wz-cbar" data-wz-cbar hidden>
+          <span class="wz-cico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 3.5h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1l1.8-7.3H6"/><circle cx="9.5" cy="19.8" r="1.4"/><circle cx="17" cy="19.8" r="1.4"/></svg><b data-wz-cbn>0</b></span>
+          <span class="wz-cbt"><b data-wz-cbt></b><small data-wz-cbp></small></span>
+          <button type="button" class="wz-cgo" data-wz-viewcart>View cart →</button>
         </div>
 
         <div class="wz-foot">
@@ -584,11 +637,15 @@ const payload = JSON.stringify({
 
 
 
-  // ---------- booking wizard: 1 device → 2 brand & model → 3 issues → 4 estimate ----------
+  // ---------- booking wizard: 1 device → 2 model → 3 repairs (Add) → 4 cart → 5 book ----------
+  // Urban Company style: repairs go straight into the site cart (CartDrawer's window.danatCart),
+  // one device after another; the Book step sends everything in the cart as one booking.
   const wz = $('[data-wz]');
-  const wzState = { step: 1, cat: '', brand: '', model: '', modelId: 0, seriesId: 0, issues: new Set<string>() };
+  const wzState = { step: 1, cat: '', brand: '', model: '', modelId: 0, seriesId: 0 };
   let wzReady = false;   // true once a saved booking-in-progress has been put back (restoreWz); saving waits for it
-  const LAST = 5;   // 1 device · 2 brand & model · 3 repairs · 4 details · 5 book
+  let fixFor = '';       // cart line (id) whose model is being chosen from the Cart step
+  let bookedRef = '';    // set once the booking is made (the cart empties; the Book step shows the done note)
+  const LAST = 5;   // 1 device · 2 model · 3 repairs · 4 cart · 5 book
   const tel = site.phone.tel.replace('+', '');
   const waUrl = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
   const wzCat = () => data.categories.find((c) => c.id === wzState.cat);
@@ -596,39 +653,85 @@ const payload = JSON.stringify({
   // The wizard has no Doorstep/Pickup choice (the technician comes first, the lab if needed);
   // on-site-only services (CCTV, networking) don't go to the lab, so that line is hidden for them.
   function paintWzMode() {
-    $('[data-wz-labline]', wz).hidden = !!wzCat()?.onsiteOnly;
+    const items = cartItems();
+    $('[data-wz-labline]', wz).hidden = items.length ? items.every((it) => !!catFor(it)?.onsiteOnly) : !!wzCat()?.onsiteOnly;
   }
 
-  const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? true : wzState.step === 3 ? wzState.issues.size > 0 : wzState.step === 4);
+  // ---------- the cart (shared with the header bag) ----------
+  type CartItem = { id: string; device: string; model: string; issues: string[]; qty?: Record<string, number>;
+    cat?: string; brand?: string; ids?: { category_id?: number; brand_id?: number; series_id?: number; model_id?: number };
+    pid?: Record<string, number>; px?: Record<string, number> };
+  const cartApi = () => (window as any).danatCart;
+  const cartItems = (): CartItem[] => cartApi()?.items() ?? [];
+  const cartCount = (): number => cartApi()?.count() ?? 0;
+  const qtyIn = (it: CartItem, s: string) => it.qty?.[s] ?? 1;
+  /** The device being booked right now, as the cart keys it (category name + "Brand Model"). */
+  const curDev = () => {
+    const c = wzCat()!;
+    return {
+      device: c.name, model: [brandName(), wzState.model].filter(Boolean).join(' '), cat: c.id, brand: wzState.brand,
+      ids: { category_id: c.odooId || undefined, brand_id: brandOdooId() || undefined, series_id: wzState.seriesId || undefined, model_id: wzState.modelId || undefined },
+    };
+  };
+  // Lines added on Home or Our Services carry only names: find their category and repair here.
+  const catFor = (it: CartItem) => {
+    const d = norm(it.device);
+    return data.categories.find((c) => c.id === it.cat)
+      ?? data.categories.find((c) => norm(c.name) === d)
+      ?? data.categories.find((c) => norm(c.name).startsWith(d.split(' ')[0].replace(/s$/, '')));
+  };
+  const svcFor = (it: CartItem, issue: string) => {
+    const all = catFor(it)?.services.filter((s) => s.name === issue) ?? [];
+    return all.find((s) => !s.b && !s.s && !s.m) ?? all[0];
+  };
+  const pidOf = (it: CartItem, issue: string) => it.pid?.[issue] || svcFor(it, issue)?.id || undefined;
+  const pxOf = (it: CartItem, issue: string): number | null => it.px?.[issue] ?? (data.odoo ? svcFor(it, issue)?.price ?? null : null);
+  const r3 = (n: number) => Math.round(n * 1000) / 1000;
+  const cartTotal = () => {
+    let sum = 0, known = false;
+    cartItems().forEach((it) => it.issues.forEach((s) => { const p = pxOf(it, s); if (p !== null) { known = true; sum += p * qtyIn(it, s); } }));
+    return known ? `from ${price(r3(sum))}` : price();
+  };
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const cartSummary = () => `${plural(cartCount(), 'repair')} · ${plural(cartItems().length, 'device')}`;
+  const devTitle = (it: CartItem) => it.model || 'Model not chosen';
+
+  const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? true : cartCount() > 0);
   const wzGo = (n: number) => {
-    if (n > 1 && !wzState.cat) n = 1;
-    if (n > 3 && !wzState.issues.size) n = 3;
+    if (bookedRef && n < LAST) {   // after a booking: a fresh one starts
+      bookedRef = '';
+      $('[data-acc-done]', wz).hidden = true;
+      $('[data-acc-upmsg]', wz).hidden = true;
+    }
+    if (n > 1 && n < 4 && !wzState.cat) n = 1;
+    if (n >= 4 && !cartCount() && !bookedRef) n = wzState.cat ? 3 : 1;
+    if (n !== 2) fixFor = '';
     wzState.step = n;
     $$('[data-wz-panel]', wz).forEach((p) => { const on = p.dataset.wzPanel === String(n); p.hidden = !on; p.classList.toggle('on', on); });
     $$('[data-wz-dot]', wz).forEach((d) => { const k = Number(d.dataset.wzDot); d.classList.toggle('on', k === n); d.classList.toggle('done', k < n); });
     $('[data-wz-fill]', wz).style.width = `${((n - 1) / (LAST - 1)) * 100}%`;
-    $('[data-wz-back]', wz).hidden = n === 1;
-    const next = $<HTMLButtonElement>('[data-wz-next]', wz);
-    next.hidden = n === LAST;
-    next.disabled = !canNext();
-    next.textContent = n === 2 && !wzState.model ? 'Skip model →' : n === 4 ? 'Continue to booking →' : 'Continue →';
+    $('[data-wz-back]', wz).hidden = n === 1 || !!bookedRef;
+    $('[data-wz-next]', wz).hidden = n === LAST;
     const c = wzCat();
-    $('[data-wz-crumb]', wz).textContent = [c?.name, wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name, wzState.model].filter(Boolean).join(' › ');
-    if (n === LAST) renderEstimate();
+    $('[data-wz-crumb]', wz).textContent = n >= 4 ? (bookedRef ? '' : cartSummary())
+      : [c?.name, wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name, wzState.model].filter(Boolean).join(' › ');
+    if (n === 3) paintIssues();
+    if (n === 4) { renderCart(); paintCoupon(); }
+    if (n === LAST && !bookedRef) renderEstimate();
+    paintCart();
     if (wz.getBoundingClientRect().top < 0) wz.scrollIntoView({ behavior: 'smooth', block: 'start' });
     saveWz();
   };
 
   // step 1
   const setWzCat = (id: string) => {
-    if (wzState.cat !== id) { wzState.brand = ''; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0; wzState.issues.clear(); }
+    if (wzState.cat !== id) { wzState.brand = ''; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0; }
     wzState.cat = id;
     $$('[data-wz-cat]', wz).forEach((b) => b.classList.toggle('on', b.dataset.wzCat === id));
     const c = wzCat()!;
     $('[data-wz-catname]', wz).textContent = c.name.replace(/s( &.*)?$/, '').replace(/ Installation$/, ' system').toLowerCase();
     $$('[data-wz-brand]', wz).forEach((b) => { b.hidden = b.dataset.wzBrandCat !== id; b.classList.toggle('on', b.dataset.wzBrand === wzState.brand); });
     $$('[data-wz-issues]', wz).forEach((g) => (g.hidden = g.dataset.wzIssues !== id));
-    $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.setAttribute('aria-pressed', 'false'));
     wzSearch.value = '';
     showWzModels();
     showIssues();
@@ -640,11 +743,10 @@ const payload = JSON.stringify({
     const g = wz.querySelector<HTMLElement>(`[data-wz-issues="${wzState.cat}"]`);
     if (!g) return;
     const fits = (v: string | undefined, have: number) => !v || (have > 0 && Number(v) === have);
-    g.querySelectorAll<HTMLButtonElement>('.wz-iss').forEach((b) => {
-      const ok = fits(b.dataset.b, brandOdooId()) && fits(b.dataset.s, wzState.seriesId) && fits(b.dataset.m, wzState.modelId);
-      b.hidden = !ok;
-      if (!ok && wzState.issues.has(b.dataset.iss!)) { wzState.issues.delete(b.dataset.iss!); b.setAttribute('aria-pressed', 'false'); }
+    g.querySelectorAll<HTMLElement>('.wz-iss').forEach((b) => {
+      b.hidden = !(fits(b.dataset.b, brandOdooId()) && fits(b.dataset.s, wzState.seriesId) && fits(b.dataset.m, wzState.modelId));
     });
+    paintIssues();
   }
   $$('[data-wz-cat]', wz).forEach((b) => b.addEventListener('click', () => { setWzCat(b.dataset.wzCat!); wzGo(2); }));
 
@@ -662,13 +764,23 @@ const payload = JSON.stringify({
     $('[data-wz-mhint]', wz).textContent = q ? (n ? `${n} match${n === 1 ? '' : 'es'}` : 'No match — type your model below, or skip.') : wzState.brand ? `${n} models` : 'Pick a brand to see its models.';
     $('[data-wz-typed-box]', wz).hidden = !(data.odoo && wzState.brand);
   };
+  // A model was chosen (or skipped): on to its repairs - or, when it was for a cart line
+  // added without a model, that line takes this device and we go back to the cart.
+  const modelDone = () => {
+    showWzModels(); showIssues();
+    if (fixFor) {
+      if (wzState.model || wzState.brand) cartApi()?.retarget(fixFor, curDev());
+      wzGo(4); return;
+    }
+    wzGo(3);
+  };
   // Model not in Odoo's list: the customer types it; the job card gets it as text.
   const typedIn = $<HTMLInputElement>('[data-wz-typed]', wz);
   $('[data-wz-typed-go]', wz).addEventListener('click', () => {
     const v = typedIn.value.trim();
     if (v.length < 2) { typedIn.focus(); return; }
     wzState.model = v; wzState.modelId = 0; wzState.seriesId = 0;
-    showWzModels(); showIssues(); wzGo(3);
+    modelDone();
   });
   $$('[data-wz-brand]', wz).forEach((b) => b.addEventListener('click', () => {
     wzState.brand = b.dataset.wzBrand!; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0;
@@ -682,18 +794,136 @@ const payload = JSON.stringify({
     wzState.model = m.dataset.model!; wzState.brand = m.dataset.modelBrand!;
     wzState.modelId = Number(m.dataset.modelId) || 0; wzState.seriesId = Number(m.dataset.seriesId) || 0;
     $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x.dataset.wzBrand === wzState.brand));
-    showWzModels(); showIssues(); wzGo(3);
+    modelDone();
   }));
-  $('[data-wz-skip]', wz).addEventListener('click', () => { wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0; showIssues(); wzGo(3); });
+  $('[data-wz-skip]', wz).addEventListener('click', () => {
+    if (fixFor) { wzGo(4); return; }   // still don't know it: back to the cart unchanged
+    wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0; modelDone();
+  });
 
-  // step 3
-  $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.addEventListener('click', () => {
-    const v = b.dataset.iss!;
-    wzState.issues.has(v) ? wzState.issues.delete(v) : wzState.issues.add(v);
-    b.setAttribute('aria-pressed', String(wzState.issues.has(v)));
-    $<HTMLButtonElement>('[data-wz-next]', wz).disabled = !canNext();
-    saveWz();
+  // step 3 · Add / − n + on each repair, straight into the cart for this device
+  function paintIssues() {
+    if (!wzState.cat || !cartApi()) return;
+    const dev = curDev();
+    wz.querySelectorAll<HTMLElement>(`[data-wz-issues="${wzState.cat}"] .wz-iss`).forEach((row) => {
+      const n = cartApi().qty(dev, row.dataset.iss!);
+      row.classList.toggle('in', n > 0);
+      row.querySelector<HTMLElement>('[data-iss-add]')!.hidden = n > 0;
+      row.querySelector<HTMLElement>('.wz-qty')!.hidden = !n;
+      row.querySelector('.wz-qty output')!.textContent = String(n || 1);
+    });
+  }
+  $$<HTMLElement>('.wz-iss', wz).forEach((row) => row.addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest('button');
+    if (!t || !cartApi()) return;
+    const dev = curDev(), name = row.dataset.iss!;
+    const n = cartApi().qty(dev, name) + (t.matches('[data-iss-dec]') ? -1 : 1);
+    cartApi().set(dev, name, n, { pid: Number(row.dataset.pid) || undefined, px: row.dataset.price ? Number(row.dataset.price) : null });
   }));
+
+  // ---------- live cart: side card (wide screens), bottom bar (phones), step buttons ----------
+  const cbar = $('[data-wz-cbar]', wz);
+  let wzSeen = false;   // the bar only rides along while the wizard is on screen
+  new IntersectionObserver(([en]) => { wzSeen = en.isIntersecting; paintCart(); }, { rootMargin: '0px 0px -120px 0px' }).observe(wz);
+  function paintCart() {
+    const n = cartCount(), side = wzState.step <= 3;
+    $('[data-wz-body]', wz).classList.toggle('full', !side);
+    $('[data-wz-side]', wz).hidden = !side;
+    $('[data-wz-scn]', wz).textContent = plural(n, 'item');
+    $('[data-wz-sce]', wz).hidden = !!n;
+    $('[data-wz-sct]', wz).hidden = !n;
+    $$('[data-wz-viewcart]', wz).forEach((b) => (b.hidden = !n));
+    $('[data-wz-scl]', wz).innerHTML = cartItems().flatMap((it) => it.issues.map((s) => {
+      const p = pxOf(it, s), q = qtyIn(it, s);
+      return `<li><span><b>${esc(s)}${q > 1 ? ` ×${q}` : ''}</b><small>${esc(devTitle(it))}</small></span><span>${p === null ? price() : price(r3(p * q))}</span></li>`;
+    })).join('');
+    $('[data-wz-sctp]', wz).textContent = cartTotal();
+    cbar.hidden = !(side && n && wzSeen);
+    document.documentElement.classList.toggle('wz-cbar-on', !cbar.hidden);
+    $('[data-wz-cbn]', wz).textContent = String(n);
+    $('[data-wz-cbt]', wz).textContent = cartSummary();
+    $('[data-wz-cbp]', wz).textContent = cartTotal();
+    const next = $<HTMLButtonElement>('[data-wz-next]', wz);
+    next.disabled = !canNext();
+    next.textContent = wzState.step === 2 && !wzState.model ? (fixFor ? 'Back to cart →' : 'Skip model →')
+      : wzState.step === 3 ? (n ? `View cart (${n}) →` : 'Add a repair to continue')
+      : wzState.step === 4 ? 'Continue to book →' : 'Continue →';
+  }
+  $$('[data-wz-viewcart]', wz).forEach((b) => b.addEventListener('click', () => wzGo(4)));
+  // the cart changed (here, in the header bag, or in another tab)
+  window.addEventListener('danat-cart', () => {
+    paintIssues(); paintCart(); paintWzMode();
+    if (bookedRef) return;
+    if (wzState.step === 4) { if (cartCount()) renderCart(); else wzGo(1); }
+    if (wzState.step === LAST) { if (cartCount()) renderEstimate(); else wzGo(1); }
+  });
+
+  // step 4 · the cart: grouped by device, − n + / remove, "+ Add model", "+ Add another device"
+  const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+  const catIcon = (it: CartItem) => { const c = catFor(it); return c ? wz.querySelector(`[data-wz-cat="${c.id}"] .wz-di svg`)?.outerHTML ?? '' : ''; };
+  function renderCart() {
+    const items = cartItems();
+    $('[data-wz-cartsub]', wz).textContent = cartSummary();
+    $('[data-wz-cnote]', wz).hidden = !items.some((it) => !it.model);
+    $('[data-wz-groups]', wz).innerHTML = items.map((it) => {
+      const c = catFor(it);
+      return `<div class="wz-grp">
+        <div class="wz-gh"><span class="wz-gi">${catIcon(it)}</span><span class="wz-gt"><b>${esc(devTitle(it))}</b><small>${esc(c?.name ?? it.device)}</small></span>
+          ${!it.model && c ? `<button type="button" class="wz-fix" data-fix="${esc(it.id)}">+ Add model</button>` : ''}</div>
+        ${it.issues.map((s) => {
+          const p = pxOf(it, s), q = qtyIn(it, s), k = `${esc(it.id)}::${esc(s)}`;
+          return `<div class="wz-gl"><b>${esc(s)}</b>
+            <span class="wz-qty sm" role="group" aria-label="${esc(s)} quantity"><button type="button" data-gq="${k}::-1" aria-label="One less">−</button><output>${q}</output><button type="button" data-gq="${k}::1" aria-label="One more">+</button></span>
+            <span class="wz-gp">${p === null ? price() : price(r3(p * q))}</span>
+            <button type="button" class="wz-grm" data-gq="${k}::0" aria-label="Remove ${esc(s)}">${TRASH}</button></div>`;
+        }).join('')}
+      </div>`;
+    }).join('');
+  }
+  $('[data-wz-groups]', wz).addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (!t) return;
+    if (t.dataset.fix) {   // choose the model for repairs added without one
+      const it = cartItems().find((x) => x.id === t.dataset.fix);
+      const c = it && catFor(it);
+      if (!it || !c) return;
+      setWzCat(c.id);
+      wzState.brand = ''; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0;
+      $$('[data-wz-brand]', wz).forEach((x) => x.classList.remove('on'));
+      showWzModels();
+      wzGo(2);
+      fixFor = it.id;
+      paintCart();
+      return;
+    }
+    if (!t.dataset.gq) return;
+    const [id, s, d] = t.dataset.gq.split('::');
+    const it = cartItems().find((x) => x.id === id);
+    if (!it) return;
+    cartApi().set({ device: it.device, model: it.model }, s, d === '0' ? 0 : qtyIn(it, s) + Number(d));
+  });
+  $('[data-wz-more]', wz).addEventListener('click', () => {
+    wzState.cat = ''; wzState.brand = ''; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0;
+    $$('[data-wz-cat]', wz).forEach((b) => b.classList.remove('on'));
+    wzGo(1);
+  });
+  // coupon: the same code as the header bag's; it goes with the booking
+  const cpOk = $('[data-wz-cpok]', wz);
+  function paintCoupon() {
+    const c = cartApi()?.coupon() || '';
+    cpOk.hidden = !c;
+    cpOk.innerHTML = c ? `Code <b>${esc(c)}</b> goes with your booking — our team confirms it. <button type="button" data-wz-cpx>Remove</button>` : '';
+    $('[data-wz-cpf]', wz).hidden = !!c;
+  }
+  $<HTMLFormElement>('[data-wz-cpf]', wz).addEventListener('submit', (e) => {
+    e.preventDefault();
+    const inp = $<HTMLInputElement>('[data-wz-cp]', wz);
+    const v = inp.value.trim().toUpperCase().slice(0, 30);
+    if (!v) { inp.focus(); return; }
+    cartApi()?.setCoupon(v); inp.value = '';
+  });
+  cpOk.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-wz-cpx]')) cartApi()?.setCoupon(''); });
+  window.addEventListener('danat-cart', paintCoupon);
 
   // step 4 · details: the customer's own words, photos (max 5, shrunk here) and one video
   const MAX_PHOTOS = 5, VIDEO_BYTES = 30 * 1024 * 1024;
@@ -822,47 +1052,37 @@ const payload = JSON.stringify({
     media.video = f || null; mErr(''); input.value = ''; drawThumbs();
   });
 
-  // step 5 · estimate
+  // step 5 · the receipt for everything in the cart, then sign in + address → Book
   const brandName = () => wz.querySelector<HTMLElement>(`[data-wz-brand="${wzState.brand}"]`)?.dataset.name ?? '';
-  const issueBtn = (name: string) => wz.querySelector<HTMLElement>(`[data-wz-issues="${wzState.cat}"] .wz-iss[data-iss="${CSS.escape(name)}"]`);
-  const issuePrice = (name: string) => { const p = issueBtn(name)?.dataset.price; return p ? Number(p) : null; };
+  const OK = '<i class="wz-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>';
   const renderEstimate = () => {
-    const c = wzCat()!;
-    $('[data-wz-sumico]', wz).innerHTML = wz.querySelector(`[data-wz-cat="${c.id}"] .wz-di`)!.innerHTML;
-    $('[data-wz-sumdev]', wz).textContent = c.name;
-    wz.style.setProperty('--eh', wz.querySelector<HTMLElement>(`[data-wz-cat="${c.id}"]`)!.style.getPropertyValue('--h')); // receipt header colour
-    $('[data-wz-summodel]', wz).textContent = [brandName(), wzState.model].filter(Boolean).join(' · ') || 'Model not specified';
-    let total = 0;
-    $('[data-wz-sumlist]', wz).innerHTML = [...wzState.issues].map((i, k) => {
-      const p = data.odoo ? issuePrice(i) : null;
-      total += p || 0;
-      return `<li style="--i:${k}"><span><i class="wz-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>${esc(i)}</span><b>${p === null ? price() : price(p)}</b></li>`;
-    }).join('');
-    $('[data-wz-sumtotal]', wz).textContent = data.odoo ? `from ${price(total)}` : price();
+    const items = cartItems();
+    if (!items.length) return;
+    const first = catFor(items[0]);
+    $('[data-wz-sumico]', wz).innerHTML = catIcon(items[0]);
+    if (first) wz.style.setProperty('--eh', wz.querySelector<HTMLElement>(`[data-wz-cat="${first.id}"]`)!.style.getPropertyValue('--h')); // receipt header colour
+    $('[data-wz-sumdev]', wz).textContent = items.length === 1 ? (first?.name ?? items[0].device) : cartSummary();
+    $('[data-wz-summodel]', wz).textContent = items.map(devTitle).join(' · ');
+    let k = 0;
+    $('[data-wz-sumlist]', wz).innerHTML = items.map((it) => (items.length > 1 ? `<li class="wz-sdev">${esc(devTitle(it))}<small>${esc(catFor(it)?.name ?? it.device)}</small></li>` : '')
+      + it.issues.map((s) => {
+        const p = pxOf(it, s), q = qtyIn(it, s);
+        return `<li style="--i:${k++}"><span>${OK}${esc(s)}${q > 1 ? ` ×${q}` : ''}</span><b>${p === null ? price() : price(r3(p * q))}</b></li>`;
+      }).join('')).join('');
+    $('[data-wz-sumtotal]', wz).textContent = cartTotal();
+    $('[data-acc-book]', wz).textContent = bookLabel();
     paintWzMode();
     if (data.odoo) acctStart();
   };
-  const currentItem = () => ({ cat: wzState.cat, device: wzCat()!.name, model: [brandName(), wzState.model].filter(Boolean).join(' '), issues: [...wzState.issues] });
-  /** Booking lines with Odoo's ids (category, brand, series, model, repair service). */
-  const odooLines = () => {
-    const c = wzCat()!;
-    return [...wzState.issues].map((issue) => {
-      const pid = Number(issueBtn(issue)?.dataset.pid) || undefined;
-      return {
-        device: c.name, model: [brandName(), wzState.model].filter(Boolean).join(' '), issue, qty: 1,
-        category_id: c.odooId || undefined, brand_id: brandOdooId() || undefined,
-        series_id: wzState.seriesId || undefined, model_id: wzState.modelId || undefined, product_id: pid,
-      };
-    });
-  };
-  $('[data-wz-add]', wz).addEventListener('click', () => {
-    const it = currentItem();
-    (window as any).danatCart?.add({ device: it.device, model: it.model, issues: it.issues }, { open: true });
-    // start again for the next device
-    wzState.cat = ''; wzState.brand = ''; wzState.model = ''; wzState.issues.clear();
-    $$('[data-wz-cat]', wz).forEach((b) => b.classList.remove('on'));
-    $$<HTMLButtonElement>('.wz-iss', wz).forEach((b) => b.setAttribute('aria-pressed', 'false'));
-    wzGo(1);
+  const bookLabel = () => `Book now · ${plural(cartCount(), 'repair')}`;
+  /** Booking lines for every repair in the cart, with Odoo's ids (category, brand, series, model, repair). */
+  const odooLines = () => cartItems().flatMap((it) => {
+    const c = catFor(it);
+    return it.issues.map((issue) => ({
+      device: c?.name ?? it.device, model: it.model, issue, qty: qtyIn(it, issue),
+      category_id: it.ids?.category_id || c?.odooId || undefined, brand_id: it.ids?.brand_id || undefined,
+      series_id: it.ids?.series_id || undefined, model_id: it.ids?.model_id || undefined, product_id: pidOf(it, issue),
+    }));
   });
 
   // ---------- step 5 with Odoo: 369 Mart account (WhatsApp code) + saved address → Book ----------
@@ -1069,21 +1289,30 @@ const payload = JSON.stringify({
     const ref = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
     const r = await api('/api/booking', {
       ref, mode: 'doorstep', source: 'wizard', address_id: accPicked, problem: problemIn.value.trim(), page: location.pathname,
-      lines: odooLines(),
+      coupon: cartApi()?.coupon() || '', lines: odooLines(),
     });
-    btn.disabled = false; btn.textContent = 'Book now';
+    btn.disabled = false; btn.textContent = bookLabel();
     if (!r.ok) { say(accAMsg, r.error === 'too many' ? 'Too many bookings from this number — please call us.' : "We couldn't send the booking. Please try again, or message us on WhatsApp."); return; }
     $('[data-acc-addrbox]', wz).hidden = true;
     $('[data-acc-done]', wz).hidden = false;
     $('[data-acc-ref]', wz).textContent = r.ref;
+    bookedRef = r.ref;
+    cartApi()?.setCoupon('');
+    cartApi()?.clear();   // everything in the cart is in this one booking
+    wzState.cat = ''; wzState.brand = ''; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0;
+    $$('[data-wz-cat]', wz).forEach((b) => b.classList.remove('on'));
+    wzGo(LAST);
     forgetWz();   // booked: a reload now starts a fresh booking
-    if ((media.photos.length || media.video) && r.upload_token) {
+    const sent = { photos: media.photos, video: media.video };
+    media.photos = []; media.video = null; problemIn.value = ''; mErr('');
+    $('[data-wz-thumbs]', wz).innerHTML = '';
+    if ((sent.photos.length || sent.video) && r.upload_token) {
       const up = $('[data-acc-upmsg]', wz);
       say(up, 'Sending your photos…', false);
       const fd = new FormData();
       fd.append('ref', r.ref); fd.append('token', r.upload_token);
-      media.photos.forEach((p, i) => fd.append('files', p, `photo-${i + 1}.jpg`));
-      if (media.video) fd.append('files', media.video, media.video.name);
+      sent.photos.forEach((p, i) => fd.append('files', p, `photo-${i + 1}.jpg`));
+      if (sent.video) fd.append('files', sent.video, sent.video.name);
       try {
         const u = await (await fetch('/api/booking-media', { method: 'POST', credentials: 'same-origin', body: fd })).json();
         say(up, u.ok ? 'Photos received ✓' : "Your booking is in, but the photos didn't go through — you can send them on WhatsApp.", !u.ok);
@@ -1237,9 +1466,9 @@ const payload = JSON.stringify({
     const ph = checkPhone(wzCc.value, wzPhone.value);
     if (!ph.ok) { wzErrFor(wzPhone, ph.msg); wzPhone.focus(); return; }
     wzErrFor(null, '');
-    const it = currentItem();
-    // Same booking into Odoo (Online Service), alongside the WhatsApp message - never blocks it.
+    // Same booking (every cart line) into Odoo (Online Service), alongside the WhatsApp message - never blocks it.
     const ref = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+    const coupon = cartApi()?.coupon() || '';
     fetch('/api/booking', {
       method: 'POST', keepalive: true, credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
@@ -1247,18 +1476,19 @@ const payload = JSON.stringify({
         ref, mode: 'doorstep', source: 'wizard', name, phone: ph.full, area: wzArea.value.trim(),
         ...(wzAt ? { lat: wzAt[0], lng: wzAt[1] } : {}),
         note: areaState === 'listed' ? '' : areaState === 'far' ? 'Area outside the listed areas' : 'Area not on the list - please confirm',
-        page: location.pathname,
-        lines: it.issues.map((issue) => ({ device: it.device, model: it.model, issue, qty: 1 })),
+        problem: problemIn.value.trim(), coupon, page: location.pathname,
+        lines: odooLines(),
       }),
     }).catch(() => {});
     const msg = [
-      `Hi Danat Fix, I'd like to book a repair.`,
+      `Hi Danat Fix, I'd like to book ${cartCount() === 1 ? 'a repair' : 'these repairs'}.`,
       `Booking ref: ${ref}`,
       `Service: ${titles[mode]}`,
       `Area: ${wzArea.value.trim()}${areaState === 'listed' ? '' : areaState === 'far' ? ' (outside listed areas)' : ' (not on the list — please confirm)'}`,
       ...(wzAt ? [`Location: https://maps.google.com/?q=${wzAt[0].toFixed(5)},${wzAt[1].toFixed(5)}`] : []),
-      `Device: ${it.device}${it.model ? ' — ' + it.model : ''}`,
-      `Needs: ${it.issues.join(', ')}`,
+      ...cartItems().map((it) => `• ${it.issues.map((s) => (qtyIn(it, s) > 1 ? `${s} ×${qtyIn(it, s)}` : s)).join(', ')} — ${catFor(it)?.name ?? it.device}${it.model ? ', ' + it.model : ''}`),
+      ...(problemIn.value.trim() ? [`Details: ${problemIn.value.trim()}`] : []),
+      ...(coupon ? [`Coupon code: ${coupon}`] : []),
       `Name: ${name}`,
       `Phone: ${ph.full}`,
     ].join('\n');
@@ -1276,7 +1506,7 @@ const payload = JSON.stringify({
     try {
       sessionStorage.setItem(WZ_KEY, JSON.stringify({
         step: wzState.step, cat: wzState.cat, brand: wzState.brand, model: wzState.model,
-        modelId: wzState.modelId, seriesId: wzState.seriesId, issues: [...wzState.issues],
+        modelId: wzState.modelId, seriesId: wzState.seriesId,
         problem: problemIn.value, phone: accPhone.value,
         af: Object.fromEntries(AF_KEYS.map((k) => [k, af(k).value])),
       }));
@@ -1312,19 +1542,20 @@ const payload = JSON.stringify({
   async function restoreWz() {
     let s: any = null;
     try { s = JSON.parse(sessionStorage.getItem(WZ_KEY) || 'null'); } catch {}
-    if (!s?.cat || !data.categories.some((c) => c.id === s.cat)) return false;
-    setWzCat(s.cat);
-    if (s.brand) {
-      wzState.brand = s.brand;
-      const tile = wz.querySelector<HTMLElement>(`[data-wz-brand="${CSS.escape(s.brand)}"]`);
-      if (tile) wz.style.setProperty('--mh', tile.style.getPropertyValue('--h'));
-      $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x.dataset.wzBrand === s.brand));
-    }
-    wzState.model = s.model || ''; wzState.modelId = s.modelId || 0; wzState.seriesId = s.seriesId || 0;
-    showWzModels(); showIssues();
-    for (const v of s.issues || []) {
-      const b = wz.querySelector<HTMLButtonElement>(`[data-wz-issues="${CSS.escape(s.cat)}"] .wz-iss[data-iss="${CSS.escape(v)}"]`);
-      if (b && !b.hidden) { wzState.issues.add(v); b.setAttribute('aria-pressed', 'true'); }
+    if (!s) return false;
+    const hasCat = !!s.cat && data.categories.some((c) => c.id === s.cat);
+    // the repairs themselves live in the cart (localStorage); a cart / book step needs only that
+    if (!hasCat && !(s.step >= 4 && cartCount())) return false;
+    if (hasCat) {
+      setWzCat(s.cat);
+      if (s.brand) {
+        wzState.brand = s.brand;
+        const tile = wz.querySelector<HTMLElement>(`[data-wz-brand="${CSS.escape(s.brand)}"]`);
+        if (tile) wz.style.setProperty('--mh', tile.style.getPropertyValue('--h'));
+        $$('[data-wz-brand]', wz).forEach((x) => x.classList.toggle('on', x.dataset.wzBrand === s.brand));
+      }
+      wzState.model = s.model || ''; wzState.modelId = s.modelId || 0; wzState.seriesId = s.seriesId || 0;
+      showWzModels(); showIssues();
     }
     problemIn.value = s.problem || '';
     if (s.phone) accPhone.value = s.phone;
@@ -1353,13 +1584,28 @@ const payload = JSON.stringify({
     const m = $$('.wz-model', wz).find((x) => (!wzState.cat || x.dataset.modelCat === wzState.cat) && x.dataset.q!.includes(nq));
     if (m) { setWzCat(m.dataset.modelCat!); wzSearch.value = q; showWzModels(); wzGo(2); }
   }
-  wzGo(1);
+  // "Proceed to book" in the header bag, or Book now on Our Services: straight to the Cart step
+  const toCart = () => {
+    cartApi()?.close();
+    wzGo(cartCount() ? 4 : 1);
+    requestAnimationFrame(() => wz.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+  document.querySelector('[data-cd-proceed]')?.addEventListener('click', (e) => { e.preventDefault(); toCart(); });
+  window.addEventListener('danat-checkout', toCart);
 
-
-  // Deep links from the home page and nav menu: ?mode=pickup, ?cat=printer, ?q=Samsung
+  // Deep links from the home page and nav menu: ?mode=pickup, ?cat=printer, ?q=Samsung, ?cart=1
+  // (The cart lives in CartDrawer's script; every module script has run by DOMContentLoaded.)
   const q = new URLSearchParams(location.search);
-  if (q.get('cat') || q.get('q')) { wzReady = true; wzDeepLink(q.get('cat'), q.get('q')); }
-  else restoreWz().finally(() => { wzReady = true; saveWz(); });
+  const wzStart = () => {
+    wzGo(1);
+    if (q.get('cat') || q.get('q')) { wzReady = true; wzDeepLink(q.get('cat'), q.get('q')); }
+    else restoreWz().finally(() => {
+      wzReady = true;
+      if (q.get('cart') && cartCount() && wzState.step < 4) wzGo(4);
+      saveWz();
+    });
+  };
+  if (cartApi()) wzStart(); else document.addEventListener('DOMContentLoaded', wzStart, { once: true });
   const startMode = q.get('mode');
   setMode(startMode && data.coverage[startMode] ? startMode : 'doorstep');
   // ?area= from the home-page location search: pre-check coverage and pre-fill the booking
@@ -1398,9 +1644,9 @@ const payload = JSON.stringify({
 
   /* step headings */
   .step-head { display: flex; align-items: center; gap: 18px; margin-bottom: 26px; }
-  .step-head h2 { margin-top: 6px; font-size: clamp(28px, 3.4vw, 42px); }
+  .step-head h2 { margin-top: 6px; font-size: 24px; }
   .sh2 { margin-top: 64px; }
-  .step-no { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px; background: var(--grad); color: var(--on-accent); font-family: var(--display); font-size: 24px; font-weight: 800; flex: none; box-shadow: 0 14px 30px -14px rgba(var(--a1), .7); }
+  .step-no { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--grad); color: var(--on-accent); font-family: var(--display); font-size: 18px; font-weight: 800; flex: none; box-shadow: 0 14px 30px -14px rgba(var(--a1), .7); }
 
   /* mode cards */
   .mode-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
@@ -1420,7 +1666,7 @@ const payload = JSON.stringify({
   [aria-checked='true'] .mode-icon { background: var(--grad); color: var(--on-accent); }
   .mode-icon svg { width: 30px; height: 30px; }
   .mc-titles { display: grid; gap: 2px; }
-  .mode-title { font-family: var(--display); font-size: 24px; font-weight: 800; }
+  .mode-title { font-family: var(--display); font-size: 18px; font-weight: 800; }
   .mode-short { color: var(--ink-2); font-size: 15px; }
   .mc-eta { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--violet); font-size: 13px; font-weight: 700; }
   .mc-eta svg { width: 16px; height: 16px; }
@@ -1498,7 +1744,7 @@ const payload = JSON.stringify({
   /* booking wizard */
   .cat-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
   .cat-head h2 { margin-top: 14px; }
-  .wz { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); overflow: hidden; }
+  .wz { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); overflow: hidden; overflow: clip; } /* clip, not a scroll box: the side cart can stick */
   .wz-steps { position: relative; list-style: none; margin: 0; padding: 26px 40px 22px; display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); background: var(--tint); }
   /* rail runs from the first dot to the last: half a column (of 5) in from each side */
   .wz-rail { position: absolute; left: calc(40px + (100% - 80px) / 10); right: calc(40px + (100% - 80px) / 10); top: 45px; height: 3px; border-radius: 3px; background: var(--line); z-index: 0; }
@@ -1517,7 +1763,7 @@ const payload = JSON.stringify({
   .wz-panel { padding: 28px 32px; min-height: 380px; animation: wzIn .4s cubic-bezier(.2,.8,.2,1); }
   .wz-panel[hidden] { display: none; }
   @keyframes wzIn { from { opacity: 0; transform: translateX(16px); } }
-  .wz-q { font-size: 22px; margin-bottom: 18px; }
+  .wz-q { font-size: 18px; margin-bottom: 18px; }
   .wz-q small { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
 
   .wz-devs { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
@@ -1528,6 +1774,11 @@ const payload = JSON.stringify({
   .wz-di svg { width: 30px; height: 30px; }
   .wz-di.sm { width: 46px; height: 46px; border-radius: 14px; background: var(--accent-soft); color: var(--violet); }
   .wz-di.sm :global(svg) { width: 24px; height: 24px; }
+  /* a picture from Odoo fills its tile and hides the drawing / logo / icon under it */
+  .has-pic { position: relative; overflow: hidden; }
+  .has-pic > :not(.wz-pic) { visibility: hidden; }
+  .wz-pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .wz-mono .wz-pic { inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); max-width: none; max-height: none; object-fit: contain; }
   .wz-dev b { font-size: 15px; }
   .wz-dev small { font-size: 12.5px; color: var(--ink-3); }
 
@@ -1555,20 +1806,116 @@ const payload = JSON.stringify({
   .wz-model.on { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--violet); }
   .wz-skip { align-self: flex-start; border: 0; background: none; padding: 4px; font-size: 13px; font-weight: 700; color: var(--violet); }
 
-  .wz-issues { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+  /* step 3 · repairs as an Urban Company list: one row each, Add → − n + */
+  .wz-issues { display: grid; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
   .wz-issues[hidden] { display: none; }
-  .wz-iss { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px solid var(--line); border-radius: 18px; background: var(--surface); text-align: left; transition: border-color .2s, background .2s, transform .2s; }
-  .wz-iss:hover { transform: translateY(-2px); }
-  .wz-iss[aria-pressed='true'] { border-color: var(--violet); background: var(--accent-soft); }
-  .wz-ii { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: hsl(var(--h) 70% var(--chip-l, 94%)); color: hsl(var(--h) 60% var(--chip-ink-l, 40%)); flex: none; }
+  .wz-iss { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--surface); text-align: left; transition: background .2s; }
+  .wz-iss + .wz-iss { border-top: 1px solid var(--line); }
+  .wz-iss[hidden] + .wz-iss, .wz-iss:first-child { border-top: 0; }
+  .wz-iss.in { background: var(--accent-soft); }
+  .wz-ii { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; background: hsl(var(--h) 70% var(--chip-l, 94%)); color: hsl(var(--h) 60% var(--chip-ink-l, 40%)); flex: none; }
   .wz-ii :global(svg) { width: 22px; height: 22px; }
-  .wz-in { flex: 1; min-width: 0; }
-  .wz-in b { display: block; font-size: 14.5px; }
+  .wz-in { flex: 1; min-width: 0; display: grid; gap: 1px; }
+  .wz-in b { font-size: 15px; }
   .wz-in small { font-size: 12.5px; color: var(--ink-3); }
-  .wz-ck { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line); color: transparent; flex: none; transition: all .2s; }
-  .wz-ck svg { width: 13px; height: 13px; }
-  .wz-iss[aria-pressed='true'] .wz-ck { background: var(--violet); border-color: var(--violet); color: var(--on-accent); }
+  .wz-in em { margin-top: 3px; font-style: normal; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .wz-act { flex: none; }
+  .wz-addb { min-width: 88px; height: 38px; border: 1.5px solid var(--violet); border-radius: 10px; background: var(--surface); color: var(--violet); font: inherit; font-size: 13.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; transition: background .2s; }
+  .wz-addb:hover { background: var(--accent-soft); }
+  .wz-addb[hidden], .wz-qty[hidden] { display: none; }
+  .wz-qty { display: inline-grid; grid-template-columns: 30px 28px 30px; align-items: center; min-width: 88px; height: 38px; border-radius: 10px; background: var(--violet); color: var(--on-accent); overflow: hidden; }
+  .wz-qty button { height: 100%; border: 0; background: none; color: inherit; font: inherit; font-size: 18px; font-weight: 700; cursor: pointer; }
+  .wz-qty output { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+  /* the cart step's steppers are drawn by the script (innerHTML), hence :global */
+  .wz-groups :global(.wz-qty) { display: inline-grid; grid-template-columns: 28px 28px 28px; align-items: center; min-width: 84px; height: 34px; border-radius: 10px; background: var(--accent-soft); color: var(--violet); overflow: hidden; }
+  .wz-groups :global(.wz-qty button) { height: 100%; border: 0; background: none; color: inherit; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+  .wz-groups :global(.wz-qty output) { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
 
+  /* steps 1-3: the live cart beside the panel (wide screens) */
+  .wz-body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; align-items: start; }
+  .wz-body.full { grid-template-columns: minmax(0, 1fr); }
+  .wz-side { position: sticky; top: 90px; display: grid; gap: 12px; padding: 28px 32px 28px 0; }
+  .wz-side[hidden] { display: none; }
+  .wz-sc { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+  .wz-sc h4 { display: flex; justify-content: space-between; align-items: baseline; margin: 0; font-size: 17px; }
+  .wz-sc h4 small { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+  .wz-sce { display: grid; justify-items: center; gap: 6px; padding: 16px 0 6px; font-size: 13.5px; color: var(--ink-3); text-align: center; }
+  .wz-sce[hidden] { display: none; }
+  .wz-sce svg { width: 40px; height: 40px; opacity: .6; }
+  .wz-sc ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: 320px; overflow-y: auto; }
+  .wz-sc ul:empty { display: none; }
+  .wz-sc ul :global(li) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: 13.5px; }
+  .wz-sc ul :global(li small) { display: block; font-size: 12px; color: var(--ink-3); }
+  .wz-sct { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px dashed var(--line); font-weight: 800; }
+  .wz-sct[hidden] { display: none; }
+  .wz-scgo { height: 46px; border: 0; border-radius: 12px; background: var(--violet); color: var(--on-accent); font: inherit; font-weight: 800; font-size: 14.5px; cursor: pointer; }
+  .wz-scgo[hidden] { display: none; }
+  .wz-promise { padding: 16px 18px; border-radius: 18px; background: var(--accent-soft); font-size: 13px; color: var(--ink-2); }
+  .wz-promise b { display: block; margin-bottom: 6px; font-size: 14px; color: var(--ink); }
+  .wz-promise ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+
+  /* phones: the cart bar at the bottom of the screen */
+  .wz-cbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; display: none; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -12px 30px -18px rgba(0, 0, 0, .35); }
+  .wz-cbt { display: grid; min-width: 0; }
+  .wz-cbt b { font-size: 14.5px; }
+  .wz-cbt small { font-size: 12.5px; color: var(--ink-3); }
+  .wz-cbar .wz-cgo { border: 0; background: var(--violet); color: var(--on-accent); font: inherit; font-weight: 800; cursor: pointer; }
+  .wz-cbar .wz-cico { background: var(--accent-soft); }
+
+  /* step 4 · the cart */
+  .wz-cnote { margin: -8px 0 14px; font-size: 13.5px; color: var(--ink-2); }
+  .wz-cnote[hidden] { display: none; }
+  .wz-groups { display: grid; gap: 14px; }
+  .wz-groups :global(.wz-grp) { border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+  .wz-groups :global(.wz-gh) { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--tint); border-bottom: 1px solid var(--line); }
+  .wz-groups :global(.wz-gi) { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: var(--surface); color: var(--violet); flex: none; }
+  .wz-groups :global(.wz-gi svg) { width: 20px; height: 20px; }
+  .wz-groups :global(.wz-gt) { flex: 1; min-width: 0; display: grid; }
+  .wz-groups :global(.wz-gt small) { font-size: 12.5px; color: var(--ink-3); }
+  .wz-groups :global(.wz-fix) { padding: 6px 12px; border: 0; border-radius: 999px; background: #FFF4E5; color: #B45309; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+  .wz-groups :global(.wz-fix:hover) { text-decoration: underline; }
+  .wz-groups :global(.wz-gl) { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 34px; align-items: center; gap: 12px; padding: 12px 16px; }
+  .wz-groups :global(.wz-gl + .wz-gl) { border-top: 1px solid var(--line); }
+  .wz-groups :global(.wz-gl b) { font-size: 14.5px; }
+  .wz-groups :global(.wz-gp) { min-width: 84px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .wz-groups :global(.wz-grm) { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 10px; background: none; color: var(--ink-3); cursor: pointer; }
+  .wz-groups :global(.wz-grm svg) { width: 17px; height: 17px; }
+  .wz-groups :global(.wz-grm:hover) { color: #be123c; border-color: currentColor; }
+  .wz-more { display: flex; align-items: center; justify-content: center; width: 100%; margin-top: 14px; padding: 14px; border: 1.5px dashed var(--line); border-radius: 18px; background: none; color: var(--violet); font: inherit; font-weight: 800; cursor: pointer; transition: background .2s, border-color .2s; }
+  .wz-more:hover { border-color: var(--violet); background: var(--accent-soft); }
+  .wz-extras { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; margin-top: 20px; }
+  .wz-xbox { display: grid; gap: 12px; align-content: start; padding: 18px; border: 1px solid var(--line); border-radius: 18px; }
+  .wz-xbox h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0; font-size: 16px; }
+  .wz-xbox h4 small { font-size: 12.5px; font-weight: 500; color: var(--ink-3); }
+  .wz-cpf { display: flex; gap: 8px; }
+  .wz-cpf[hidden] { display: none; }
+  .wz-cpf input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14.5px; outline: none; }
+  .wz-cpf input:focus { border-color: var(--violet); }
+  .wz-cpf button { padding: 0 18px; border: 0; border-radius: 12px; background: var(--violet); color: var(--on-accent); font: inherit; font-weight: 700; cursor: pointer; }
+  .wz-cpok { margin: 0; padding: 9px 12px; border-radius: 10px; background: #E7F6EC; color: #166534; font-size: 13px; }
+  .wz-cpok[hidden] { display: none; }
+  .wz-cpok :global(button) { border: 0; background: none; padding: 0 0 0 4px; color: #be123c; font: inherit; text-decoration: underline; cursor: pointer; }
+  .wz-cpnote { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+
+  /* step 5 · receipt with more than one device */
+  .wz-sum ul :global(li.wz-sdev) { display: grid; gap: 0; margin-top: 4px; font-weight: 800; color: var(--ink); animation: none; }
+  .wz-sum ul :global(li.wz-sdev small) { font-weight: 500; font-size: 12px; color: var(--ink-3); }
+
+  @media (max-width: 900px) {
+    .wz-body { grid-template-columns: minmax(0, 1fr); }
+    .wz-side { display: none; }
+    .wz-cbar:not([hidden]) { display: grid; }
+    .wz-extras { grid-template-columns: minmax(0, 1fr); }
+    /* while the cart bar shows, the chat / WhatsApp buttons and Spin & Win sit above it */
+    :global(html.wz-cbar-on .fab), :global(html.wz-cbar-on .gift) { bottom: 88px; }
+  }
+  @media (max-width: 560px) {
+    .wz-iss { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 4px 12px; }
+    .wz-ii { width: 42px; height: 42px; }
+    .wz-act { grid-column: 2; justify-self: start; margin-top: 6px; }
+    .wz-groups :global(.wz-gl) { grid-template-columns: minmax(0, 1fr) auto 34px; }
+    .wz-groups :global(.wz-gp) { grid-column: 1; grid-row: 2; text-align: left; }
+  }
   .wz-est { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 20px; }
   .wz-sum, .wz-time { padding: 22px; border: 1px solid var(--line); border-radius: 20px; }
   .wz-dev-line { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
@@ -1578,7 +1925,7 @@ const payload = JSON.stringify({
   .wz-sum ul :global(li) { display: flex; justify-content: space-between; font-size: 14.5px; }
   .wz-sum ul :global(b) { color: var(--lime); }
   .wz-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 12px; border-top: 1px dashed var(--line); font-weight: 700; }
-  .wz-total b { font-family: var(--display); font-size: 30px; color: var(--lime); }
+  .wz-total b { font-family: var(--display); font-size: 24px; color: var(--lime); }
   .wz-note { margin-top: 10px; font-size: 12.5px; color: var(--ink-3); }
   .wz-time h4 { font-size: 16px; margin-bottom: 12px; }
   .wz-t { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
@@ -1616,15 +1963,9 @@ const payload = JSON.stringify({
   .wz-next:disabled { opacity: .4; cursor: not-allowed; }
   .wz-next[hidden] { visibility: hidden; display: block; }
 
-  .wz-cart { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 14px 32px; border-top: 1px solid var(--line); background: var(--accent-soft); }
-  .wz-cart[hidden] { display: none; }
   .wz-cico { position: relative; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--surface); color: var(--violet); }
   .wz-cico svg { width: 21px; height: 21px; }
   .wz-cico b { position: absolute; right: -6px; top: -6px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: var(--violet); color: var(--on-accent); font-size: 11px; }
-  .wz-citems { display: flex; gap: 8px; overflow-x: auto; }
-  .wz-citems :global(.wz-chip) { display: inline-flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
-  .wz-citems :global(.wz-chip b) { color: var(--ink); }
-  .wz-citems :global(.wz-chip button) { width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--tint-2); line-height: 1; }
   .wz-cgo { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; background: #25d366; color: #fff; font-weight: 700; font-size: 14px; white-space: nowrap; }
   .wz-cgo svg { width: 18px; height: 18px; }
 
@@ -1634,9 +1975,7 @@ const payload = JSON.stringify({
     .wz-step button span:last-child { font-size: 11.5px; }
     .wz-panel { padding: 22px 18px; }
     .wz-bm, .wz-est { grid-template-columns: 1fr; }
-    .wz-foot, .wz-cart { padding: 14px 18px; }
-    .wz-cart { grid-template-columns: auto 1fr; }
-    .wz-cgo { grid-column: 1 / -1; justify-content: center; }
+    .wz-foot { padding: 14px 18px; }
     .wz-crumb { display: none; }
   }
 
@@ -1698,7 +2037,7 @@ const payload = JSON.stringify({
   .wz-acct h4 small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
   .wz-acc-in, .wz-acc-addr { display: grid; gap: 12px; }
   .wz-acct .linkish { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--violet); text-decoration: underline; cursor: pointer; }
-  .wz-acct .wz-acts { grid-template-columns: 1fr; }
+  .wz-acct .wz-acts, .wz-who .wz-acts { grid-template-columns: 1fr; }
   .wz-acct .wz-now { background: var(--violet); box-shadow: none; }
   .wz-acct .wz-now:disabled { opacity: .5; cursor: not-allowed; }
   .wz-addrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
@@ -1758,9 +2097,9 @@ const payload = JSON.stringify({
   @keyframes wzSlide { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
 
   /* ===== redesign: step 4 receipt, service cards, details ===== */
-  .wz-panel[data-wz-panel="4"].on .wz-sum, .wz-panel[data-wz-panel="4"].on .wz-time, .wz-panel[data-wz-panel="4"].on .wz-who { animation: wzPop .5s cubic-bezier(.2,.9,.3,1.1) both; }
-  .wz-panel[data-wz-panel="4"].on .wz-time { animation-delay: .08s; }
-  .wz-panel[data-wz-panel="4"].on .wz-who { animation-delay: .16s; }
+  .wz-panel[data-wz-panel="5"].on .wz-sum, .wz-panel[data-wz-panel="5"].on .wz-time, .wz-panel[data-wz-panel="5"].on .wz-who { animation: wzPop .5s cubic-bezier(.2,.9,.3,1.1) both; }
+  .wz-panel[data-wz-panel="5"].on .wz-time { animation-delay: .08s; }
+  .wz-panel[data-wz-panel="5"].on .wz-who { animation-delay: .16s; }
   .wz-sum { position: relative; padding: 0; overflow: hidden; border-radius: 22px; background: var(--surface); box-shadow: 0 18px 40px -30px rgba(30,60,110,.4); }
   .wz-rhead { display: flex; align-items: center; gap: 14px; padding: 20px 22px; background: linear-gradient(135deg, hsl(var(--eh, 210) 90% 95%), hsl(calc(var(--eh, 210) + 45) 90% 93%)); }
   .wz-rhead .wz-di.sm { width: 54px; height: 54px; border-radius: 16px; background: #fff; color: hsl(var(--eh, 210) 65% 48%); box-shadow: 0 10px 22px -14px hsl(var(--eh, 210) 60% 40% / .6); animation: wzFloat 3.2s ease-in-out infinite; }

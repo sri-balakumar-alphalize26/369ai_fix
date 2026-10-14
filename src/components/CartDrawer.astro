@@ -1,7 +1,9 @@
 ---
 // Site-wide cart (like e-commerce sites): header bag icon with count, slide-in
 // drawer from the right. Items persist in localStorage across pages.
-// Anything on the site can add with:  window.danatCart.add({ device, model, issues[] })
+// Anything on the site can add with:  window.danatCart.add({ device, model, issues[], cat? })
+// The booking wizard on /services reads and writes the same cart (set / retarget / clear)
+// and books every line in one go; each change fires a 'danat-cart' event on window.
 import { site, price } from '../data/site';
 import { categories } from '../data/devices';
 import { artFor } from '../data/menu';
@@ -11,7 +13,7 @@ const tel = site.phone.tel.replace('+', '');
 const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.map((b) => b.name) }));
 ---
 
-<div class="cd" data-cd data-tel={tel} data-price={price()} data-cats={JSON.stringify(cats)} data-photos={JSON.stringify(photo)} hidden>
+<div class="cd" data-cd data-tel={tel} data-price={price()} data-cur={site.currency}data-cats={JSON.stringify(cats)} data-photos={JSON.stringify(photo)} hidden>
   <div class="cd-bg" data-cd-close></div>
   <aside class="cd-panel" role="dialog" aria-modal="true" aria-labelledby="cd-title">
     <header class="cd-head">
@@ -48,7 +50,7 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
         <h3 class="cd-sh">Order summary</h3>
         <div class="cd-row">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8M3 21l6-6M5 3l4 4-2 2-4-4"/></svg>
-          <span>Repairs (<i data-cd-lines>0</i>)</span><b>{price()}</b>
+          <span>Repairs (<i data-cd-lines>0</i>)</span><b data-cd-sub>{price()}</b>
         </div>
         <div class="cd-row">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
@@ -57,7 +59,7 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
         <div class="cd-total">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h7M14 3l5 5v4M14 3v5h5M9 13h4M9 17h2"/><circle cx="17.5" cy="17.5" r="3.5"/><path d="M17.5 16v1.6l1 .8"/></svg>
           <div><b>Estimated total</b><small>Final price is confirmed after diagnosis, before any work.</small></div>
-          <strong>{price()}</strong>
+          <strong data-cd-total>{price()}</strong>
         </div>
 
         <ul class="cd-trust">
@@ -69,10 +71,11 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
       </div>
     </div>
 
+    <!-- Proceed = the booking wizard's Cart step (/services), which books everything in one go -->
     <footer class="cd-foot" data-cd-foot hidden>
-      <a class="cd-go" data-cd-go href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>Checkout on WhatsApp<svg class="ar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <a class="cd-go" data-cd-proceed href="/services?cart=1#catalog">Proceed to book<svg class="ar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
       <span class="cd-or">or</span>
-      <a class="cd-cont" href="/services#catalog" data-cd-close>Continue booking<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <a class="cd-cont" data-cd-go href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>Send it on WhatsApp</a>
     </footer>
   </aside>
 
@@ -81,9 +84,14 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
 <div class="cd-toast" data-cd-toast role="status" aria-live="polite"></div>
 
 <script>
-  type Item = { id: string; device: string; model: string; issues: string[]; qty?: Record<string, number> };
+  // cat = the wizard's category id; ids = Odoo's category / brand / series / model ids;
+  // pid / px = Odoo repair product id and its price, per repair (all set by the wizard)
+  type Ids = { category_id?: number; brand_id?: number; series_id?: number; model_id?: number };
+  type Item = { id: string; device: string; model: string; issues: string[]; qty?: Record<string, number>;
+    cat?: string; brand?: string; ids?: Ids; pid?: Record<string, number>; px?: Record<string, number> };
+  type Dev = { device: string; model: string; cat?: string; brand?: string; ids?: Ids };
   const root = document.querySelector<HTMLElement>('[data-cd]')!;
-  const tel = root.dataset.tel!, P = root.dataset.price!;
+  const tel = root.dataset.tel!, P = root.dataset.price!, CUR = root.dataset.cur!;
   const cats: { id: string; name: string; brands: string[] }[] = JSON.parse(root.dataset.cats!);
   const photos: Record<string, string> = JSON.parse(root.dataset.photos!);
   const KEY = 'danat-cart', CKEY = 'danat-coupon';
@@ -95,12 +103,22 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
 
   // Which category an item belongs to (device can be a category name, a short tab label or a brand)
   const catOf = (it: Item) => {
+    const byId = it.cat && cats.find((c) => c.id === it.cat);
+    if (byId) return byId;
     const d = it.device.toLowerCase();
     return cats.find((c) => c.name.toLowerCase() === d)
       ?? cats.find((c) => c.name.toLowerCase().startsWith(d.split(' ')[0].replace(/s$/, '')))
       ?? cats.find((c) => c.brands.some((b) => b.toLowerCase() === d));
   };
   const qtyOf = (it: Item, s: string) => it.qty?.[s] ?? 1;
+  const r3 = (n: number) => Math.round(n * 1000) / 1000;
+  const linePrice = (it: Item, s: string) => (it.px?.[s] != null ? `${CUR}${r3(it.px[s] * qtyOf(it, s))}` : P);
+  // total of the repairs with a known price ("from …"); none known: the site's usual estimate
+  const totalPrice = () => {
+    let sum = 0, known = false;
+    items.forEach((it) => it.issues.forEach((s) => { if (it.px?.[s] != null) { known = true; sum += it.px[s] * qtyOf(it, s); } }));
+    return known ? `from ${CUR}${r3(sum)}` : P;
+  };
   const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
 
   const render = () => {
@@ -108,6 +126,7 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
     document.querySelectorAll<HTMLElement>('[data-cart-count]').forEach((b) => { b.textContent = String(lines); b.hidden = !lines; });
     root.querySelector('[data-cd-count]')!.textContent = `(${lines})`;
     root.querySelector('[data-cd-lines]')!.textContent = String(lines);
+    root.querySelector('[data-cd-sub]')!.textContent = root.querySelector('[data-cd-total]')!.textContent = totalPrice();
     root.querySelector<HTMLElement>('[data-cd-empty]')!.hidden = !!items.length;
     root.querySelector<HTMLElement>('[data-cd-foot]')!.hidden = !items.length;
     root.querySelector<HTMLElement>('[data-cd-more]')!.hidden = !items.length;
@@ -128,7 +147,7 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
               <output>${qtyOf(it, s)}</output>
               <button type="button" data-cd-q="${i}:${k}:1" aria-label="One more">+</button>
             </div>
-            <strong>${P}</strong>
+            <strong>${linePrice(it, s)}</strong>
           </div>
         </div>
         <button type="button" class="cd-rm" data-cd-rmi="${i}:${k}" aria-label="Remove ${esc(s)}">${TRASH}</button>
@@ -143,6 +162,7 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
     const cm = root.querySelector<HTMLElement>('[data-cd-cmsg]')!;
     cm.hidden = !coupon;
     cm.innerHTML = coupon ? `Code <b>${esc(coupon)}</b> will be sent with your booking — our team confirms it on WhatsApp. <button type="button" data-cd-cx>Remove</button>` : '';
+    window.dispatchEvent(new CustomEvent('danat-cart'));
   };
 
   const open = () => { root.hidden = false; requestAnimationFrame(() => root.classList.add('in')); document.documentElement.style.overflow = 'hidden'; };
@@ -150,17 +170,72 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
   let tt = 0;
   const toast = (t: string) => { const el = document.querySelector<HTMLElement>('[data-cd-toast]')!; el.textContent = t; el.classList.add('on'); clearTimeout(tt); tt = window.setTimeout(() => el.classList.remove('on'), 2200); };
 
+  const bump = () => document.querySelectorAll('[data-cart-open]').forEach((b) => { b.classList.remove('bump'); void (b as HTMLElement).offsetWidth; b.classList.add('bump'); });
+  const newId = () => Math.random().toString(36).slice(2);
+  const find = (d: Dev) => items.find((x) => x.device === d.device && x.model === d.model);
+  // what we know about the device (category, brand, Odoo ids) is kept, newest wins
+  const learn = (it: Item, d: Dev) => { if (d.cat) it.cat = d.cat; if (d.brand) it.brand = d.brand; if (d.ids) it.ids = { ...it.ids, ...d.ids }; };
+  const countAll = () => items.reduce((n, it) => n + it.issues.reduce((m, s) => m + qtyOf(it, s), 0), 0);
+
   (window as any).danatCart = {
-    add(it: Omit<Item, 'id'>, opts: { open?: boolean } = {}) {
-      const same = items.find((x) => x.device === it.device && x.model === it.model);
-      if (same) it.issues.forEach((s) => { if (!same.issues.includes(s)) same.issues.push(s); });
-      else items.push({ ...it, id: Math.random().toString(36).slice(2) });
+    add(it: Omit<Item, 'id'>, opts: { open?: boolean; quiet?: boolean } = {}) {
+      const same = find(it);
+      if (same) { learn(same, it); it.issues.forEach((s) => { if (!same.issues.includes(s)) same.issues.push(s); }); }
+      else items.push({ ...it, id: newId() });
       save(items); render();
-      toast(`✓ Added to cart — ${it.issues.join(', ')}`);
-      document.querySelectorAll('[data-cart-open]').forEach((b) => { b.classList.remove('bump'); void (b as HTMLElement).offsetWidth; b.classList.add('bump'); });
+      if (!opts.quiet) toast(`✓ Added to cart — ${it.issues.join(', ')}`);
+      bump();
       if (opts.open) open();
     },
-    open, items: () => items,
+    /** How many of one repair a device has in the cart (0 = not in it). */
+    qty(d: Dev, issue: string) { const it = find(d); return it && it.issues.includes(issue) ? qtyOf(it, issue) : 0; },
+    /** Set one repair's quantity for a device; 0 takes it out. px / pid = Odoo price and product. */
+    set(d: Dev, issue: string, n: number, extra: { pid?: number; px?: number | null } = {}) {
+      let it = find(d);
+      if (!it && n <= 0) return;
+      if (!it) { it = { device: d.device, model: d.model, issues: [], id: newId() }; items.push(it); }
+      learn(it, d);
+      if (n <= 0) {
+        it.issues = it.issues.filter((s) => s !== issue);
+        if (it.qty) delete it.qty[issue];
+        if (!it.issues.length) items = items.filter((x) => x !== it);
+      } else {
+        const fresh = !it.issues.includes(issue);
+        if (fresh) it.issues.push(issue);
+        it.qty = { ...(it.qty ?? {}), [issue]: Math.min(n, 20) };
+        if (extra.pid) it.pid = { ...(it.pid ?? {}), [issue]: extra.pid };
+        if (typeof extra.px === 'number') it.px = { ...(it.px ?? {}), [issue]: extra.px };
+        if (fresh) bump();
+      }
+      save(items); render();
+    },
+    /** Give a cart line its device (e.g. the model chosen later); merges into a line already there. */
+    retarget(id: string, d: Dev) {
+      const it = items.find((x) => x.id === id);
+      if (!it) return;
+      const into = find(d);
+      if (into && into !== it) {
+        learn(into, d);
+        it.issues.forEach((s) => {
+          const had = into.issues.includes(s) ? qtyOf(into, s) : 0;
+          if (!had) into.issues.push(s);
+          into.qty = { ...(into.qty ?? {}), [s]: Math.min(had + qtyOf(it, s), 20) };
+          if (it.pid?.[s]) into.pid = { ...(into.pid ?? {}), [s]: it.pid[s] };
+          if (it.px?.[s] != null) into.px = { ...(into.px ?? {}), [s]: it.px[s] };
+        });
+        items = items.filter((x) => x !== it);
+      } else { it.device = d.device; it.model = d.model; learn(it, d); }
+      save(items); render();
+    },
+    clear() { items = []; save(items); render(); },
+    count: countAll,
+    coupon: () => coupon,
+    setCoupon(v: string) {
+      coupon = v.trim().toUpperCase().slice(0, 30);
+      try { if (coupon) localStorage.setItem(CKEY, coupon); else localStorage.removeItem(CKEY); } catch {}
+      render();
+    },
+    open, close, items: () => items,
   };
 
   const removeLine = (i: number, k: number) => {
@@ -269,11 +344,11 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
   .cd-go:hover { filter: brightness(1.08); transform: translateY(-1px); }
   .cd-go svg { width: 22px; height: 22px; }
   .cd-go .ar { width: 18px; height: 18px; transition: transform .2s; }
-  .cd-go:hover .ar, .cd-cont:hover svg { transform: translateX(3px); }
+  .cd-go:hover .ar { transform: translateX(3px); }
   .cd-or { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-3); }
   .cd-or::before, .cd-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
   .cd-cont { display: flex; align-items: center; justify-content: center; gap: 8px; height: 50px; border-radius: 14px; background: var(--accent-soft); color: var(--violet); font-weight: 700; font-size: 15.5px; }
-  .cd-cont svg { width: 17px; height: 17px; transition: transform .2s; }
+  .cd-cont svg { width: 19px; height: 19px; }
   @media (max-width: 560px) {
     .cd-panel { border-radius: 0; }
     .cd-head, .cd-body, .cd-foot { padding-inline: 16px; }
