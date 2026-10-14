@@ -404,7 +404,7 @@ h1, h2, h3, h4 { letter-spacing: -0.035em; font-weight: 800; }
 .glass { border-radius: 24px; }
 a.glass, .issue.glass, .mode.glass { transition: transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s, border-color .35s; }
 a.glass:hover, .issue.glass:hover { transform: translateY(-4px); border-color: rgba(var(--a1), .35); box-shadow: 0 26px 50px -30px rgba(var(--a1), .55); }
-.section { padding: clamp(40px, 4vw, 60px) 0; }
+.section { padding: clamp(28px, 3vw, 44px) 0; }
 
 /* dark hero stage: the media sits in a proper frame, text reads white */
 :root .hero {
@@ -442,7 +442,7 @@ a.glass:hover, .issue.glass:hover { transform: translateY(-4px); border-color: r
 /* page headers (Services, Our Team) share the hero's dark stage */
 :root .page-head {
   position: relative; isolation: isolate; color: #fff !important;
-  margin: 12px clamp(8px, 1.5vw, 20px) 0; padding: clamp(56px, 7vw, 96px) 0 clamp(48px, 6vw, 72px) !important;
+  margin: 12px clamp(8px, 1.5vw, 20px) 0; padding: clamp(32px, 4vw, 56px) 0 clamp(24px, 3vw, 40px) !important;
   border-radius: 34px; overflow: hidden;
   background: radial-gradient(55% 80% at 90% 10%, rgba(var(--a2), .3), transparent 60%),
     linear-gradient(160deg, color-mix(in oklab, var(--navy) 92%, #fff) 0%, var(--navy) 100%);

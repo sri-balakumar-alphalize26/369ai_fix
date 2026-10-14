@@ -1,7 +1,10 @@
 ---
 // "What our clients say" — styles 1–3 (style 4, the deck, lives in index.astro).
 // <html data-reviews="1…4"> picks one; set from Theme › Reviews style or ?reviews=N.
-import { reviews, sample } from '../data/reviews';
+import { reviews as staticReviews, sample as staticSample, type Review } from '../data/reviews';
+// The home page passes the reviews edited in Odoo; alone, the component shows the site's own.
+interface Props { reviews?: Review[]; sample?: boolean; eyebrow?: string; title?: string; intro?: string }
+const { reviews = staticReviews, sample = staticSample, eyebrow = 'Testimonials', title = 'What our clients say', intro } = Astro.props;
 import { site } from '../data/site';
 
 const stars = (r: number) => [1, 2, 3, 4, 5].map((n) => n <= r);
@@ -18,8 +21,8 @@ const cols = [0, 1, 2].map((k) => reviews.map((r, i) => ({ r, i })).filter(({ i 
   <div class="wrap">
     <div class="w-head">
       <div>
-        <span class="eyebrow">Testimonials</span>
-        <h2 class="h-lg">What our clients say</h2>
+        <span class="eyebrow">{eyebrow}</span>
+        <h2 class="h-lg">{title}</h2>
       </div>
       <div class="w-side">
         {sample && <span class="pill-sample">Sample reviews — real ones coming soon</span>}
@@ -50,8 +53,8 @@ const cols = [0, 1, 2].map((k) => reviews.map((r, i) => ({ r, i })).filter(({ i 
 <!-- 2 · WhatsApp chat -->
 <div class="rv2 rvs">
   <div class="wrap c-head">
-    <span class="eyebrow">Testimonials</span>
-    <h2 class="h-lg">What our clients say</h2>
+    <span class="eyebrow">{eyebrow}</span>
+    <h2 class="h-lg">{title}</h2>
     <p class="lead">Messages from customers across {site.country}, after the job was done.</p>
     {sample && <span class="pill-sample">Sample reviews — real ones coming soon</span>}
   </div>
@@ -77,7 +80,7 @@ const cols = [0, 1, 2].map((k) => reviews.map((r, i) => ({ r, i })).filter(({ i 
 <!-- 3 · Spotlight -->
 <div class="rv3 rvs" data-spot>
   <div class="wrap s-in">
-    <span class="eyebrow">What our clients say</span>
+    <span class="eyebrow">{title}</span>
     {sample && <span class="pill-sample">Sample reviews — real ones coming soon</span>}
     <div class="s-stage">
       {reviews.map((r, i) => (
@@ -116,12 +119,12 @@ const cols = [0, 1, 2].map((k) => reviews.map((r, i) => ({ r, i })).filter(({ i 
   blockquote { margin: 0; }
 
   /* 1 · wall */
-  .w-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; margin-bottom: 36px; }
+  .w-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
   .w-head h2 { margin-top: 12px; }
   .w-side { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   .wall {
     display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;
-    height: 640px; overflow: hidden;
+    height: 480px; overflow: hidden;
     mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
   }
   .wcol { min-width: 0; }
@@ -132,7 +135,7 @@ const cols = [0, 1, 2].map((k) => reviews.map((r, i) => ({ r, i })).filter(({ i 
   @keyframes wUp { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 10px)); } }
   @keyframes wDown { from { transform: translateY(calc(-50% - 10px)); } to { transform: translateY(0); } }
   @media (max-width: 900px) {
-    .wall { grid-template-columns: 1fr 1fr; height: 560px; }
+    .wall { grid-template-columns: 1fr 1fr; height: 420px; }
     .wcol-2 { display: none; }
   }
   @media (max-width: 560px) { .wall { grid-template-columns: 1fr; } .wcol-1 { display: none; } }

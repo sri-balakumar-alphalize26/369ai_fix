@@ -1,7 +1,7 @@
-// Pictures chosen in Odoo's "Fix Website" app (module 369ai_fix_website_content), served from
-// this site so the browser never talks to Odoo: /web/image/fix.web.image/9/image_512?unique=…
-// and /web/image/device.brand/57/web_logo?unique=…  Only those two kinds of picture pass; any
-// other Odoo image path is refused. Odoo's caching headers are passed through, so the
+// Pictures chosen in Odoo's "Fix Website" app (369ai_fix add-on, website/), served from
+// this site so the browser never talks to Odoo: /web/image/fix.web.image/9/image_512?unique=…,
+// /web/image/device.brand/57/web_logo?unique=… and /web/image/device.category/7/web_drawing?unique=…
+// Only those kinds of picture pass; any other Odoo image path is refused. Odoo's caching headers are passed through, so the
 // `unique=` URLs (they change whenever a picture is replaced) can be cached by the browser.
 import type { APIRoute } from 'astro';
 import { dbFor, hostOf, odooUrl } from '../../../lib/odoo';
@@ -11,6 +11,8 @@ export const prerender = false;
 const ALLOWED = [
   /^fix\.web\.image\/\d+\/image_(1920|1024|512|256|128)$/,
   /^device\.brand\/\d+\/web_logo$/,
+  /^device\.category\/\d+\/web_drawing(_line|_flat|_sketch|_duotone)?$/,
+  /^fix\.home\.(section|line)\/\d+\/image_(1920|1024|512|256|128)$/,   // home page: hero still, partner logos
 ];
 const PASS = ['content-type', 'content-length', 'cache-control', 'etag', 'last-modified', 'expires'];
 

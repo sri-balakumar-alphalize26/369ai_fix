@@ -80,7 +80,7 @@ const issueIcon = (s: string) => {
                 </div>
                 <div class="bk-hero-art">
                   <span class="bk-orb"></span>
-                  <span class:list={['bk-dev', { 'has-pic': !!c.image }]}>{c.image && <img class="bk-devpic" src={c.image} alt="" onerror={PIC_FAIL} />}<DeviceArt kind={artFor[c.id] ?? 'phone'} /></span>
+                  <span class:list={['bk-dev', { 'has-pic': !!(c.image || c.drawing) }]}>{(c.image || c.drawing) && <img class="bk-devpic" src={c.image || c.drawing} alt="" onerror={PIC_FAIL} />}<DeviceArt kind={artFor[c.id] ?? 'phone'} /></span>
                   <span class="bk-from"><small>From</small><b>{price()}</b><i></i></span>
                 </div>
               </div>
@@ -94,7 +94,7 @@ const issueIcon = (s: string) => {
                 <div class="bk-grid" aria-label={`Repairs for ${c.name}`}>
                   {c.services.map((sv) => (
                     <div class="bk-card" data-name={sv.name} data-pid={sv.id ?? ''} data-price={sv.price ?? ''} data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''}>
-                      <span class:list={['bk-pic', { photo: !!picOf(c, sv.name, sv.image) }]}>{picOf(c, sv.name, sv.image) ? <img src={picOf(c, sv.name, sv.image)} alt={sv.name} loading="lazy" width="360" height="200" onerror="this.parentElement.classList.remove('photo');this.remove()" /> : null}<span class="bk-pic-art"><DeviceArt kind={artFor[c.id] ?? 'phone'} /></span><span class="bk-badge" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${issueIcon(sv.name)}</svg>`} /></span>
+                      <span class:list={['bk-pic', { photo: !!picOf(c, sv.name, sv.image) }]}>{picOf(c, sv.name, sv.image) ? <img src={picOf(c, sv.name, sv.image)} alt={sv.name} loading="lazy" width="360" height="200" onerror="this.parentElement.classList.remove('photo');this.remove()" /> : null}<span class:list={['bk-pic-art', { 'has-pic': !!c.drawing }]}>{c.drawing && <img class="bk-artpic" src={c.drawing} alt="" loading="lazy" onerror={PIC_FAIL} />}<DeviceArt kind={artFor[c.id] ?? 'phone'} /></span><span class="bk-badge" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${issueIcon(sv.name)}</svg>`} /></span>
                       <b>{sv.name}</b>
                       <small>{note(sv.name)}</small>
                       <span class="bk-foot">
@@ -265,7 +265,7 @@ const issueIcon = (s: string) => {
   .bk-panel { display: grid; gap: 18px; animation: bkIn .45s cubic-bezier(.2,.8,.2,1); }
   .bk-panel[hidden] { display: none; }
   @keyframes bkIn { from { opacity: 0; transform: translateY(12px); } }
-  .bk-hero { position: relative; display: grid; grid-template-columns: 1.3fr 1fr; align-items: center; min-height: 290px; padding: 30px 34px; border-radius: 28px; overflow: hidden; background: linear-gradient(120deg, #f4faf5 0%, #e3f3e7 55%, #c9ead3 100%); }
+  .bk-hero { position: relative; display: grid; grid-template-columns: 1.3fr 1fr; align-items: center; min-height: 200px; padding: 22px 26px; border-radius: 24px; overflow: hidden; background: linear-gradient(120deg, #f4faf5 0%, #e3f3e7 55%, #c9ead3 100%); }
   .bk-eye { display: inline-flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; color: #3e4c45; }
   .bk-eye::before { content: ''; width: 26px; height: 2px; background: var(--g); }
   .bk-hero h3 { font-family: var(--display); font-size: 28px; font-weight: 800; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); margin: 10px 0 12px; max-width: 14ch; }
@@ -276,9 +276,9 @@ const issueIcon = (s: string) => {
   .bk-feats svg { width: 26px; height: 26px; color: var(--g); flex: none; }
   .bk-feats b { display: block; font-size: 14px; color: #16211b; }
   .bk-feats small { font-size: 12.5px; color: #6a7770; }
-  .bk-hero-art { position: relative; height: 100%; min-height: 230px; display: grid; place-items: center; }
-  .bk-orb { position: absolute; width: 330px; height: 330px; right: -40px; border-radius: 50%; background: radial-gradient(circle, rgba(47,160,90,.35), rgba(47,160,90,.08) 60%, transparent 70%); }
-  .bk-dev { position: relative; width: 250px; height: 250px; filter: drop-shadow(0 24px 24px rgba(10,50,25,.3)); animation: bkFloat 4s ease-in-out infinite; }
+  .bk-hero-art { position: relative; height: 100%; min-height: 160px; display: grid; place-items: center; }
+  .bk-orb { position: absolute; width: 220px; height: 220px; right: -20px; border-radius: 50%; background: radial-gradient(circle, rgba(47,160,90,.35), rgba(47,160,90,.08) 60%, transparent 70%); }
+  .bk-dev { position: relative; width: 170px; height: 170px; filter: drop-shadow(0 24px 24px rgba(10,50,25,.3)); animation: bkFloat 4s ease-in-out infinite; }
   @keyframes bkFloat { 50% { transform: translateY(-8px) rotate(-2deg); } }
   .bk-from { position: absolute; right: 0; bottom: 34px; display: grid; justify-items: center; padding: 12px 22px; border-radius: 18px; background: #fff; box-shadow: 0 16px 30px -14px rgba(0,0,0,.3); transform: rotate(-6deg); }
   .bk-from small { font-size: 14px; font-weight: 600; color: #16211b; }
@@ -338,17 +338,17 @@ const issueIcon = (s: string) => {
   .bk-cat[aria-selected='true'] b { color: var(--ink); }
   .bk-cat[aria-selected='true'] small { color: var(--ink-3); }
   .bk-cat[aria-selected='true'] .bk-cc { color: var(--violet); }
-  .bk-main, .bk-panel { gap: 28px; }
+  .bk-main, .bk-panel { gap: 18px; }
   .bk-sel-head { padding: 4px 6px 0; }
-  .bk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  .bk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
   .bk-card { padding: 12px 12px 16px; border-radius: 20px; }
-  .bk-pic { height: 160px; margin-bottom: 12px; border-radius: 14px; }
+  .bk-pic { height: 120px; margin-bottom: 10px; border-radius: 14px; }
   .bk-foot { padding: 14px 4px 0; }
   .bk-bar { margin-top: 6px; padding: 18px 24px; gap: 26px; }
   @media (max-width: 1200px) { .bk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 960px) { .bk { grid-template-columns: minmax(0, 1fr); } .bk-side, .bk-main { position: static; min-width: 0; } .bk-cat[aria-selected='true'] { box-shadow: inset 0 -3px 0 var(--violet); } }
   @media (max-width: 960px) { .bk-main, .bk-panel { grid-template-columns: minmax(0, 1fr); } .bk-panel > * { min-width: 0; } .bk-sel-head { flex-wrap: wrap; gap: 4px 12px; } }
-  @media (max-width: 560px) { .bk-grid { grid-template-columns: 1fr; gap: 16px; } .bk-pic { height: 180px; } }
+  @media (max-width: 560px) { .bk-grid { grid-template-columns: 1fr; gap: 12px; } .bk-pic { height: 140px; } }
   @media (max-width: 960px) {
     .bk-bar { grid-template-columns: minmax(0, 1fr) !important; justify-items: stretch; gap: 12px; padding: 16px; }
     .bk-bar > * { min-width: 0; }
@@ -387,11 +387,15 @@ const issueIcon = (s: string) => {
   .bk-pick :global(.bk-mmore) { margin: 0; font-size: 13px; color: var(--ink-2); }
   .bk-pick :global(.bk-mrow) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
   .bk-pick :global(.bk-link) { border: 0; background: none; padding: 6px 2px; color: var(--violet); font: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; }
-  .bk-repairs { display: grid; gap: 28px; }
+  .bk-repairs { display: grid; gap: 18px; }
   /* Odoo's device photo over the drawing in the banner; the repair card photo over the drawing */
   .bk-dev.has-pic > :not(.bk-devpic) { visibility: hidden; }
   .bk-devpic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .bk-pic.photo .bk-pic-art { display: none; }
+  /* Odoo's drawing (replaceable there) over the built-in one on cards without a photo */
+  .bk-pic-art { position: relative; }
+  .bk-pic-art.has-pic > :not(.bk-artpic) { visibility: hidden; }
+  .bk-pic .bk-artpic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
   .bk-repairs[hidden] { display: none; }
 
   /* repair cards: Add → − n + (Urban Company style) */
@@ -408,9 +412,10 @@ const issueIcon = (s: string) => {
   .bk-cta { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
   .bk-cta:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
   @media (max-width: 960px) { .bk-pick :global(.bk-brands) { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bk-pick :global(.bk-models) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  /* phones: the bar is one slim row, and only once something is in the cart */
+  /* the bar only shows once something is in the cart (it sticks over the cards otherwise) */
+  .bk-bar.empty { display: none; }
+  /* phones: the bar is one slim row */
   @media (max-width: 960px) {
-    .bk-bar.empty { display: none; }
     :global(html.bk-bar-on .fab), :global(html.bk-bar-on .gift) { bottom: 92px; }
     .bk-bar { grid-template-columns: minmax(0, 1fr) auto !important; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 18px; }
     .bk-bar-t h4 { display: none; }

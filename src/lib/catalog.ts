@@ -9,7 +9,8 @@ import { odooCall } from './odoo';
 
 // image / logo / photo: picture URLs chosen in Odoo (369ai_fix_website_content), relative
 // (/web/image/...), served through the site's /web/image passthrough; null = use the site's own.
-export type WzService = { id: number | null; name: string; price: number | null; b: number | null; s: number | null; m: number | null; image?: string | null };
+export type WzService = { id: number | null; name: string; price: number | null; b: number | null; s: number | null; m: number | null; image?: string | null;
+  mostBooked?: boolean; homeSequence?: number };   // "Most booked" on the home page, ticked in Odoo
 export type WzModel = { id: number | null; name: string; series: string; seriesId: number | null };
 export type WzBrand = { id: string; odooId: number | null; name: string; hue: number; models: string[]; items: WzModel[]; logo?: string | null };
 export type WzCategory = {
@@ -17,6 +18,8 @@ export type WzCategory = {
   issues: string[]; services: WzService[]; brands: WzBrand[];
   image?: string | null;   // shown instead of the device drawing (only when Odoo's look is "photo")
   photo?: string | null;   // the category's chosen photo, whatever the look
+  drawing?: string | null; // the category's drawing (the "drawing" look), replaceable in Odoo
+  showHome?: boolean;      // a tile in "What can we fix for you?" on the home page (ticked in Odoo)
 };
 export type Catalog = { odoo: boolean; deviceLook: 'drawing' | 'photo'; categories: WzCategory[]; totals: { categories: number; brands: number; models: number } };
 
@@ -60,6 +63,7 @@ function fromOdoo(raw: any): Catalog {
     const services: WzService[] = (cat.services || []).map((s: any) => ({
       id: s.id, name: s.name, price: typeof s.price === 'number' ? s.price : null,
       b: s.brand_id || null, s: s.series_id || null, m: s.model_id || null, image: url(s.image),
+      mostBooked: !!s.most_booked, homeSequence: Number(s.home_sequence) || 0,
     }));
     if (!services.length) continue;                    // nothing to book for this device
     const look = looks.get(LOOK[cat.name] || '');
@@ -86,6 +90,8 @@ function fromOdoo(raw: any): Catalog {
       services,
       brands,
       image: url(cat.image),
+      drawing: url(cat.drawing),
+      showHome: cat.show_home !== false,
       photo: url(cat.photo),
     });
   }
