@@ -16,3 +16,4 @@ def post_init_hook(env):
     """On a fresh install: the repair catalogue first, then the website's starter pictures."""
     repair.post_init_hook(env)
     website.post_init_hook(env)
+    website.seed.load_starter_content(env)   # the website's texts, as they were in code

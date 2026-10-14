@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Website Details: name, contact, header menu, branches, footer, and the way to the home pages -->
+    <record id="view_online_site_form_content" model="ir.ui.view">
+        <field name="name">online.service.site.form.content</field>
+        <field name="model">online.service.site</field>
+        <field name="inherit_id" ref="369ai_fix.view_online_site_form"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_fix_home_pages" type="object" class="oe_stat_button" icon="fa-home">
+                    <field name="home_page_count" widget="statinfo" string="Home pages"/>
+                </button>
+            </div>
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_fix_load_starter_content" type="object" string="Load starter content" icon="fa-magic"
+                            confirm="Fill the empty contact, menu, branch and footer fields, and make a first home page, from the website's texts as they were in code? Nothing already typed is changed."/>
+                </header>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <notebook>
+                    <page string="Contact" name="contact">
+                        <group>
+                            <group string="Shown on every page">
+                                <field name="tagline" placeholder="e.g. Electronics repair at your doorstep"/>
+                                <field name="contact_phone" placeholder="+968 7832 3116"/>
+                                <field name="contact_whatsapp" placeholder="96878323116"/>
+                                <field name="contact_email" placeholder="hello@example.com"/>
+                                <field name="opening_hours" placeholder="Sat–Thu 9:00–21:00"/>
+                                <field name="since_year" placeholder="2003"/>
+                            </group>
+                            <group string="More">
+                                <field name="contact_address" placeholder="Computer Street, Ruwi, PO Box 502, PC 118, Sultanate of Oman"/>
+                                <field name="social_facebook" placeholder="https://facebook.com/…"/>
+                                <field name="social_instagram" placeholder="https://instagram.com/…"/>
+                                <field name="header_cta" placeholder="Book a repair"/>
+                                <field name="header_cta_link" placeholder="/services#catalog"/>
+                            </group>
+                        </group>
+                        <div class="text-muted small">The name and the WhatsApp number also go into every WhatsApp booking message.</div>
+                    </page>
+                    <page string="Menu and links" name="links">
+                        <div class="text-muted small mb-2">The header menu, and the "Quick links" column of the footer. Drag to reorder.</div>
+                        <field name="link_ids" nolabel="1" context="{'default_site_id': id}">
+                            <list editable="bottom" default_order="kind, sequence" decoration-muted="not active">
+                                <field name="sequence" widget="handle"/>
+                                <field name="kind"/>
+                                <field name="name"/>
+                                <field name="link" placeholder="/services"/>
+                                <field name="active" widget="boolean_toggle"/>
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Branches" name="branches">
+                        <div class="text-muted small mb-2">Shown in the footer ("Our branches") with a map link. Drag to reorder.</div>
+                        <field name="branch_ids" nolabel="1" context="{'default_site_id': id}">
+                            <list editable="bottom" default_order="sequence" decoration-muted="not active">
+                                <field name="sequence" widget="handle"/>
+                                <field name="name"/>
+                                <field name="address" widget="text"/>
+                                <field name="phones"/>
+                                <field name="map_query" optional="show"/>
+                                <field name="hours" optional="hide"/>
+                                <field name="active" widget="boolean_toggle"/>
+                            </list>
+                        </field>
+                    </page>
+                    <page string="Footer" name="footer">
+                        <group>
+                            <field name="footer_about" placeholder="A short paragraph about the business"/>
+                            <field name="footer_copyright" placeholder="© {year} Danat Fix. All rights reserved."/>
+                            <field name="footer_credit" placeholder="Site developed by …"/>
+                        </group>
+                        <div class="text-muted small">The "Services" column lists the device types automatically.</div>
+                    </page>
+                </notebook>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Catalogue tick-boxes that feed the home page -->
+    <record id="view_device_category_list_home" model="ir.ui.view">
+        <field name="name">device.category.list.home</field>
+        <field name="model">device.category</field>
+        <field name="inherit_id" ref="mobile_repair.view_device_category_list"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="web_show_home" widget="boolean_toggle"/>
+            </field>
+        </field>
+    </record>
+    <record id="view_device_brand_list_strip" model="ir.ui.view">
+        <field name="name">device.brand.list.strip</field>
+        <field name="model">device.brand</field>
+        <field name="inherit_id" ref="mobile_repair.view_device_brand_list"/>
+        <field name="arch" type="xml">
+            <field name="name" position="after">
+                <field name="web_caption" optional="show"/>
+                <field name="web_in_strip" widget="boolean_toggle"/>
+            </field>
+        </field>
+    </record>
+    <record id="view_product_template_form_home" model="ir.ui.view">
+        <field name="name">product.template.form.home</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="369ai_fix.product_template_form_repair_categories"/>
+        <field name="arch" type="xml">
+            <field name="repair_category_ids" position="after">
+                <field name="web_most_booked"/>
+                <field name="web_home_sequence" invisible="not web_most_booked"/>
+            </field>
+        </field>
+    </record>
+</odoo>

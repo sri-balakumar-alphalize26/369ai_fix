@@ -5,3 +5,13 @@ access_device_category_editor,device.category website editor,mobile_repair.model
 access_device_brand_editor,device.brand website editor,mobile_repair.model_device_brand,group_fix_website_editor,1,1,0,0
 access_product_template_editor,product.template website editor,product.model_product_template,group_fix_website_editor,1,1,0,0
 access_online_site_editor,online.service.site website editor,369ai_fix.model_online_service_site,group_fix_website_editor,1,1,0,0
+access_fix_home_page_user,fix.home.page user,model_fix_home_page,base.group_user,1,0,0,0
+access_fix_home_page_editor,fix.home.page editor,model_fix_home_page,group_fix_website_editor,1,1,1,1
+access_fix_home_section_user,fix.home.section user,model_fix_home_section,base.group_user,1,0,0,0
+access_fix_home_section_editor,fix.home.section editor,model_fix_home_section,group_fix_website_editor,1,1,1,1
+access_fix_home_line_user,fix.home.line user,model_fix_home_line,base.group_user,1,0,0,0
+access_fix_home_line_editor,fix.home.line editor,model_fix_home_line,group_fix_website_editor,1,1,1,1
+access_fix_site_link_user,fix.site.link user,model_fix_site_link,base.group_user,1,0,0,0
+access_fix_site_link_editor,fix.site.link editor,model_fix_site_link,group_fix_website_editor,1,1,1,1
+access_fix_site_branch_user,fix.site.branch user,model_fix_site_branch,base.group_user,1,0,0,0
+access_fix_site_branch_editor,fix.site.branch editor,model_fix_site_branch,group_fix_website_editor,1,1,1,1

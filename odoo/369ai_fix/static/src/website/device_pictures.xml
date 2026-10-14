@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="369ai_fix.DevicePictures">
+        <div class="o_fix_pics">
+            <div class="fp-wrap">
+                <div class="fp-head">
+                    <div>
+                        <h1>Device Pictures</h1>
+                        <p class="fp-sub">How every device type looks on the website. Each choice is saved straight away; the website follows within 5 minutes.</p>
+                    </div>
+                    <select t-if="state.sites.length > 1" class="form-select fp-site" aria-label="Website" t-on-change="changeSite">
+                        <t t-foreach="state.sites" t-as="s" t-key="s.id">
+                            <option t-att-value="s.id" t-att-selected="s.id === state.siteId" t-esc="s.name"/>
+                        </t>
+                    </select>
+                </div>
+
+                <div t-if="state.loading" class="fp-loading"><i class="fa fa-spinner fa-spin"/> Loading…</div>
+
+                <t t-else="">
+                    <div class="fp-segment" role="tablist" aria-label="What the website shows" t-att-data-mode="state.mode">
+                        <span class="fp-thumb" aria-hidden="true"/>
+                        <button type="button" role="tab" t-att-aria-selected="state.mode === 'drawing' ? 'true' : 'false'"
+                                t-on-click="() => this.setMode('drawing')">
+                            <i class="fa fa-paint-brush"/> Sketch Drawing
+                        </button>
+                        <button type="button" role="tab" t-att-aria-selected="state.mode === 'photo' ? 'true' : 'false'"
+                                t-on-click="() => this.setMode('photo')">
+                            <i class="fa fa-camera"/> Real Photos
+                        </button>
+                    </div>
+
+                    <div class="fp-stage">
+                        <!-- Sketch Drawing: style chips + every device in that style -->
+                        <section t-attf-class="fp-panel {{ state.mode === 'drawing' ? 'is-on' : '' }}"
+                                 t-att-aria-hidden="state.mode === 'drawing' ? 'false' : 'true'">
+                            <div class="fp-styles">
+                                <span class="fp-label">Drawing style</span>
+                                <t t-foreach="state.styles" t-as="s" t-key="s.key">
+                                    <button type="button" t-attf-class="fp-chip {{ s.key === state.style ? 'is-on' : '' }}"
+                                            t-att-aria-pressed="s.key === state.style ? 'true' : 'false'"
+                                            t-on-click="() => this.setStyle(s.key)">
+                                        <i t-if="s.key === state.style" class="fa fa-check"/>
+                                        <t t-esc="s.name"/>
+                                    </button>
+                                </t>
+                            </div>
+                            <div class="fp-grid">
+                                <t t-foreach="state.devices" t-as="d" t-key="d.id">
+                                    <div class="fp-dev">
+                                        <div class="fp-art">
+                                            <img t-if="d.drawings[state.style]" t-att-src="d.drawings[state.style]" t-att-alt="d.name"/>
+                                            <span t-else="" class="fp-empty">No drawing</span>
+                                        </div>
+                                        <div class="fp-name" t-esc="d.name"/>
+                                        <button type="button" class="fp-link" t-on-click="() => this.editDevice(d)">
+                                            <i class="fa fa-pencil"/> Change drawing
+                                        </button>
+                                    </div>
+                                </t>
+                            </div>
+                        </section>
+
+                        <!-- Real Photos: each device type's photos, tap one to use it -->
+                        <section t-attf-class="fp-panel {{ state.mode === 'photo' ? 'is-on' : '' }}"
+                                 t-att-aria-hidden="state.mode === 'photo' ? 'false' : 'true'">
+                            <p class="fp-hint">Tap a photo to use it for that device type.</p>
+                            <t t-foreach="state.devices" t-as="d" t-key="d.id">
+                                <div class="fp-row">
+                                    <div class="fp-row-head">
+                                        <b t-esc="d.name"/>
+                                        <button type="button" class="fp-link" t-on-click="() => this.editDevice(d)">
+                                            <i class="fa fa-plus"/> Add or edit photos
+                                        </button>
+                                    </div>
+                                    <div class="fp-photos">
+                                        <t t-foreach="d.photos" t-as="p" t-key="p.id">
+                                            <button type="button" t-attf-class="fp-photo {{ p.shown ? 'is-on' : '' }}"
+                                                    t-att-aria-pressed="p.shown ? 'true' : 'false'"
+                                                    t-att-title="p.shown ? 'On the website' : 'Use this photo'"
+                                                    t-on-click="() => this.selectPhoto(d, p)">
+                                                <img t-att-src="p.url" t-att-alt="p.name" loading="lazy"/>
+                                                <span t-if="p.shown" class="fp-check"><i class="fa fa-check"/></span>
+                                                <span t-if="p.shown" class="fp-tag">On website</span>
+                                            </button>
+                                        </t>
+                                        <span t-if="!d.photos.length" class="fp-empty">No photos yet</span>
+                                    </div>
+                                </div>
+                            </t>
+                        </section>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+</templates>

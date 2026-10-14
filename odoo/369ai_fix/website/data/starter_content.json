@@ -1,0 +1,611 @@
+{
+ "homeOrder": [
+  "hero",
+  "services",
+  "modes",
+  "brands",
+  "reviews",
+  "milestones",
+  "partners",
+  "cta"
+ ],
+ "hero": {
+  "on": true,
+  "eyebrow": "Doorstep electronics repair · Oman",
+  "title1": "Your Technology.",
+  "title2": "Fixed Right.",
+  "devices": "Phone • Laptop • Computer • Printer • CCTV • Networking",
+  "btn1": "Book Your Slot",
+  "btn2": "WhatsApp us",
+  "video": "kling.mp4",
+  "poster": "kling.jpg",
+  "counters": [
+   {
+    "value": "36+",
+    "label": "services"
+   },
+   {
+    "value": "3",
+    "label": "branches"
+   },
+   {
+    "value": "2003",
+    "label": "since"
+   }
+  ]
+ },
+ "services": {
+  "on": true,
+  "badge": "7 services · doorstep & pickup",
+  "title": "What can we fix for you?",
+  "mostTitle": "Most booked repairs",
+  "mostSub": "Doorstep or pickup · estimate OMR 0",
+  "price": "OMR 0",
+  "allLink": "View all services",
+  "tiles": [
+   {
+    "name": "Mobile Phones"
+   },
+   {
+    "name": "Tablets"
+   },
+   {
+    "name": "Laptops"
+   },
+   {
+    "name": "Desktops"
+   },
+   {
+    "name": "Networking"
+   },
+   {
+    "name": "Data Recovery"
+   },
+   {
+    "name": "IT Support"
+   }
+  ],
+  "picks": [
+   {
+    "repair": "Screen replacement",
+    "device": "Mobile Phone"
+   },
+   {
+    "repair": "Battery replacement",
+    "device": "Mobile Phone"
+   },
+   {
+    "repair": "Screen / glass",
+    "device": "Tablet"
+   },
+   {
+    "repair": "Screen replacement",
+    "device": "Laptop"
+   },
+   {
+    "repair": "Keyboard / trackpad",
+    "device": "Laptop"
+   },
+   {
+    "repair": "Not powering on",
+    "device": "Desktop"
+   },
+   {
+    "repair": "SSD / RAM upgrade",
+    "device": "Desktop"
+   },
+   {
+    "repair": "Water damage",
+    "device": "Mobile Phone"
+   }
+  ]
+ },
+ "modes": {
+  "on": true,
+  "foot": "Check your area →",
+  "cards": [
+   {
+    "title": "Doorstep Service",
+    "short": "We repair it at your door",
+    "eta": "Technician at your door in about 60 minutes",
+    "steps": "Book a slot | Technician arrives | Repaired on the spot",
+    "body": "A technician rides to your home or office with parts and tools. Phones and laptops are fixed in front of you; printers, CCTV and Wi-Fi are installed and serviced on-site."
+   },
+   {
+    "title": "Pickup & Service",
+    "short": "We collect, repair and return it",
+    "eta": "Picked up same day, back in 24–48 hours",
+    "steps": "Rider picks up | Repaired in our lab | Delivered back",
+    "body": "A rider collects the phone, laptop, printer or drive, our lab repairs it, and it comes back to the same address."
+   }
+  ]
+ },
+ "brands": {
+  "on": true,
+  "kicker": "Brands we repair",
+  "title1": "All the big names,",
+  "title2": "one trusted fix.",
+  "deviceTypes": "9",
+  "items": [
+   {
+    "name": "Apple",
+    "caption": "iPhone · iPad · Mac",
+    "color": "#000000"
+   },
+   {
+    "name": "Samsung",
+    "caption": "Galaxy phones & tabs",
+    "color": "#1428A0"
+   },
+   {
+    "name": "Google",
+    "caption": "Pixel phones",
+    "color": "#4285F4"
+   },
+   {
+    "name": "Xiaomi",
+    "caption": "Xiaomi & Redmi",
+    "color": "#FF6900"
+   },
+   {
+    "name": "OnePlus",
+    "caption": "Phones & tablets",
+    "color": "#F5010C"
+   },
+   {
+    "name": "vivo",
+    "caption": "Smartphones",
+    "color": "#415FFF"
+   },
+   {
+    "name": "OPPO",
+    "caption": "Smartphones",
+    "color": "#2D683D"
+   },
+   {
+    "name": "realme",
+    "caption": "Smartphones",
+    "color": ""
+   },
+   {
+    "name": "iQOO",
+    "caption": "Smartphones",
+    "color": ""
+   },
+   {
+    "name": "Motorola",
+    "caption": "Smartphones",
+    "color": "#E1140A"
+   },
+   {
+    "name": "Nothing",
+    "caption": "Phones",
+    "color": ""
+   },
+   {
+    "name": "Lenovo",
+    "caption": "Laptops & tablets",
+    "color": "#E2231A"
+   },
+   {
+    "name": "Dell",
+    "caption": "Laptops & desktops",
+    "color": "#007DB8"
+   },
+   {
+    "name": "HP",
+    "caption": "Laptops & printers",
+    "color": "#0096D6"
+   },
+   {
+    "name": "ASUS",
+    "caption": "Laptops",
+    "color": "#000000"
+   },
+   {
+    "name": "Acer",
+    "caption": "Laptops",
+    "color": "#83B81A"
+   },
+   {
+    "name": "MSI",
+    "caption": "Gaming laptops",
+    "color": "#FF0000"
+   },
+   {
+    "name": "Microsoft",
+    "caption": "Windows PCs",
+    "color": "#0078D4"
+   },
+   {
+    "name": "Canon",
+    "caption": "Printers",
+    "color": ""
+   },
+   {
+    "name": "Epson",
+    "caption": "Printers",
+    "color": "#003399"
+   },
+   {
+    "name": "Brother",
+    "caption": "Printers",
+    "color": ""
+   },
+   {
+    "name": "Hikvision",
+    "caption": "CCTV",
+    "color": ""
+   },
+   {
+    "name": "Dahua",
+    "caption": "CCTV",
+    "color": ""
+   },
+   {
+    "name": "CP PLUS",
+    "caption": "CCTV",
+    "color": ""
+   },
+   {
+    "name": "TP-Link",
+    "caption": "Wi-Fi & routers",
+    "color": "#4ACBD6"
+   },
+   {
+    "name": "Ubiquiti",
+    "caption": "Networks",
+    "color": "#0559C9"
+   },
+   {
+    "name": "Cisco",
+    "caption": "Networks",
+    "color": "#1BA0D7"
+   },
+   {
+    "name": "NETGEAR",
+    "caption": "Wi-Fi & routers",
+    "color": "#2C262D"
+   },
+   {
+    "name": "D-Link",
+    "caption": "Wi-Fi & routers",
+    "color": ""
+   }
+  ]
+ },
+ "reviews": {
+  "on": true,
+  "eyebrow": "Testimonials",
+  "title": "What our clients say",
+  "intro": "Doorstep visits, pickups and installs across Oman — in our customers’ words.",
+  "sampleNote": "Sample reviews — real ones coming soon",
+  "items": [
+   {
+    "name": "Sample customer",
+    "area": "Al Khuwair",
+    "service": "iPhone screen replacement",
+    "stars": "5",
+    "text": "The technician came to my office and replaced the screen in about 40 minutes. Clear explanation before starting."
+   },
+   {
+    "name": "Sample customer",
+    "area": "Qurum",
+    "service": "Laptop battery",
+    "stars": "5",
+    "text": "Booked in the morning, laptop was picked up and back the next day with a new battery. Easy process."
+   },
+   {
+    "name": "Sample customer",
+    "area": "Sohar",
+    "service": "CCTV installation",
+    "stars": "5",
+    "text": "They surveyed the shop first, installed four cameras and set up viewing on my phone."
+   },
+   {
+    "name": "Sample customer",
+    "area": "Ruwi",
+    "service": "Printer repair",
+    "stars": "4",
+    "text": "Office printer kept jamming. Fixed on-site and they showed us how to avoid it happening again."
+   },
+   {
+    "name": "Sample customer",
+    "area": "Salalah",
+    "service": "Data recovery",
+    "stars": "5",
+    "text": "Recovered photos from a hard disk that would not show up on any computer."
+   },
+   {
+    "name": "Sample customer",
+    "area": "Al Ghubrah",
+    "service": "Wi-Fi setup",
+    "stars": "5",
+    "text": "Weak signal upstairs is gone after the mesh setup. Tidy cabling too."
+   }
+  ]
+ },
+ "milestones": {
+  "on": true,
+  "eyebrow": "Our journey",
+  "title": "From one shop to doorstep repair",
+  "note": "Years marked “TBC” are waiting for confirmation from Danat Fix.",
+  "items": [
+   {
+    "year": "2003",
+    "title": "First store opens on Computer Street, Ruwi",
+    "text": "Computer sales and repair in Muscat."
+   },
+   {
+    "year": "Year TBC",
+    "title": "Sohar branch opens",
+    "text": "Serving Al Batinah."
+   },
+   {
+    "year": "Year TBC",
+    "title": "Salalah branch opens",
+    "text": "Serving Dhofar."
+   },
+   {
+    "year": "Today",
+    "title": "5,430 products · 249 categories",
+    "text": "Laptops, printers, CCTV, networking and parts in stock."
+   },
+   {
+    "year": "Now",
+    "title": "Doorstep & pickup repair",
+    "text": "Technicians and riders across Oman."
+   }
+  ]
+ },
+ "partners": {
+  "on": true,
+  "eyebrow": "Trusted partners",
+  "title1": "Leading brands,",
+  "title2": "in safe hands",
+  "text": "Companies that trust Danat Fix with their devices, networks and IT support.",
+  "items": [
+   {
+    "name": "Alphalize",
+    "logo": "alphalize.png"
+   },
+   {
+    "name": "369 ai.Biz",
+    "logo": "369aibiz.png"
+   },
+   {
+    "name": "Nex Genn POS",
+    "logo": "nexgenpos.png"
+   }
+  ]
+ },
+ "cta": {
+  "on": true,
+  "eyebrow": "Let's get started",
+  "title1": "Need a",
+  "title2": "repair or service?",
+  "text": "From phones to laptops, printers to networking — our team is ready to help you get back to what matters.",
+  "button": "Book a repair",
+  "trust": [
+   {
+    "text": "Since 2003"
+   },
+   {
+    "text": "Doorstep & pickup"
+   },
+   {
+    "text": "Updates on WhatsApp"
+   }
+  ]
+ },
+ "svcHead": {
+  "eyebrow": "Services",
+  "title1": "Doorstep repair,",
+  "title2": "or we pick it up.",
+  "lead": "Choose how you want the service done, check that we reach your area, then pick your device."
+ },
+ "svcModes": {
+  "eyebrow": "Choose your service",
+  "title": "How should we reach you?",
+  "fee": "Visit / pickup fee",
+  "feePrice": "OMR 0"
+ },
+ "coverage": {
+  "eyebrow": "Check your area",
+  "title": "Where we cover",
+  "doorstep": [
+   {
+    "zone": "Muscat (Ruwi branch)",
+    "areas": "Ruwi, Muttrah, Wadi Kabir, Darsait, Al Wattayah, Qurum, Al Khuwair, Madinat Sultan Qaboos, Al Ghubrah, Bausher, Al Azaiba"
+   },
+   {
+    "zone": "Sohar",
+    "areas": "Sohar, Falaj Al Qabail, Al Hambar"
+   },
+   {
+    "zone": "Salalah",
+    "areas": "Salalah, Al Saada, Al Dahariz, Awqad"
+   }
+  ],
+  "pickup": [
+   {
+    "zone": "Muscat (Ruwi branch)",
+    "areas": "Ruwi, Muttrah, Wadi Kabir, Darsait, Al Wattayah, Qurum, Al Khuwair, Madinat Sultan Qaboos, Al Ghubrah, Bausher, Al Azaiba, Al Hail, Al Mawaleh, Al Khoudh, Seeb, Mabellah, Al Amerat, Qurayyat"
+   },
+   {
+    "zone": "Al Batinah (Sohar branch)",
+    "areas": "Sohar, Falaj Al Qabail, Al Hambar, Liwa, Shinas, Saham, Al Khaburah, Barka, Al Suwaiq"
+   },
+   {
+    "zone": "Dhofar (Salalah branch)",
+    "areas": "Salalah, Al Saada, Al Dahariz, Awqad, Taqah, Mirbat, Raysut"
+   }
+  ],
+  "trust": [
+   {
+    "text": "Diagnosis before any work"
+   },
+   {
+    "text": "Visit or pickup OMR 0"
+   },
+   {
+    "text": "Updates on WhatsApp"
+   },
+   {
+    "text": "Not listed? Book anyway — we confirm"
+   }
+  ]
+ },
+ "faq": {
+  "items": [
+   {
+    "q": "Is there a charge if you only inspect the device?",
+    "a": "No. Diagnosis and the visit or pickup are shown as OMR 0 — you get an estimate before any work starts."
+   },
+   {
+    "q": "How long does a repair take?",
+    "a": "Most phone and laptop repairs are done on the spot during a doorstep visit. Pickup repairs come back in 24–48 hours; board-level work can take longer and we tell you upfront."
+   },
+   {
+    "q": "Which devices can be repaired at my door?",
+    "a": "Phones, tablets, laptops, desktops and printers can be done at your door or picked up. CCTV and networking are always installed on-site."
+   },
+   {
+    "q": "Is my data safe?",
+    "a": "Your data stays on your device. We only access what the repair needs, and data recovery jobs are handled in our lab."
+   },
+   {
+    "q": "Which areas do you cover?",
+    "a": "Areas around our 3 branches — Ruwi, Muscat, Sohar, Salalah. Check your area in the coverage section above."
+   }
+  ]
+ },
+ "contact": {
+  "name": "Danat Fix",
+  "tagline": "Electronics repair at your doorstep",
+  "phone": "+968 7832 3116",
+  "whatsapp": "96878323116",
+  "email": "danatruwi@danatcomputers.com",
+  "address": "Computer Street, Ruwi, PO Box 502, PC 118, Sultanate of Oman",
+  "since": "2003",
+  "currency": "OMR",
+  "price": "0",
+  "cta": "Book a repair",
+  "nav": [
+   {
+    "label": "Home",
+    "link": "/"
+   },
+   {
+    "label": "Services",
+    "link": "/services"
+   },
+   {
+    "label": "Our Team",
+    "link": "/team"
+   },
+   {
+    "label": "My Orders",
+    "link": "/track"
+   }
+  ]
+ },
+ "branches": {
+  "title": "Our branches",
+  "items": [
+   {
+    "name": "Ruwi",
+    "lines": "Computer Street, Ruwi\nP.O. Box 502, PC 118\nSultanate of Oman",
+    "phones": "+968 9792 3077, +968 9792 2924",
+    "map": "Computer Street, Ruwi, Muscat, Oman"
+   },
+   {
+    "name": "Salalah",
+    "lines": "23rd July Street, near NBO\nOpposite Sultan Qaboos Mosque\nSalalah, Sultanate of Oman",
+    "phones": "+968 9792 3005",
+    "map": "23rd July Street, Salalah, Oman"
+   },
+   {
+    "name": "Sohar",
+    "lines": "Al Hambar Street\nSohar Souq, near Malabar Paris Restaurant\nSohar, Sultanate of Oman",
+    "phones": "+968 9792 3155",
+    "map": "Al Hambar Street, Sohar Souq, Sohar, Oman"
+   }
+  ]
+ },
+ "footer": {
+  "about": "Electronics repair at your doorstep. Phones, laptops, printers, CCTV and Wi-Fi — repaired at your door or picked up and brought back, across Oman since 2003.",
+  "copyright": "© 2026 Danat Fix. All rights reserved. · Estimates shown as OMR 0 — pricing to be announced.",
+  "credit": "Site developed and maintained by alphalize",
+  "services": "Mobile Phones, Tablets & iPads, Laptops & MacBooks, Desktops & All-in-ones, Printers, CCTV Installation, Networking & Wi-Fi, Data Recovery, IT Support",
+  "quick": [
+   {
+    "label": "Home"
+   },
+   {
+    "label": "Services"
+   },
+   {
+    "label": "Our Team"
+   },
+   {
+    "label": "My Orders"
+   },
+   {
+    "label": "Get an estimate"
+   },
+   {
+    "label": "Check location"
+   },
+   {
+    "label": "Book on WhatsApp"
+   }
+  ]
+ },
+ "info": {
+  "items": [
+   {
+    "title": "About us",
+    "slug": "about",
+    "column": "Company",
+    "kind": "Text page",
+    "body": ""
+   },
+   {
+    "title": "Contact",
+    "slug": "contact",
+    "column": "Company",
+    "kind": "Contact (built)",
+    "body": ""
+   },
+   {
+    "title": "Areas we cover",
+    "slug": "areas",
+    "column": "Help",
+    "kind": "Areas (built)",
+    "body": ""
+   },
+   {
+    "title": "FAQ",
+    "slug": "faq",
+    "column": "Help",
+    "kind": "FAQ (built)",
+    "body": ""
+   },
+   {
+    "title": "Privacy policy",
+    "slug": "privacy",
+    "column": "Policies",
+    "kind": "Text page",
+    "body": ""
+   },
+   {
+    "title": "Terms of service",
+    "slug": "terms",
+    "column": "Policies",
+    "kind": "Text page",
+    "body": ""
+   }
+  ]
+ }
+}

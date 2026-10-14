@@ -19,6 +19,61 @@
         </field>
     </record>
 
+    <!-- Device Pictures: one switch at the top (drawing sketches / real photos), device types below. -->
+    <record id="view_online_site_device_pictures_form" model="ir.ui.view">
+        <field name="name">online.service.site.device.pictures</field>
+        <field name="model">online.service.site</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <form string="Device Pictures" create="0" delete="0">
+                <sheet>
+                    <div class="oe_title"><h1>Device Pictures</h1>
+                        <div class="text-muted"><field name="name" readonly="1" class="d-inline"/></div></div>
+                    <div class="d-flex align-items-center gap-3 my-3 p-3 border rounded">
+                        <field name="show_device_photos" widget="boolean_toggle" nolabel="1" options="{'autosave': True}"/>
+                        <div>
+                            <div class="fw-bold fs-5">Show real photos on the website</div>
+                            <div class="text-muted" invisible="show_device_photos">Off: every device type shows its <b>drawing sketch</b>.</div>
+                            <div class="text-muted" invisible="not show_device_photos">On: every device type shows its <b>real photo</b> (the one marked "On website").</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3 mb-3 px-3" invisible="show_device_photos">
+                        <span class="fw-bold">Drawing style</span>
+                        <field name="drawing_style" widget="selection_badge" nolabel="1"/>
+                        <span class="text-muted small">Every device type uses this style. Click the cloud icon (or leave the page) to save.</span>
+                    </div>
+                    <field name="fix_device_category_ids" readonly="1" nolabel="1">
+                        <list>
+                            <field name="web_drawing" widget="image" options="{'size': [0, 44]}" string="3D"/>
+                            <field name="web_drawing_line" widget="image" options="{'size': [0, 44]}" string="Line"/>
+                            <field name="web_drawing_flat" widget="image" options="{'size': [0, 44]}" string="Flat"/>
+                            <field name="web_drawing_sketch" widget="image" options="{'size': [0, 44]}" string="Sketch"/>
+                            <field name="web_drawing_duotone" widget="image" options="{'size': [0, 44]}" string="Duotone"/>
+                            <field name="web_photo_preview" widget="image" options="{'size': [0, 48]}" string="Photo"/>
+                            <field name="name" string="Device type"/>
+                            <field name="web_photo_count"/>
+                            <button name="action_fix_open_pictures" type="object" string="Edit pictures"
+                                    icon="fa-pencil" class="btn-link"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Device Pictures screen: Sketch Drawing | Real Photos (static/src/website/device_pictures.*) -->
+    <record id="action_device_pictures_client" model="ir.actions.client">
+        <field name="name">Device Pictures</field>
+        <field name="tag">369ai_fix.device_pictures</field>
+    </record>
+
+    <record id="action_device_pictures_open" model="ir.actions.server">
+        <field name="name">Device Pictures</field>
+        <field name="model_id" ref="369ai_fix.model_online_service_site"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_fix_device_pictures()</field>
+    </record>
+
     <record id="action_website_details" model="ir.actions.act_window">
         <field name="name">Website Details</field>
         <field name="res_model">online.service.site</field>

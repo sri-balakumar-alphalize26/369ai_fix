@@ -7,6 +7,9 @@
         <field name="priority">90</field>
         <field name="arch" type="xml">
             <list string="Device Pictures" create="0">
+                <field name="web_look" string="Website shows" widget="badge"
+                       decoration-info="web_look == 'drawing'" decoration-success="web_look == 'photo'"/>
+                <field name="web_drawing" widget="image" options="{'size': [0, 48]}" string="Drawing"/>
                 <field name="web_photo_preview" widget="image" options="{'size': [0, 48]}" string="Photo"/>
                 <field name="name"/>
                 <field name="web_photo_count"/>
@@ -26,6 +29,18 @@
                         The website shows this device type as its drawing, or as the photo marked
                         "On website", depending on the toggle in Website Details. Both stay saved.
                     </p>
+                    <div class="mb-2">Website shows now: <field name="web_look" widget="badge" class="ms-1"
+                         decoration-info="web_look == 'drawing'" decoration-success="web_look == 'photo'"/>
+                        <span class="text-muted ms-2">(switch it at the top of Device Pictures)</span></div>
+                    <separator string="Drawings (5 styles; Device Pictures chooses which style the website uses)"/>
+                    <div class="d-flex flex-wrap gap-4 mb-3">
+                        <div class="text-center"><field name="web_drawing" widget="image" options="{'size': [0, 120]}"/><div class="small text-muted">3D</div></div>
+                        <div class="text-center"><field name="web_drawing_line" widget="image" options="{'size': [0, 120]}"/><div class="small text-muted">Line</div></div>
+                        <div class="text-center"><field name="web_drawing_flat" widget="image" options="{'size': [0, 120]}"/><div class="small text-muted">Flat</div></div>
+                        <div class="text-center"><field name="web_drawing_sketch" widget="image" options="{'size': [0, 120]}"/><div class="small text-muted">Sketch</div></div>
+                        <div class="text-center"><field name="web_drawing_duotone" widget="image" options="{'size': [0, 120]}"/><div class="small text-muted">Duotone</div></div>
+                    </div>
+                    <separator string="Photos"/>
                     <field name="web_photo_ids" mode="kanban"
                            context="{'default_category_id': id, 'default_name': name, 'kanban_view_ref': '369ai_fix.view_fix_web_image_kanban', 'form_view_ref': '369ai_fix.view_fix_web_image_form'}"/>
                 </sheet>
@@ -41,6 +56,7 @@
             <search>
                 <field name="name"/>
                 <filter name="no_photo" string="Missing picture" domain="[('web_photo_count', '=', 0)]"/>
+                <filter name="no_drawing" string="Missing drawing" domain="[('web_has_drawing', '=', False)]"/>
             </search>
         </field>
     </record>

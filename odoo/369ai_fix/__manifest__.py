@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.0.0',
+    'version': '19.0.2.1.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """
@@ -85,6 +85,8 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
         'website/views/device_views.xml',
         'website/views/service_views.xml',
         'website/views/online_site_views.xml',
+        'website/views/home_views.xml',
+        'website/views/site_content_views.xml',
         'website/views/menus.xml',
         # app
         'app/views/dashboard_action.xml',
@@ -100,6 +102,9 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
             '369ai_fix/static/src/app/fix_dashboard.css',
             '369ai_fix/static/src/app/fix_dashboard.js',
             '369ai_fix/static/src/app/fix_dashboard.xml',
+            '369ai_fix/static/src/website/device_pictures.css',
+            '369ai_fix/static/src/website/device_pictures.js',
+            '369ai_fix/static/src/website/device_pictures.xml',
         ],
     },
     'post_init_hook': 'post_init_hook',

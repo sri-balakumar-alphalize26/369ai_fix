@@ -18,10 +18,12 @@ class OnlineServiceOrder(models.Model):
         env = self.sudo().env
         photos = bool(site.show_device_photos)
         res['device_look'] = 'photo' if photos else 'drawing'
+        res['drawing_style'] = site.drawing_style or '3d'
         Category, Brand, Product = env['device.category'], env['device.brand'], env['product.product']
         for cat in res.get('categories', []):
             record = Category.browse(cat['id'])
             cat['photo'] = record._fix_photo_url()
+            cat['drawing'] = record._fix_drawing_url(site.drawing_style)
             cat['image'] = cat['photo'] if photos else False
             for brand in cat.get('brands', []):
                 brand['logo'] = Brand.browse(brand['id'])._fix_logo_url()
