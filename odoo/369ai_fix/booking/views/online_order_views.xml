@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="view_online_order_form_web_booking" model="ir.ui.view">
+        <field name="name">online.service.order.form.web.booking</field>
+        <field name="model">online.service.order</field>
+        <field name="inherit_id" ref="369ai_fix.view_online_order_form"/>
+        <field name="arch" type="xml">
+            <!-- Website bookings with a job card are approved or rejected, not just confirmed -->
+            <xpath expr="//header/button[@name='action_confirm']" position="attributes">
+                <attribute name="invisible">state != 'new' or job_card_count</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_create_job_card']" position="before">
+                <button name="action_wb_approve" type="object" string="Approve" class="btn-primary"
+                        invisible="state != 'new' or not job_card_count"/>
+                <button name="action_wb_reject" type="object" string="Reject"
+                        invisible="state != 'new' or not job_card_count"/>
+                <button name="action_wb_call" type="object" string="Call" icon="fa-phone"
+                        invisible="not phone"/>
+                <button name="action_wb_slot_seen" type="object" string="Seen" class="btn-warning"
+                        invisible="not slot_booked_on or slot_seen_by_id"/>
+            </xpath>
+            <xpath expr="//sheet" position="before">
+                <div class="alert alert-danger mb-0" role="alert" invisible="not rejected">
+                    <strong invisible="rejected_by_customer">Rejected: </strong>
+                    <strong invisible="not rejected_by_customer">Declined by the customer: </strong>
+                    <field name="reject_reason" class="d-inline"/>
+                </div>
+                <div class="alert alert-info mb-0" role="alert" invisible="not slot_booked_on">
+                    <strong>Visit booked: </strong><field name="slot_label" class="d-inline"/>
+                </div>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_job_cards" type="object" class="oe_stat_button" icon="fa-wrench"
+                        invisible="job_card_count &lt; 2">
+                    <field name="job_card_count" widget="statinfo" string="Job cards"/>
+                </button>
+            </xpath>
+            <xpath expr="//field[@name='line_ids']/list/field[@name='issue']" position="after">
+                <field name="product_id" optional="show" readonly="1"/>
+                <field name="category_id" optional="hide" readonly="1"/>
+                <field name="brand_id" optional="hide" readonly="1"/>
+                <field name="series_id" optional="hide" readonly="1"/>
+                <field name="model_id" optional="hide" readonly="1"/>
+            </xpath>
+            <xpath expr="//page[@name='repairs']/field[@name='note']" position="before">
+                <group invisible="not problem">
+                    <field name="problem"/>
+                </group>
+            </xpath>
+            <xpath expr="//page[@name='repairs']" position="after">
+                <page string="Job cards" name="job_cards" invisible="not job_card_count">
+                    <field name="job_card_ids" readonly="1">
+                        <list>
+                            <field name="name"/>
+                            <field name="device_category_id"/>
+                            <field name="brand_id"/>
+                            <field name="model_id"/>
+                            <field name="assigned_to"/>
+                            <field name="total_amount"/>
+                            <field name="state" widget="badge"/>
+                        </list>
+                    </field>
+                </page>
+                <page string="Review" name="review">
+                    <group>
+                        <group string="Customer">
+                            <field name="call_numbers"/>
+                            <field name="address_partner_id"/>
+                            <field name="photo_count"/>
+                            <field name="video_count"/>
+                        </group>
+                        <group string="Decision">
+                            <field name="approved_on"/>
+                            <field name="approved_by_id"/>
+                            <field name="parts_state"/>
+                            <field name="parts_days" invisible="parts_state in ('none', 'ready')"/>
+                            <field name="rejected" invisible="1"/>
+                            <field name="rejected_by_customer" invisible="1"/>
+                            <field name="rejected_on" invisible="not rejected"/>
+                            <field name="rejected_by_id" invisible="not rejected or rejected_by_customer"/>
+                        </group>
+                        <group string="Visit time">
+                            <field name="slot_id"/>
+                            <field name="slot_date"/>
+                            <field name="slot_booked_on"/>
+                            <field name="slot_seen_by_id"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Rejected bookings, with reason and job card -->
+    <record id="view_online_order_list_rejected" model="ir.ui.view">
+        <field name="name">online.service.order.list.rejected</field>
+        <field name="model">online.service.order</field>
+        <field name="priority">40</field>
+        <field name="arch" type="xml">
+            <list string="Rejected bookings" create="false">
+                <field name="name"/>
+                <field name="rejected_on"/>
+                <field name="customer_name"/>
+                <field name="phone"/>
+                <field name="summary"/>
+                <field name="reject_reason"/>
+                <field name="rejected_by_customer" string="By customer"/>
+                <field name="rejected_by_id" string="By staff"/>
+                <field name="job_card_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_wb_rejected" model="ir.actions.act_window">
+        <field name="name">Rejected bookings</field>
+        <field name="res_model">online.service.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('rejected', '=', True)]</field>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_online_order_list_rejected')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('369ai_fix.view_online_order_form')})]"/>
+    </record>
+
+    <!-- Dashboard links -->
+    <record id="action_wb_waiting" model="ir.actions.act_window">
+        <field name="name">Bookings waiting for approval</field>
+        <field name="res_model">online.service.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state', '=', 'new')]</field>
+    </record>
+    <record id="action_wb_slot_unseen" model="ir.actions.act_window">
+        <field name="name">Visit times booked (not seen)</field>
+        <field name="res_model">online.service.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('slot_booked_on', '!=', False), ('slot_seen_by_id', '=', False), ('state', '!=', 'cancelled')]</field>
+    </record>
+    <record id="action_wb_parts" model="ir.actions.act_window">
+        <field name="name">Bookings waiting for parts</field>
+        <field name="res_model">online.service.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('parts_state', 'in', ('ask', 'ordering')), ('state', '!=', 'cancelled')]</field>
+    </record>
+
+    <!-- Job card: call button and stock on the spare lines -->
+    <record id="view_job_card_form_web_booking" model="ir.ui.view">
+        <field name="name">job.card.form.web.booking</field>
+        <field name="model">job.card</field>
+        <field name="inherit_id" ref="mobile_repair.view_job_card_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='action_cancel']" position="before">
+                <button name="action_wb_call" type="object" string="Call" icon="fa-phone"/>
+                <button name="action_wb_take_to_office" type="object" string="Take to office"
+                        invisible="not online_order_id or wb_at_office or state not in ('inspection', 'quotation')"/>
+                <button name="action_wb_approved_by_phone" type="object" string="Customer approved by phone"
+                        invisible="quote_state not in ('waiting', 'declined')"
+                        confirm="Record that the customer approved the new price by phone?"/>
+                <button name="action_wb_send_new_price" type="object" string="Send new price"
+                        invisible="not online_order_id or state not in ('quotation', 'repair') or quote_state == 'waiting'"/>
+            </xpath>
+            <xpath expr="//sheet" position="before">
+                <field name="online_order_id" invisible="1"/>
+                <div class="alert alert-warning mb-0" role="alert" invisible="quote_state != 'waiting'">
+                    Waiting for the customer to approve the new price. Start Repair is locked until then.
+                </div>
+                <div class="alert alert-danger mb-0" role="alert" invisible="quote_state != 'declined'">
+                    The customer declined the new price.
+                </div>
+                <div class="alert alert-info mb-0" role="alert" invisible="not wb_at_office or wb_returned">
+                    Device at our office - return by <field name="wb_return_by" class="d-inline"/>.
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='inspection_type']" position="after">
+                <field name="quote_state" invisible="quote_state == 'none'"/>
+                <field name="estimate_total" invisible="not estimate_accepted_on"/>
+                <field name="estimate_accepted_on" invisible="not estimate_accepted_on"/>
+                <field name="wb_at_office" invisible="1"/>
+                <field name="wb_returned" invisible="1"/>
+            </xpath>
+            <xpath expr="//field[@name='spare_part_line_ids']/list/field[@name='quantity']" position="after">
+                <field name="wb_on_hand" decoration-danger="wb_on_hand &lt;= 0" decoration-success="wb_on_hand &gt; 0"
+                       widget="badge" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Part order: expected arrival (the customer is told) -->
+    <record id="view_spare_part_purchase_request_form_expected" model="ir.ui.view">
+        <field name="name">spare.part.purchase.request.form.expected</field>
+        <field name="model">spare.part.purchase.request</field>
+        <field name="inherit_id" ref="mobile_repair.view_spare_part_purchase_request_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='vendor_id']" position="after">
+                <field name="expected_date"/>
+            </xpath>
+        </field>
+    </record>
+
+    <menuitem id="menu_wb_rejected" name="Rejected"
+              parent="369ai_fix.menu_online_service_root"
+              action="action_wb_rejected" sequence="40"/>
+
+</odoo>

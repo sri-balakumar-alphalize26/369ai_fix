@@ -1,36 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Under the Store app, next to New Orders and Enquiries: the same
-         counter, one more thing that rings. -->
-    <menuitem id="menu_danatfix_booking_root"
-              name="Website Bookings"
-              parent="sales_automation_store.menu_sa_store_root"
-              sequence="6"/>
-
+    <!-- Inside the "369 ai Fix" app (369ai_fix add-on): the Live Screen at the top,
+         Old Bookings under Bookings, the desk settings under Configuration. -->
     <menuitem id="menu_danatfix_booking_screen"
               name="Live Screen"
-              parent="menu_danatfix_booking_root"
+              parent="369ai_fix.menu_fix_root"
               action="action_danatfix_booking_screen"
-              sequence="1"/>
-
-    <menuitem id="menu_danatfix_booking_orders"
-              name="All Website Orders"
-              parent="menu_danatfix_booking_root"
-              action="369ai_fix_customer_module.action_online_order_all"
               sequence="2"/>
 
     <menuitem id="menu_danatfix_booking_list"
               name="Old Bookings"
-              parent="menu_danatfix_booking_root"
+              parent="369ai_fix.menu_fix_bookings"
               action="action_danatfix_booking_list"
-              sequence="8"/>
+              sequence="20"/>
 
     <menuitem id="menu_danatfix_booking_settings"
-              name="Settings"
-              parent="menu_danatfix_booking_root"
+              name="Booking Desk Settings"
+              parent="369ai_fix.menu_fix_config"
               action="action_danatfix_booking_settings"
               groups="base.group_system"
-              sequence="9"/>
+              sequence="10"/>
 
 </odoo>

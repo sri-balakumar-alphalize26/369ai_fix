@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 369 ai Fix: one home-screen app for the whole service flow. -->
+    <menuitem id="menu_fix_root"
+              name="369 ai Fix"
+              web_icon="369ai_fix,static/description/icon.png"
+              sequence="25"/>
+
+    <menuitem id="menu_fix_dashboard"
+              name="Dashboard"
+              parent="menu_fix_root"
+              action="action_fix_dashboard"
+              sequence="1"/>
+
+    <!-- Live Screen (2), Old Bookings and Booking Desk Settings come from
+         danatfix_repair_booking, which hangs its menus here. -->
+
+    <!-- Bookings -->
+    <menuitem id="menu_fix_bookings" name="Bookings" parent="menu_fix_root" sequence="10"/>
+    <menuitem id="menu_fix_doorstep" name="Doorstep Service" parent="menu_fix_bookings"
+              action="369ai_fix.action_online_order_doorstep" sequence="1"/>
+    <menuitem id="menu_fix_pickup" name="Pickup &amp; Service" parent="menu_fix_bookings"
+              action="369ai_fix.action_online_order_pickup" sequence="2"/>
+    <menuitem id="menu_fix_all_orders" name="All Orders" parent="menu_fix_bookings"
+              action="369ai_fix.action_online_order_all" sequence="3"/>
+    <menuitem id="menu_fix_waiting" name="Waiting for Approval" parent="menu_fix_bookings"
+              action="369ai_fix.action_wb_waiting" sequence="10"/>
+    <menuitem id="menu_fix_slot_unseen" name="Visit Time Booked" parent="menu_fix_bookings"
+              action="369ai_fix.action_wb_slot_unseen" sequence="11"/>
+    <menuitem id="menu_fix_parts" name="Waiting for Parts" parent="menu_fix_bookings"
+              action="369ai_fix.action_wb_parts" sequence="12"/>
+    <menuitem id="menu_fix_rejected" name="Rejected" parent="menu_fix_bookings"
+              action="369ai_fix.action_wb_rejected" sequence="13"/>
+
+    <!-- Service -->
+    <menuitem id="menu_fix_service" name="Service" parent="menu_fix_root" sequence="20"/>
+    <menuitem id="menu_fix_job_cards" name="Job Cards" parent="menu_fix_service"
+              action="action_fix_job_cards" sequence="1"/>
+    <menuitem id="menu_fix_visits" name="Doorstep Visits" parent="menu_fix_service"
+              action="369ai_fix.action_service_visit" sequence="2"/>
+    <menuitem id="menu_fix_spare_requests" name="Spare Requests" parent="menu_fix_service"
+              action="mobile_repair.action_spare_part_request" sequence="3"/>
+
+    <!-- Catalogue -->
+    <menuitem id="menu_fix_catalogue" name="Catalogue" parent="menu_fix_root" sequence="30"/>
+    <menuitem id="menu_fix_services" name="Repair Services" parent="menu_fix_catalogue"
+              action="mobile_repair.action_service_product" sequence="1"/>
+    <menuitem id="menu_fix_spare_parts" name="Spare Parts" parent="menu_fix_catalogue"
+              action="mobile_repair.action_spare_part_product" sequence="2"/>
+    <menuitem id="menu_fix_categories" name="Device Categories" parent="menu_fix_catalogue"
+              action="mobile_repair.action_device_category" sequence="10"/>
+    <menuitem id="menu_fix_brands" name="Brands" parent="menu_fix_catalogue"
+              action="mobile_repair.action_device_brand" sequence="11"/>
+    <menuitem id="menu_fix_series" name="Series" parent="menu_fix_catalogue"
+              action="mobile_repair.action_device_series" sequence="12"/>
+    <menuitem id="menu_fix_models" name="Models" parent="menu_fix_catalogue"
+              action="mobile_repair.action_device_model" sequence="13"/>
+    <menuitem id="menu_fix_issue_types" name="Issue Types" parent="menu_fix_catalogue"
+              action="mobile_repair.action_job_card_issue_type" sequence="20"/>
+    <menuitem id="menu_fix_accessories" name="Accessories" parent="menu_fix_catalogue"
+              action="mobile_repair.action_device_accessory" sequence="21"/>
+
+    <!-- Configuration -->
+    <menuitem id="menu_fix_config" name="Configuration" parent="menu_fix_root"
+              groups="mobile_repair.group_mobile_repair_manager" sequence="90"/>
+    <menuitem id="menu_fix_slots" name="Time Slots" parent="menu_fix_config"
+              action="369ai_fix.action_booking_slot" sequence="1"/>
+    <menuitem id="menu_fix_websites" name="Websites" parent="menu_fix_config"
+              action="369ai_fix.action_online_site" sequence="2"/>
+    <menuitem id="menu_fix_messages" name="Status Messages" parent="menu_fix_config"
+              action="369ai_fix.action_online_message" sequence="3"/>
+    <menuitem id="menu_fix_repair_settings" name="Repair Settings" parent="menu_fix_config"
+              action="mobile_repair.action_mobile_repair_config_settings"
+              groups="base.group_system" sequence="11"/>
+
+    <!-- The old place under IT & Mobile Repair (customer/views/menus.xml): hidden
+         while this add-on is installed, put back by the uninstall_hook. -->
+    <record id="menu_online_service_root" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+</odoo>

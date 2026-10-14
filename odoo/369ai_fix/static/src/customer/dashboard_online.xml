@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <!-- One more box on the IT & Mobile Repair dashboard, right after "Delivery Types".
+         Extension only: the original template is not changed. -->
+    <t t-inherit="mobile_repair.Dashboard" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('stats-box')][h5[text()='Delivery Types']]" position="after">
+            <div class="stats-box">
+                <h5>Online Service</h5>
+                <div class="simple-chart">
+                    <div class="chart-legend">
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix.action_online_order_doorstep')">
+                            <span class="legend-dot" style="background: #0d6efd;"/>
+                            <span>New Doorstep: <strong t-out="state.data.online_new_doorstep || 0"/></span>
+                        </div>
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix.action_online_order_pickup')">
+                            <span class="legend-dot" style="background: #6f42c1;"/>
+                            <span>New Pickup: <strong t-out="state.data.online_new_pickup || 0"/></span>
+                        </div>
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix.action_online_order_all')">
+                            <span class="legend-dot" style="background: #adb5bd;"/>
+                            <span>To confirm: <strong t-out="state.data.online_new_other || 0"/></span>
+                        </div>
+                        <div class="legend-item" style="cursor: pointer;"
+                             t-on-click="() => actionService.doAction('369ai_fix.action_online_order_all')">
+                            <span class="legend-dot" style="background: #198754;"/>
+                            <span>Confirmed, in progress: <strong t-out="state.data.online_open || 0"/></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
+    </t>
+</templates>

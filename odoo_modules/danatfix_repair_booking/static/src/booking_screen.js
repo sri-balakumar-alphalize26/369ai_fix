@@ -188,7 +188,7 @@ export class BookingScreen extends Component {
     }
 
     openList() {
-        this.action.doAction("369ai_fix_customer_module.action_online_order_all");
+        this.action.doAction("369ai_fix.action_online_order_all");
     }
 
     age(row) {

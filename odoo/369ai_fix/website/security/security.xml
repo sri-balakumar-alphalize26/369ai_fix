@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- People who look after the website's pictures, without access to bookings. -->
+    <record id="group_fix_website_editor" model="res.groups">
+        <field name="name">Fix Website: editor</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+    <record id="base.group_system" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('group_fix_website_editor'))]"/>
+    </record>
+</odoo>

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """The Live Screen, its two alarms and the staff WhatsApp poll, on the website
-orders (online.service.order) that 369ai_fix_web_booking turns into job cards.
+orders (online.service.order) that 369ai_fix (booking/) turns into job cards.
 
-Approve and Reject are 369ai_fix_web_booking's (estimate, slot link, reason); this
+Approve and Reject are 369ai_fix's (estimate, slot link, reason); this
 module adds where staff do it - the screen, any Odoo page, the WhatsApp group - and
 "calling the customer". Every change goes through `_desk_lock`, so a tap in the
 group and a click on the screen in the same second cannot both win.

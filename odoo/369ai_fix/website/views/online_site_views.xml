@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Website record: the drawing / photo toggle for device types, and the starter pictures. -->
+    <record id="view_online_site_form_pictures" model="ir.ui.view">
+        <field name="name">online.service.site.form.pictures</field>
+        <field name="model">online.service.site</field>
+        <field name="inherit_id" ref="369ai_fix.view_online_site_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Website pictures" name="fix_pictures">
+                    <field name="show_device_photos" widget="boolean_toggle"/>
+                    <div colspan="2">
+                        <button name="action_fix_load_starter_pictures" type="object" class="btn-secondary"
+                                string="Load starter pictures"
+                                help="Fills only empty places: service photos and brand logos. Pictures you chose are kept."/>
+                    </div>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_website_details" model="ir.actions.act_window">
+        <field name="name">Website Details</field>
+        <field name="res_model">online.service.site</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+</odoo>

@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_fix_web_image_user,fix.web.image user,model_fix_web_image,base.group_user,1,0,0,0
+access_fix_web_image_editor,fix.web.image editor,model_fix_web_image,group_fix_website_editor,1,1,1,1
+access_device_category_editor,device.category website editor,mobile_repair.model_device_category,group_fix_website_editor,1,1,0,0
+access_device_brand_editor,device.brand website editor,mobile_repair.model_device_brand,group_fix_website_editor,1,1,0,0
+access_product_template_editor,product.template website editor,product.model_product_template,group_fix_website_editor,1,1,0,0
+access_online_site_editor,online.service.site website editor,369ai_fix.model_online_service_site,group_fix_website_editor,1,1,0,0

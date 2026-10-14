@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Danat Fix Repair Booking',
-    'version': '19.0.2.0.0',
+    'version': '19.0.3.0.0',
     'summary': 'Live Screen, alarms and the staff WhatsApp poll for website repair bookings',
     'description': """
 Website bookings (IT & Mobile Repair > Online Service, each already a filled job
@@ -20,7 +20,7 @@ card) are handled here.
 """,
     'author': 'Alphalize',
     'category': 'Sales',
-    'depends': ['sales_automation', 'sales_automation_store', 'mail', 'bus', '369ai_fix_web_booking'],
+    'depends': ['sales_automation', 'sales_automation_store', 'mail', 'bus', '369ai_fix'],
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence.xml',

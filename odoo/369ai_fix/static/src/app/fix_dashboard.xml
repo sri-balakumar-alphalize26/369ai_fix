@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="369ai_fix.Dashboard">
+        <div class="o_mobile_repair_dashboard o_fix_dashboard">
+            <div class="dashboard-header">
+                <h2><i class="fa fa-wrench me-2"/>369 ai Fix Dashboard</h2>
+            </div>
+
+            <t t-if="state.isLoading">
+                <div class="text-center py-5">
+                    <i class="fa fa-spinner fa-spin fa-3x"/>
+                    <p class="mt-2">Loading dashboard...</p>
+                </div>
+            </t>
+
+            <t t-else="">
+                <!-- Website bookings that need staff -->
+                <h5 class="mb-3">Website Bookings</h5>
+                <div class="stat-cards">
+                    <div class="stat-card draft" t-on-click="() => this.open('369ai_fix.action_wb_waiting')">
+                        <div class="stat-icon">🔔</div>
+                        <div class="stat-count" t-out="state.data.wb_waiting || 0"/>
+                        <div class="stat-label">Waiting for Approval</div>
+                    </div>
+                    <div class="stat-card inspection" t-on-click="() => this.open('369ai_fix.action_wb_slot_unseen')">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-count" t-out="state.data.wb_slot_unseen || 0"/>
+                        <div class="stat-label">Visit Time Booked</div>
+                    </div>
+                    <div class="stat-card quotation" t-on-click="() => this.open('369ai_fix.action_wb_parts')">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-count" t-out="state.data.wb_parts || 0"/>
+                        <div class="stat-label">Waiting for Parts</div>
+                    </div>
+                    <div class="stat-card cancelled" t-on-click="() => this.open('369ai_fix.action_wb_rejected')">
+                        <div class="stat-icon">🚫</div>
+                        <div class="stat-count" t-out="state.data.wb_rejected_today || 0"/>
+                        <div class="stat-label">Rejected Today</div>
+                    </div>
+                </div>
+
+                <!-- Job cards made from website bookings -->
+                <h5 class="mb-3">Job Cards</h5>
+                <div class="stat-cards">
+                    <div class="stat-card draft" t-on-click="() => this.openJobCards('draft')">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-count" t-out="state.data.state_counts.draft || 0"/>
+                        <div class="stat-label">Draft</div>
+                    </div>
+                    <div class="stat-card inspection" t-on-click="() => this.openJobCards('inspection')">
+                        <div class="stat-icon">🔍</div>
+                        <div class="stat-count" t-out="state.data.state_counts.inspection || 0"/>
+                        <div class="stat-label">Inspection</div>
+                    </div>
+                    <div class="stat-card quotation" t-on-click="() => this.openJobCards('quotation')">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-count" t-out="state.data.state_counts.quotation || 0"/>
+                        <div class="stat-label">Quotation</div>
+                    </div>
+                    <div class="stat-card repair" t-on-click="() => this.openJobCards('repair')">
+                        <div class="stat-icon">🔧</div>
+                        <div class="stat-count" t-out="state.data.state_counts.repair || 0"/>
+                        <div class="stat-label">Repair</div>
+                    </div>
+                    <div class="stat-card completed" t-on-click="() => this.openJobCards('completed')">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-count" t-out="state.data.state_counts.completed || 0"/>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                    <div class="stat-card cancelled" t-on-click="() => this.openJobCards('cancelled')">
+                        <div class="stat-icon">❌</div>
+                        <div class="stat-count" t-out="state.data.state_counts.cancelled || 0"/>
+                        <div class="stat-label">Cancelled</div>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stats-box">
+                        <h5>Statistics</h5>
+                        <div class="mini-stat completed-stat">
+                            <div>
+                                <div class="mini-stat-count" t-out="state.data.completed || 0"/>
+                                <div class="mini-stat-label">Completed</div>
+                            </div>
+                        </div>
+                        <div class="mini-stat pending-stat">
+                            <div>
+                                <div class="mini-stat-count" t-out="state.data.pending || 0"/>
+                                <div class="mini-stat-label">Pending</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-box">
+                        <h5>Online Orders</h5>
+                        <div class="simple-chart">
+                            <div class="chart-legend">
+                                <div class="legend-item" style="cursor: pointer;"
+                                     t-on-click="() => this.open('369ai_fix.action_online_order_doorstep')">
+                                    <span class="legend-dot" style="background: #0d6efd;"/>
+                                    <span>New Doorstep: <strong t-out="state.data.online_new_doorstep || 0"/></span>
+                                </div>
+                                <div class="legend-item" style="cursor: pointer;"
+                                     t-on-click="() => this.open('369ai_fix.action_online_order_pickup')">
+                                    <span class="legend-dot" style="background: #6f42c1;"/>
+                                    <span>New Pickup: <strong t-out="state.data.online_new_pickup || 0"/></span>
+                                </div>
+                                <div class="legend-item" style="cursor: pointer;"
+                                     t-on-click="() => this.open('369ai_fix.action_online_order_all')">
+                                    <span class="legend-dot" style="background: #adb5bd;"/>
+                                    <span>To confirm: <strong t-out="state.data.online_new_other || 0"/></span>
+                                </div>
+                                <div class="legend-item" style="cursor: pointer;"
+                                     t-on-click="() => this.open('369ai_fix.action_online_order_all')">
+                                    <span class="legend-dot" style="background: #198754;"/>
+                                    <span>Confirmed, in progress: <strong t-out="state.data.online_open || 0"/></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stats-box">
+                        <h5>Doorstep Visits</h5>
+                        <div class="simple-chart">
+                            <div class="chart-legend">
+                                <div class="legend-item" style="cursor: pointer;" t-on-click="() => this.openVisits(['draft'])">
+                                    <span class="legend-dot" style="background: #adb5bd;"/>
+                                    <span>To assign: <strong t-out="state.data.visits.draft || 0"/></span>
+                                </div>
+                                <div class="legend-item" style="cursor: pointer;" t-on-click="() => this.openVisits(['assigned'])">
+                                    <span class="legend-dot" style="background: #0d6efd;"/>
+                                    <span>Assigned: <strong t-out="state.data.visits.assigned || 0"/></span>
+                                </div>
+                                <div class="legend-item" style="cursor: pointer;" t-on-click="() => this.openVisits(['on_the_way'])">
+                                    <span class="legend-dot" style="background: #fd7e14;"/>
+                                    <span>On the way: <strong t-out="state.data.visits.on_the_way || 0"/></span>
+                                </div>
+                                <div class="legend-item" style="cursor: pointer;" t-on-click="() => this.openVisits(['arrived', 'in_progress'])">
+                                    <span class="legend-dot" style="background: #6f42c1;"/>
+                                    <span>At the customer: <strong t-out="state.data.visits.at_customer || 0"/></span>
+                                </div>
+                                <div class="legend-item" style="cursor: pointer;" t-on-click="() => this.openVisits(['done'])">
+                                    <span class="legend-dot" style="background: #198754;"/>
+                                    <span>Done today: <strong t-out="state.data.visits.done_today || 0"/></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h5>Completed Repairs By Month</h5>
+                    <div class="bar-chart">
+                        <t t-foreach="state.data.completed_by_month || []" t-as="item" t-key="item.month">
+                            <div class="bar-item">
+                                <div class="bar-value" t-out="item.count"/>
+                                <div class="bar"
+                                     t-attf-style="height: #{item.count > 0 ? Math.max((item.count / state.maxCompleted) * 100, 5) : 2}%"/>
+                                <div class="bar-label" t-out="item.month"/>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>
