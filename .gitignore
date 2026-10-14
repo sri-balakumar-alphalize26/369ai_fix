@@ -5,3 +5,9 @@ video/frames/
 .env
 .DS_Store
 .cache/
+__pycache__/
+*.pyc
+# Private notes with account details and API keys - never commit
+Danat Fix - Website picture sources and accounts.docx
+# Website pictures (Pixabay) loaded into Odoo by odoo_media/website_pictures/load_website_pictures.py - kept out of git
+odoo_media/
