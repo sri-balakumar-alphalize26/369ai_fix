@@ -3,6 +3,8 @@
 // /quote?o=<order>&t=<token>. Shows the old estimate and the new lines; Approve / Decline.
 import Base from '../layouts/Base.astro';
 import { site } from '../data/site';
+// Per request, so the header, footer and chatbot show what is in Odoo now.
+export const prerender = false;
 ---
 
 <Base title="Approve the new price" description="The price for your repair changed after checking the device." quiet>

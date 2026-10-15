@@ -14,7 +14,7 @@
             <xpath expr="//sheet" position="before">
                 <header>
                     <button name="action_fix_load_starter_content" type="object" string="Load starter content" icon="fa-magic"
-                            confirm="Fill the empty contact, menu, branch and footer fields, and make a first home page, from the website's texts as they were in code? Nothing already typed is changed."/>
+                            confirm="Fill the empty contact, menu, branch, footer and Services page fields, the coverage areas, FAQs and info pages, and make a first home page, from the website's texts as they were in code? Nothing already typed is changed."/>
                 </header>
             </xpath>
             <xpath expr="//sheet" position="inside">
@@ -71,7 +71,41 @@
                             <field name="footer_copyright" placeholder="© {year} Danat Fix. All rights reserved."/>
                             <field name="footer_credit" placeholder="Site developed by …"/>
                         </group>
-                        <div class="text-muted small">The "Services" column lists the device types automatically.</div>
+                        <div class="text-muted small">The "Services" column lists the device types automatically. Info pages add their own Company / Help / Policies columns.</div>
+                    </page>
+                    <page string="Services page" name="services_page">
+                        <div class="mb-3">
+                            <button name="action_fix_coverage" type="object" string="Coverage Areas" icon="fa-map-marker" class="btn-secondary me-2"/>
+                            <button name="action_fix_faqs" type="object" string="FAQs" icon="fa-question-circle" class="btn-secondary me-2"/>
+                            <button name="action_fix_pages" type="object" string="Info Pages" icon="fa-file-text-o" class="btn-secondary"/>
+                        </div>
+                        <group>
+                            <group string="Top of the page">
+                                <field name="svc_eyebrow" placeholder="Services"/>
+                                <field name="svc_title" placeholder="Doorstep repair,"/>
+                                <field name="svc_title2" placeholder="or we pick it up."/>
+                                <field name="svc_lead" placeholder="Choose how you want the service done, check that we reach your area, then pick your device."/>
+                            </group>
+                            <group string="How we fix it">
+                                <field name="svc_modes_eyebrow" placeholder="How it works"/>
+                                <field name="svc_modes_title" placeholder="We come to you first"/>
+                                <field name="svc_fee_label" placeholder="Visit fee"/>
+                                <div colspan="2" class="text-muted small">
+                                    The repair flow itself (the visit, then the lab if needed) is the <b>How we fix it</b> section on the Home Page, so it reads the same on both pages.
+                                </div>
+                            </group>
+                        </group>
+                        <group>
+                            <group string="Coverage">
+                                <field name="cov_eyebrow" placeholder="Check your area"/>
+                                <field name="cov_title" placeholder="Where we cover"/>
+                            </group>
+                            <group string="Trust points under the areas">
+                                <field name="cov_trust" nolabel="1" colspan="2" placeholder="Diagnosis before any work&#10;Technician visit {price}&#10;Updates on WhatsApp"/>
+                                <div colspan="2" class="text-muted small">One per line. {price} becomes the price shown on the site.</div>
+                            </group>
+                        </group>
+                        <div class="text-muted small">Empty fields show the site's own wording.</div>
                     </page>
                 </notebook>
             </xpath>

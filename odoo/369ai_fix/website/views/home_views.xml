@@ -131,6 +131,11 @@
                         The device tiles are the device types ticked <b>Show on home</b> (Catalogue ▸ Device Categories).
                         "Most booked" are the repair services ticked <b>Most booked</b> (Catalogue ▸ Repair Services), in their "Home order".
                     </div>
+                    <div class="alert alert-info" role="alert" invisible="kind != 'modes'">
+                        One repair flow, also shown on the <b>Services page</b> (even if this section is hidden here). The technician always comes first.
+                        <b>Line 1</b> is the visit: title, arrival time and steps; its <b>last step</b> is the "fixed on the spot" branch.
+                        <b>Line 2</b> is the other branch, when it needs a part or more work: title, a short note (e.g. "Price confirmed with you first"), the time and its steps.
+                    </div>
                     <div class="alert alert-info" role="alert" invisible="kind != 'brands'">
                         The logos are the brands ticked <b>In the brands strip</b> (Fix Website ▸ Pictures ▸ Brand Logos).
                     </div>
@@ -150,7 +155,7 @@
                             </list>
                         </field>
                         <div colspan="2" class="text-muted small">
-                            Top banner: counters (number + label). Doorstep / pickup cards: title, short line, arrival line and the steps one per line.
+                            Top banner: counters (number + label). How we fix it: line 1 = the visit (last step = fixed on the spot), line 2 = when it needs a part or more work; steps one per line.
                             Reviews: customer, area, service, stars and the review. Our journey: year, title, text. Partners: logo and name. Closing banner: trust points.
                         </div>
                     </group>

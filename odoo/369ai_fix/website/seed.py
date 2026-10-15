@@ -34,6 +34,7 @@ def load_starter_content(env, sites=None):
             _make_home_page(env, site, d)
             pages += 1
     _tick_catalogue(env)
+    fill_popular_links(env, d)
     _logger.info('%s: starter content loaded for %d website(s), %d home page(s) made', MODULE, len(sites), pages)
     return pages
 
@@ -62,6 +63,64 @@ def _fill_site(site, d):
             'site_id': site.id, 'sequence': i, 'name': b['name'], 'address': b.get('lines', ''),
             'phones': b.get('phones', ''), 'map_query': b.get('map', ''),
         } for i, b in enumerate(d['branches'].get('items', []), 1)])
+    _fill_services_page(site, d)
+
+
+def fill_popular_links(env, d):
+    """The "Popular:" chips under the hero search, for home pages whose top banner has none yet."""
+    Line = env['fix.home.line'].with_context(active_test=False)
+    for section in env['fix.home.section'].with_context(active_test=False).search([('kind', '=', 'hero')]):
+        if Line.search_count([('section_id', '=', section.id), ('role', '=', 'popular')]):
+            continue
+        Line.create([{'section_id': section.id, 'role': 'popular', 'sequence': 100 + i * 10, 'name': x['label'], 'link': x['link']}
+                     for i, x in enumerate(d.get('hero', {}).get('popular', []), 1)])
+
+
+def _fill_services_page(site, d):
+    """Round 2: Services page wording, coverage areas, FAQs and info pages."""
+    env = site.env
+    head, modes, cov = d.get('svcHead', {}), d.get('svcModes', {}), d.get('coverage', {})
+    trust = '\n'.join(t['text'].replace('OMR 0', '{price}') for t in cov.get('trust', []))
+    vals = {}
+    for field, value in (
+        ('svc_eyebrow', head.get('eyebrow')), ('svc_title', head.get('title1')), ('svc_title2', head.get('title2')),
+        ('svc_lead', head.get('lead')), ('svc_modes_eyebrow', modes.get('eyebrow')), ('svc_modes_title', modes.get('title')),
+        ('svc_fee_label', modes.get('fee')), ('cov_eyebrow', cov.get('eyebrow')), ('cov_title', cov.get('title')),
+        ('cov_trust', trust),
+    ):
+        if value and not site[field]:
+            vals[field] = value
+    if vals:
+        site.write(vals)
+    Zone = env['fix.coverage.zone'].with_context(active_test=False)
+    if not Zone.search_count([('site_id', '=', site.id)]):
+        geo = d.get('areaGeo', {})
+        pins = d.get('zonePins', [])
+        Area = env['fix.coverage.area'].with_context(fix_no_geocode=True)   # positions come from the file
+        for mode in ('doorstep', 'pickup'):
+            for i, z in enumerate(cov.get(mode, []), 1):
+                pin = pins[i - 1] if i <= len(pins) else [0, 0]
+                zone = Zone.create({'site_id': site.id, 'mode': mode, 'sequence': i, 'name': z['zone'],
+                                    'latitude': pin[0], 'longitude': pin[1]})
+                names = [a.strip() for a in (z.get('areas') or '').split(',') if a.strip()]
+                Area.create([{'zone_id': zone.id, 'sequence': k, 'name': n,
+                              'latitude': geo.get(n, [0, 0])[0], 'longitude': geo.get(n, [0, 0])[1]}
+                             for k, n in enumerate(names, 1)])
+    Faq = env['fix.site.faq'].with_context(active_test=False)
+    if not Faq.search_count([('site_id', '=', site.id)]):
+        Faq.create([{'site_id': site.id, 'sequence': i, 'name': f['q'], 'answer': f['a'].replace('OMR 0', '{price}')}
+                    for i, f in enumerate(d.get('faq', {}).get('items', []), 1)])
+    Page = env['fix.site.page'].with_context(active_test=False)
+    if not Page.search_count([('site_id', '=', site.id)]):
+        Page.create([{'site_id': site.id, 'sequence': i, 'name': p['title'], 'slug': p['slug'],
+                      'column': (p.get('column') or 'none').lower(), 'kind': _page_kind(p.get('kind')),
+                      'body': p.get('body') or False}
+                     for i, p in enumerate(d.get('info', {}).get('items', []), 1)])
+
+
+def _page_kind(label):
+    label = (label or '').lower()
+    return next((k for k in ('contact', 'areas', 'faq') if label.startswith(k)), 'text')
 
 
 def _quick_link(label, c):
@@ -85,12 +144,13 @@ def _make_home_page(env, site, d):
                         button1=s.get('btn1'), button1_link='#book-services', button2=s.get('btn2'),
                         video_url='/media/' + s['video'] if s.get('video') else False)
             lines = [{'value': x['value'], 'name': x['label']} for x in s.get('counters', [])]
+            lines += [{'role': 'popular', 'name': x['label'], 'link': x['link']} for x in s.get('popular', [])]
         elif kind == 'services':
             vals.update(badge=s.get('badge'), title=s.get('title'), subtitle=s.get('mostTitle'), text=s.get('mostSub'),
                         button1=s.get('allLink'), button1_link='/services#all')
         elif kind == 'modes':
             vals.update(button1=s.get('foot'), button1_link='/services#coverage')
-            lines = [{'name': x['title'], 'extra': x.get('short'), 'value': x.get('eta'),
+            lines = [{'name': x['title'], 'extra': x.get('short'), 'value': x.get('eta'), 'body': x.get('body'),
                       'text': '\n'.join(p.strip() for p in (x.get('steps') or '').split('|') if p.strip())}
                      for x in s.get('cards', [])]
         elif kind == 'brands':

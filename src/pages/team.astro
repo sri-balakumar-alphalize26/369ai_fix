@@ -1,6 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 import { teams } from '../data/team';
+// Per request, so the header, footer and chatbot show what is in Odoo now.
+export const prerender = false;
 
 const initials = (n: string) => n.split(' ').map((p) => p[0]).join('').slice(0, 2);
 const total = teams.reduce((n, t) => n + t.members.length, 0);

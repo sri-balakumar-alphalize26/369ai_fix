@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Everything on every page of the website, edited on the Website record (Website Details):
-name and tagline, contact details, the header menu, the branches and the footer. Plus the
+name and tagline, contact details, the header menu, the branches, the footer and the
+Services page wording. Coverage areas, FAQs and info pages are in site_pages.py. Plus the
 tick-boxes in the catalogue that feed the home page: device types "Show on home", brands
 "In the brands strip", repair services "Most booked".
 
@@ -32,6 +33,20 @@ class OnlineServiceSite(models.Model):
     footer_credit = fields.Char(string='Credit line', help='e.g. "Site developed by Alphalize". Empty = none.')
     home_page_ids = fields.One2many('fix.home.page', 'site_id', string='Home pages')
     home_page_count = fields.Integer(compute='_compute_home_page_count')
+    # Services page wording (the repair flow itself is the home page's "How we fix it" section)
+    svc_eyebrow = fields.Char(string='Small heading', help='Above the title, e.g. "Services".')
+    svc_title = fields.Char(string='Title', help='e.g. "Doorstep repair,"')
+    svc_title2 = fields.Char(string='Title (green part)', help='e.g. "on the spot or in our lab."')
+    svc_lead = fields.Text(string='Intro', help='Under the title. The site adds the counts (device types, brands, models) after it.')
+    svc_modes_eyebrow = fields.Char(string='Flow small heading', help='e.g. "How it works"')
+    svc_modes_title = fields.Char(string='Flow title', help='e.g. "We come to you first"')
+    svc_fee_label = fields.Char(string='Fee label', help='Under the repair flow, before the price, e.g. "Visit fee".')
+    cov_eyebrow = fields.Char(string='Coverage small heading', help='e.g. "Check your area"')
+    cov_title = fields.Char(string='Coverage title', help='e.g. "Where we cover"')
+    cov_trust = fields.Text(string='Trust points', help='Under the areas, one per line. {price} is replaced by the price shown on the site.')
+    zone_ids = fields.One2many('fix.coverage.zone', 'site_id', string='Coverage zones')
+    faq_ids = fields.One2many('fix.site.faq', 'site_id', string='FAQs')
+    page_ids = fields.One2many('fix.site.page', 'site_id', string='Info pages')
 
     def _compute_home_page_count(self):
         for site in self:
@@ -88,6 +103,62 @@ class OnlineServiceSite(models.Model):
             'branches': [b._serialize() for b in self.branch_ids.sorted('sequence') if b.active],
             'footer': {'about': self.footer_about or '', 'copyright': self.footer_copyright or '',
                        'credit': self.footer_credit or ''},
+            'services': {'eyebrow': self.svc_eyebrow or '', 'title': self.svc_title or '', 'title2': self.svc_title2 or '',
+                         'lead': self.svc_lead or '', 'modes_eyebrow': self.svc_modes_eyebrow or '',
+                         'modes_title': self.svc_modes_title or '', 'fee_label': self.svc_fee_label or ''},
+            'coverage': self._fix_coverage(),
+            'faq': [{'q': f.name, 'a': f.answer or ''} for f in self.faq_ids.sorted('sequence') if f.active],
+            'pages': [p._serialize() for p in self.page_ids.sorted('sequence') if p.active],
+        }
+
+    def _fix_coverage(self):
+        """Doorstep and pickup zones with their areas, and every area's map position (the
+        site's "check my location" finds the nearest one)."""
+        self.ensure_one()
+        zones = self.zone_ids.filtered('active').sorted('sequence')
+        geo = {}
+        for area in zones.area_ids:
+            if area.latitude or area.longitude:
+                geo.setdefault(area.name, [area.latitude, area.longitude])
+        return {
+            'eyebrow': self.cov_eyebrow or '', 'title': self.cov_title or '',
+            'trust': [x.strip() for x in (self.cov_trust or '').splitlines() if x.strip()],
+            'doorstep': {'zones': [z._serialize() for z in zones if z.mode == 'doorstep']},
+            'pickup': {'zones': [z._serialize() for z in zones if z.mode == 'pickup']},
+            'geo': geo,
+        }
+
+    def _fix_mode_cards(self):
+        """The doorstep / pickup cards of the live home page (else the everyday page), shown
+        on the Services page too, even when the home page hides them. First card = Doorstep,
+        second = Pickup."""
+        self.ensure_one()
+        Section = self.env['fix.home.section']
+        for page in (self._fix_live_home_page(), self.home_page_ids.filtered('is_current')[:1]):
+            if not page:
+                continue
+            section = Section.with_context(active_test=False).search(
+                [('page_id', '=', page.id), ('kind', '=', 'modes')], order='active desc, sequence', limit=1)
+            lines = section.line_ids.filtered('active').sorted('sequence') if section else False
+            if lines:
+                return [{'title': l.name or '', 'short': l.extra or '', 'eta': l.value or '',
+                         'steps': [x.strip() for x in (l.text or '').splitlines() if x.strip()]} for l in lines]
+        return []
+
+    def action_fix_coverage(self):
+        return self._fix_site_action('fix.coverage.zone', 'Coverage Areas')
+
+    def action_fix_faqs(self):
+        return self._fix_site_action('fix.site.faq', 'FAQs')
+
+    def action_fix_pages(self):
+        return self._fix_site_action('fix.site.page', 'Info Pages')
+
+    def _fix_site_action(self, model, name):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window', 'name': name, 'res_model': model, 'view_mode': 'list,form',
+            'domain': [('site_id', '=', self.id)], 'context': {'default_site_id': self.id, 'active_test': False},
         }
 
 
@@ -175,6 +246,7 @@ class OnlineServiceOrder(models.Model):
             'site': site._fix_site_content(),
             'home': page._serialize() if page else {'sections': []},
             'tiles': tiles, 'brands': strip, 'most_booked': picks,
+            'modes': site._fix_mode_cards(),
         }
 
     @api.model

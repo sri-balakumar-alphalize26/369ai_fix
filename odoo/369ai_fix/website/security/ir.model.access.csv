@@ -15,3 +15,11 @@ access_fix_site_link_user,fix.site.link user,model_fix_site_link,base.group_user
 access_fix_site_link_editor,fix.site.link editor,model_fix_site_link,group_fix_website_editor,1,1,1,1
 access_fix_site_branch_user,fix.site.branch user,model_fix_site_branch,base.group_user,1,0,0,0
 access_fix_site_branch_editor,fix.site.branch editor,model_fix_site_branch,group_fix_website_editor,1,1,1,1
+access_fix_coverage_zone_user,fix.coverage.zone user,model_fix_coverage_zone,base.group_user,1,0,0,0
+access_fix_coverage_zone_editor,fix.coverage.zone editor,model_fix_coverage_zone,group_fix_website_editor,1,1,1,1
+access_fix_coverage_area_user,fix.coverage.area user,model_fix_coverage_area,base.group_user,1,0,0,0
+access_fix_coverage_area_editor,fix.coverage.area editor,model_fix_coverage_area,group_fix_website_editor,1,1,1,1
+access_fix_site_faq_user,fix.site.faq user,model_fix_site_faq,base.group_user,1,0,0,0
+access_fix_site_faq_editor,fix.site.faq editor,model_fix_site_faq,group_fix_website_editor,1,1,1,1
+access_fix_site_page_user,fix.site.page user,model_fix_site_page,base.group_user,1,0,0,0
+access_fix_site_page_editor,fix.site.page editor,model_fix_site_page,group_fix_website_editor,1,1,1,1

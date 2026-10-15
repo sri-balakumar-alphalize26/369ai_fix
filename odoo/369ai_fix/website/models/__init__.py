@@ -6,3 +6,5 @@ from . import online_site
 from . import online_order
 from . import home
 from . import site_content
+from . import site_pages
+from . import editor

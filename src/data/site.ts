@@ -43,20 +43,25 @@ export const nav = [
   { href: '/track', label: 'My Orders' },
 ];
 
+// One repair flow (no Doorstep / Pickup choice): the technician always comes first. Line 1 is the
+// visit, its last step the "fixed on the spot" branch; line 2 is the other branch, when it needs a
+// part or more work. The ids keep the shape Odoo's two "Doorstep / pickup cards" lines use.
 export const serviceModes = [
   {
     id: 'doorstep',
-    title: 'Doorstep Service',
-    short: 'We repair it at your door',
+    title: 'We come to you',
+    short: 'Our technician visits at the time you pick',
+    eta: 'Technician at your door in about 60 minutes',
     body: 'A technician rides to your home or office with parts and tools. Phones and laptops are fixed in front of you; printers, CCTV and Wi-Fi are installed and serviced on-site.',
-    steps: ['Book a slot', 'Technician arrives', 'Repaired on the spot'],
+    steps: ['Book a slot', 'Technician visits', 'Fixed on the spot ✓'],
   },
   {
     id: 'pickup',
-    title: 'Pickup & Service',
-    short: 'We collect, repair and return it',
-    body: 'A rider collects the phone, laptop, printer or drive, our lab repairs it, and it comes back to the same address.',
-    steps: ['Rider picks up', 'Repaired in our lab', 'Delivered back'],
+    title: 'Needs a part or more work',
+    short: 'Price confirmed with you first',
+    eta: 'Back in 24–48 hours',
+    body: 'If it cannot be fixed on the spot, the device goes to our lab, is repaired and comes back to the same address.',
+    steps: ['Taken to our lab', 'Repaired', 'Delivered back'],
   },
 ] as const;
 

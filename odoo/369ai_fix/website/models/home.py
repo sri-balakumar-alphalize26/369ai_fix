@@ -21,7 +21,7 @@ from odoo.exceptions import UserError
 KINDS = [
     ('hero', 'Top banner'),
     ('services', 'What we fix (device tiles + most booked)'),
-    ('modes', 'Doorstep / pickup cards'),
+    ('modes', 'How we fix it (visit, then lab if needed)'),
     ('brands', 'Brands strip'),
     ('reviews', 'Customer reviews'),
     ('milestones', 'Our journey'),
@@ -240,7 +240,7 @@ class FixHomeSection(models.Model):
 
     def _serialize(self):
         self.ensure_one()
-        lines = [l._serialize() for l in self.line_ids.sorted('sequence') if l.active]
+        lines = [l._serialize() for l in self.line_ids.sorted('sequence') if l.active and l.role != 'popular']
         out = {
             'kind': self.kind, 'eyebrow': self.eyebrow or '', 'title': self.title or '', 'title2': self.title2 or '',
             'subtitle': self.subtitle or '', 'text': self.text or '', 'badge': self.badge or '',
@@ -251,6 +251,8 @@ class FixHomeSection(models.Model):
         if self.kind == 'hero':
             out['video'] = self.video_url or ''
             out['poster'] = self._fix_image_url('image_1920') if self.image_1920 else False
+            out['popular'] = [{'name': l.name or '', 'link': l.link or ''}
+                              for l in self.line_ids.sorted('sequence') if l.active and l.role == 'popular' and l.name]
         return out
 
     def _fix_image_url(self, field):
@@ -277,6 +279,9 @@ class FixHomeLine(models.Model):
     value = fields.Char(string='Value', help='Counter number · card arrival line · customer area · milestone year')
     text = fields.Text(string='Text', help='Card steps (one per line) · review text · milestone text')
     extra = fields.Char(string='Extra', help='Card short line · review service')
+    body = fields.Text(string='Longer text', help='Card: a longer description (kept for later use on the site)')
+    role = fields.Selection([('line', 'Line'), ('popular', 'Popular link')], default='line', required=True,
+                            help='Top banner only: "Popular link" lines are the chips under the search bar (name = label, Opens = the link).')
     stars = fields.Integer(string='Stars', default=5)
     link = fields.Char(string='Opens', help='Partner: optional web address')
     image_1920 = fields.Image(string='Logo', max_width=1024, max_height=1024)

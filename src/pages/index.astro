@@ -9,7 +9,7 @@ import { photo } from '../data/photos';
 import { price, site } from '../data/site';
 import { categories as staticCategories } from '../data/devices';
 import { getCatalog } from '../lib/catalog';
-import { getContent, waLink } from '../lib/content';
+import { getContent, waLink, repairFlow } from '../lib/content';
 import { hostOf } from '../lib/odoo';
 import { statSync } from 'node:fs';
 // Rendered per request: the sections, their wording, the device tiles, the "most booked"
@@ -90,7 +90,8 @@ const reviews = (S.reviews?.lines ?? []).map((l) => ({ name: l.name, area: l.val
 const sample = reviews.some((r) => /^sample/i.test(r.name));
 const milestones = (S.milestones?.lines ?? []).map((l) => ({ year: l.value, title: l.name, text: l.text, verified: !/tbc/i.test(l.value) }));
 const partners = S.partners?.lines ?? [];
-const modes = (S.modes?.lines ?? []).map((l, i) => ({ id: i === 0 ? 'doorstep' : 'pickup', title: l.name, steps: l.text.split('\n').map((x) => x.trim()).filter(Boolean) }));
+// One repair flow from the two "Doorstep / pickup cards" lines: the visit, then it forks
+const flow = repairFlow(content.modes);
 const trust = S.cta?.lines ?? [];
 const TRUST_ICONS = [
   '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
@@ -120,7 +121,7 @@ const link = (href: string, fallback: string) => href || fallback;
         </a>}
         {hero.button2 && <a href={link(hero.button2_link, wa(`Hi ${C.name}, I want to book a repair.`))} target="_blank" rel="noopener" class="btn btn-wa"><Fragment set:html={WA} /> {hero.button2}</a>}
       </div>
-      <div class="vhero-search" data-reveal style="--d:.24s"><HeroSearch /></div>
+      <div class="vhero-search" data-reveal style="--d:.24s"><HeroSearch coverage={content.coverage} popular={hero.popular} /></div>
       {hero.lines.length > 0 && <ul class="hero-facts" data-reveal style="--d:.3s">
         {hero.lines.map((l) => { const n = parseInt(l.value, 10); const suffix = l.value.replace(/^[\d,]+/, ''); return (
           <li><b data-count={Number.isFinite(n) ? n : undefined} data-suffix={suffix || undefined} data-from={n > 1900 && n < 2100 ? '1990' : undefined}>{l.value}</b> {l.name}</li>
@@ -187,28 +188,31 @@ const link = (href: string, fallback: string) => href || fallback;
   </section>
       )}
 
-      {kind === 'modes' && S.modes && modes.length > 0 && (
-  <!-- ============ SERVICE MODES (short) ============ -->
+      {kind === 'modes' && S.modes && (
+  <!-- ============ HOW WE FIX IT: one flow, the technician comes first ============ -->
   <section class="section tight-sec">
     <div class="wrap">
-      <div class="modes">
-        {modes.map((m, i) => (
-          <a href={`/services?mode=${m.id}#coverage`} class="mode glass" data-reveal style={`--d:${.1 + i * .1}s`}>
-            <span class="mode-icon" aria-hidden="true">
-              {m.id === 'doorstep' ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/></svg>
-              )}
-            </span>
-            <h3 class="h-md">{m.title}</h3>
-            <ol class="mode-steps">
-              {m.steps.map((s, n) => <li><span>{n + 1}</span>{s}</li>)}
-            </ol>
-            <span class="mode-foot">{S.modes.button1 || 'Check your area →'}</span>
-          </a>
-        ))}
-      </div>
+      <a href={link(S.modes.button1_link, '/services#coverage')} class="flow glass" data-reveal>
+        <div class="flow-head">
+          <span class="mode-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span>
+          <div><h3 class="h-md">{flow.title}</h3>{flow.eta && <small>{flow.eta}</small>}</div>
+        </div>
+        <ol class="mode-steps">
+          {flow.shared.map((s, n) => <li><span>{n + 1}</span>{s}</li>)}
+        </ol>
+        <div class="flow-fork">
+          <div class="flow-branch ok">
+            <b><span class="fb-no">{flow.shared.length + 1}a</span>{flow.spot}</b>
+            <small>Repaired during the visit, in front of you.</small>
+          </div>
+          <div class="flow-branch lab">
+            <b><span class="fb-no">{flow.shared.length + 1}b</span>{flow.lab.title}</b>
+            <ol class="mode-steps">{flow.lab.steps.map((s) => <li>{s}</li>)}</ol>
+            {flow.lab.note && <small>{flow.lab.note}</small>}
+          </div>
+        </div>
+        <span class="mode-foot">{S.modes.button1 || 'Check your area →'}</span>
+      </a>
     </div>
   </section>
       )}
@@ -563,9 +567,8 @@ const link = (href: string, fallback: string) => href || fallback;
     .seg button { padding: 8px 12px; font-size: 13px; }
   }
 
-  /* modes */
-  .modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
-  .mode {
+  /* how we fix it: one card that forks (fixed on the spot / to our lab and back) */
+  .flow {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -574,7 +577,7 @@ const link = (href: string, fallback: string) => href || fallback;
     overflow: hidden;
     transition: transform .35s, border-color .35s;
   }
-  .mode::before {
+  .flow::before {
     content: '';
     position: absolute;
     inset: -1px;
@@ -582,16 +585,26 @@ const link = (href: string, fallback: string) => href || fallback;
     opacity: .7;
     pointer-events: none;
   }
-  .mode:nth-child(2)::before { background: radial-gradient(600px circle at 100% 0%, rgba(var(--a2), .2), transparent 45%); }
-  .mode:hover { transform: translateY(-6px); border-color: rgba(20, 22, 60, .2); }
-  .mode p { color: var(--ink-2); }
+  .flow:hover { transform: translateY(-6px); border-color: rgba(20, 22, 60, .2); }
+  .flow-head { display: flex; align-items: center; gap: 16px; }
+  .flow-head small { display: block; margin-top: 4px; color: var(--ink-2); font-size: 14.5px; }
+  .flow-fork { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px; padding-top: 18px; }
+  .flow-fork::before { content: ''; position: absolute; top: 0; left: 25%; right: 25%; height: 14px; border: 2px solid rgba(20, 22, 60, .14); border-bottom: 0; border-radius: 12px 12px 0 0; }
+  .flow-branch { display: grid; align-content: start; gap: 10px; padding: 16px 18px; border-radius: 18px; border: 1px solid rgba(20, 22, 60, .1); background: rgba(255, 255, 255, .5); }
+  .flow-branch b { display: flex; align-items: center; gap: 10px; font-size: 15.5px; }
+  .flow-branch.ok { background: color-mix(in srgb, #22C55E 10%, transparent); border-color: color-mix(in srgb, #22C55E 35%, transparent); }
+  .flow-branch small { color: var(--ink-2); font-size: 13.5px; }
+  .flow-branch .mode-steps { margin: 0; }
+  .flow-branch .mode-steps li { padding: 5px 12px; }
+  .flow-branch .mode-steps li + li::before { content: '→'; margin-right: 6px; color: var(--ink-3); }
+  .fb-no { display: grid; place-items: center; min-width: 30px; height: 24px; padding: 0 6px; border-radius: 999px; background: var(--grad); color: var(--on-accent); font-size: 12px; font-weight: 700; }
   .mode-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--grad); color: var(--on-accent); }
   .mode-icon svg { width: 28px; height: 28px; }
   .mode-steps { list-style: none; padding: 0; margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
   .mode-steps li { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border-radius: 999px; background: rgba(20, 22, 60, .05); font-size: 14px; }
   .mode-steps span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(20, 22, 60, .12); font-size: 12px; font-weight: 600; }
   .mode-foot { margin-top: auto; padding-top: 8px; color: var(--cyan); font-weight: 600; }
-  @media (max-width: 760px) { .modes { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .flow-fork { grid-template-columns: 1fr; padding-top: 4px; } .flow-fork::before { display: none; } .flow-head { align-items: flex-start; } }
 
   /* brands + issues */
   .brands-band { padding: 32px 0 20px; }
@@ -758,10 +771,11 @@ const link = (href: string, fallback: string) => href || fallback;
   .pt-title em { font-style: normal; color: var(--violet); }
   .pt-head p { max-width: 700px; font-size: 15px; color: var(--ink-2); line-height: 1.6; }
   .pt-logos { list-style: none; margin: 24px auto 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; max-width: 960px; }
-  .pt-logos li { display: grid; place-items: center; height: 80px; padding: 0 20px; }
+  .pt-logos li { display: grid; place-items: center; height: 110px; padding: 0 24px; }
   .pt-logos li + li { border-left: 1px solid var(--line); }
-  .pt-logos img { max-height: 64px; width: auto; max-width: 100%; transition: transform .3s; }
-  .pt-logos img.wide { max-height: 34px; }
+  .pt-logos img { max-height: 92px; width: auto; max-width: 100%; transition: transform .3s; }
+  /* logos from Odoo all carry .wide: cap the width so wide logos stay ~46px tall while square ones (369) get the full 92px */
+  .pt-logos img.wide { max-width: min(100%, 190px); }
   .pt-logos li:hover img { transform: scale(1.05); }
   .pt-word { display: grid; justify-items: center; gap: 6px; font-size: 26px; font-weight: 800; letter-spacing: .22em; color: #5c6360; transition: color .3s, transform .3s; }
   .pt-word small { font-size: 10px; font-weight: 600; letter-spacing: .4em; text-transform: uppercase; color: #8a918e; }

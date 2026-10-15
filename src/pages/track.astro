@@ -4,6 +4,8 @@
 // /api/otp/* and /api/my-orders (server side); the page refreshes itself every 15 s.
 import Base from '../layouts/Base.astro';
 import { DIAL } from '../lib/phone';
+// Per request, so the header, footer and chatbot show what is in Odoo now.
+export const prerender = false;
 ---
 
 <Base title="My orders" description="Track the live status of your repair with your mobile number.">

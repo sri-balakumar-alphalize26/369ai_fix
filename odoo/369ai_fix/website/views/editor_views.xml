@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The Fix Website editor: one screen per website page, drawn the way the site draws it.
+         The same client action serves the three pages; the context says which one. -->
+    <record id="action_fix_editor_home" model="ir.actions.client">
+        <field name="name">Home Page</field>
+        <field name="tag">369ai_fix.site_editor</field>
+        <field name="path">fix-home</field>
+        <field name="context">{'fix_editor_page': 'home'}</field>
+    </record>
+    <record id="action_fix_editor_services" model="ir.actions.client">
+        <field name="name">Services Page</field>
+        <field name="tag">369ai_fix.site_editor</field>
+        <field name="path">fix-services</field>
+        <field name="context">{'fix_editor_page': 'services'}</field>
+    </record>
+    <record id="action_fix_editor_pages" model="ir.actions.client">
+        <field name="name">Info Pages</field>
+        <field name="tag">369ai_fix.site_editor</field>
+        <field name="path">fix-pages</field>
+        <field name="context">{'fix_editor_page': 'pages'}</field>
+    </record>
+
+    <record id="action_fix_editor_brands" model="ir.actions.client">
+        <field name="name">Brand Logos</field>
+        <field name="tag">369ai_fix.site_editor</field>
+        <field name="path">fix-brands</field>
+        <field name="context">{'fix_editor_page': 'brands'}</field>
+    </record>
+    <record id="action_fix_editor_photos" model="ir.actions.client">
+        <field name="name">Service Pictures</field>
+        <field name="tag">369ai_fix.site_editor</field>
+        <field name="path">fix-service-pictures</field>
+        <field name="context">{'fix_editor_page': 'photos'}</field>
+    </record>
+
+    <!-- The text of an info page, opened from the editor in a dialog (Odoo's own text editor). -->
+    <record id="view_fix_site_page_text_form" model="ir.ui.view">
+        <field name="name">fix.site.page.text.form</field>
+        <field name="model">fix.site.page</field>
+        <field name="priority">50</field>
+        <field name="arch" type="xml">
+            <form string="Page text">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name" readonly="1"/></h1></div>
+                    <field name="body" nolabel="1" placeholder="Write the page here: headings, paragraphs, lists and links." options="{'resizable': true}"/>
+                </sheet>
+                <footer>
+                    <button string="Save" special="save" class="btn-primary"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

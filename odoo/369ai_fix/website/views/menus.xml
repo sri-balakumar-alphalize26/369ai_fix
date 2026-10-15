@@ -1,23 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Fix Website: its own home-screen app for the website's pictures (and later its content). -->
+    <!-- Fix Website: its own home-screen app. The three page editors draw the site the way it
+         looks and save as you type; the lists underneath are for bulk work and pictures. -->
     <menuitem id="menu_fix_website_root"
               name="Fix Website"
               web_icon="369ai_fix,static/description/fix_website_icon.png"
               groups="group_fix_website_editor"
               sequence="26"/>
 
-    <menuitem id="menu_fix_website_details" name="Website Details" parent="menu_fix_website_root"
-              action="action_website_details" sequence="1"/>
-
     <menuitem id="menu_fix_home_pages" name="Home Page" parent="menu_fix_website_root"
-              action="action_fix_home_pages" sequence="2"/>
+              action="action_fix_editor_home" sequence="1"/>
+    <menuitem id="menu_fix_services_page" name="Services Page" parent="menu_fix_website_root"
+              action="action_fix_editor_services" sequence="2"/>
+    <menuitem id="menu_fix_pages" name="Info Pages" parent="menu_fix_website_root"
+              action="action_fix_editor_pages" sequence="3"/>
+
+    <menuitem id="menu_fix_website_details" name="Website Details" parent="menu_fix_website_root"
+              action="action_website_details" sequence="5"/>
 
     <menuitem id="menu_fix_website_pictures" name="Pictures" parent="menu_fix_website_root" sequence="10"/>
     <menuitem id="menu_fix_device_pictures" name="Device Pictures" parent="menu_fix_website_pictures"
               action="action_device_pictures_client" sequence="1"/>
     <menuitem id="menu_fix_brand_logos" name="Brand Logos" parent="menu_fix_website_pictures"
-              action="action_brand_logos" sequence="2"/>
+              action="action_fix_editor_brands" sequence="2"/>
     <menuitem id="menu_fix_service_pictures" name="Service Pictures" parent="menu_fix_website_pictures"
-              action="action_service_pictures" sequence="3"/>
+              action="action_fix_editor_photos" sequence="3"/>
+
+    <menuitem id="menu_fix_website_lists" name="Lists" parent="menu_fix_website_root" sequence="20"/>
+    <menuitem id="menu_fix_home_page_list" name="Saved home pages" parent="menu_fix_website_lists"
+              action="action_fix_home_pages" sequence="1"/>
+    <menuitem id="menu_fix_coverage" name="Coverage Areas" parent="menu_fix_website_lists"
+              action="action_fix_coverage" sequence="2"/>
+    <menuitem id="menu_fix_faqs" name="FAQs" parent="menu_fix_website_lists"
+              action="action_fix_faqs" sequence="3"/>
+    <menuitem id="menu_fix_page_list" name="Info page list" parent="menu_fix_website_lists"
+              action="action_fix_pages" sequence="4"/>
+    <menuitem id="menu_fix_brand_logo_list" name="Brand logo list" parent="menu_fix_website_lists"
+              action="action_brand_logos" sequence="5"/>
+    <menuitem id="menu_fix_service_picture_list" name="Service picture list" parent="menu_fix_website_lists"
+              action="action_service_pictures" sequence="6"/>
 </odoo>

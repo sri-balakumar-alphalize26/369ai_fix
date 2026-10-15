@@ -4,6 +4,8 @@
 // part", or the free visit times to pick from. Everything goes through /api/visit.
 import Base from '../layouts/Base.astro';
 import { site } from '../data/site';
+// Per request, so the header, footer and chatbot show what is in Odoo now.
+export const prerender = false;
 ---
 
 <Base title="Pick a time" description="Choose when we come for your repair." quiet>

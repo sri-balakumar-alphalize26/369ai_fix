@@ -1,0 +1,124 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getContent } from '../../lib/content';
+import { hostOf } from '../../lib/odoo';
+import { site } from '../../data/site';
+// Info pages (About, Privacy, Terms…), written in Odoo (Fix Website ▸ Info Pages) and listed
+// in the footer. A text page shows its text; Contact, Areas and FAQ pages fill themselves from
+// the contact details, the coverage areas and the FAQs. Rendered per request.
+export const prerender = false;
+const content = await getContent(hostOf(Astro.request));
+const page = content.pages.find((p) => p.slug === Astro.params.slug);
+if (!page) Astro.response.status = 404;
+const C = content.site;
+const cov = content.coverage;
+const modes = content.modes;
+const tel = (p: string) => `tel:${p.replace(/[^+\d]/g, '')}`;
+---
+
+<Base content={content} title={page?.title ?? 'Page not found'} description={page ? `${page.title} · ${C.name || site.name}` : undefined}>
+  <section class="page-head">
+    <div class="wrap">
+      <span class="eyebrow" data-reveal>{C.name || site.name}</span>
+      <h1 class="h-xl" data-reveal style="--d:.06s">{page?.title ?? 'Page not found'}</h1>
+      {!page && <p class="lead" data-reveal style="--d:.12s">This page doesn't exist or has been taken down. <a href="/">Back to the home page</a></p>}
+    </div>
+  </section>
+
+  {page && (
+    <section class="section tight">
+      <div class="wrap ip">
+        {page.kind === 'text' && <div class="ip-text" set:html={page.body} />}
+
+        {page.kind === 'contact' && (
+          <>
+            <ul class="ip-contact">
+              {C.phone && <li><b>Phone</b><a href={tel(C.phone)}>{C.phone}</a></li>}
+              {C.whatsapp && <li><b>WhatsApp</b><a href={`https://wa.me/${C.whatsapp}`} target="_blank" rel="noopener">+{C.whatsapp}</a></li>}
+              {C.email && <li><b>Email</b><a href={`mailto:${C.email}`}>{C.email}</a></li>}
+              {C.address && <li><b>Address</b><span>{C.address}</span></li>}
+              {C.hours && <li><b>Opening hours</b><span>{C.hours}</span></li>}
+            </ul>
+            <h2 class="h-lg">Our branches</h2>
+            <ul class="ip-cards">
+              {C.branches.map((b) => (
+                <li>
+                  <b>{b.name}</b>
+                  <address>{b.lines.map((l) => <>{l}<br /></>)}</address>
+                  {b.phones.map((p) => <a href={tel(p)}>{p}</a>)}
+                  {b.hours && <small>{b.hours}</small>}
+                  {b.map && <a class="ip-dir" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.map)}`} target="_blank" rel="noopener">Get directions</a>}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {page.kind === 'areas' && (
+          <>
+            {[{ m: modes[0], c: cov.doorstep }, { m: modes[1], c: cov.pickup }].map(({ m, c }) => c.zones.length > 0 && (
+              <div class="ip-mode">
+                <h2 class="h-lg">{m.title}</h2>
+                {c.eta && <p class="lead">{c.eta}</p>}
+                <ul class="ip-cards">
+                  {c.zones.map((z) => (
+                    <li>
+                      <b>{z.name}</b>
+                      <span class="ip-areas">{z.areas.map((a) => <span>{a}</span>)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <p class="ip-note">Not listed? <a href="/services#coverage">Book anyway</a> and we will confirm.</p>
+          </>
+        )}
+
+        {page.kind === 'faq' && (
+          <div class="ip-faq">
+            {content.faq.map((f, i) => (
+              <details open={i === 0}>
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  .ip { display: grid; gap: 22px; max-width: 860px; }
+  .ip-text { font-size: 16px; line-height: 1.75; color: var(--ink-2); }
+  .ip-text :global(h2), .ip-text :global(h3) { margin: 1.4em 0 .5em; color: var(--ink); line-height: 1.25; }
+  .ip-text :global(p), .ip-text :global(ul), .ip-text :global(ol) { margin: 0 0 1em; }
+  .ip-text :global(a) { color: var(--violet); text-decoration: underline; }
+  .ip-text :global(img) { max-width: 100%; height: auto; border-radius: 12px; }
+  .ip-contact { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .ip-contact li { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 12px; padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+  .ip-contact b { color: var(--ink-3); font-weight: 700; }
+  .ip-contact a { color: var(--violet); font-weight: 600; overflow-wrap: anywhere; }
+  .ip-cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .ip-cards li { display: grid; align-content: start; gap: 8px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+  .ip-cards b { font-size: 16px; color: var(--ink); }
+  .ip-cards address { font-style: normal; color: var(--ink-3); line-height: 1.7; }
+  .ip-cards a { color: var(--violet); font-weight: 600; justify-self: start; }
+  .ip-cards small { color: var(--ink-3); }
+  .ip-dir { margin-top: 4px; }
+  .ip-mode { display: grid; gap: 12px; }
+  .ip-mode .lead { margin: 0; }
+  .ip-areas { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ip-areas span { padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--violet) 10%, var(--surface)); font-size: 13px; }
+  .ip-note { color: var(--ink-2); }
+  .ip-note a { color: var(--violet); font-weight: 700; }
+  .ip-faq { display: grid; gap: 10px; }
+  .ip-faq details { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+  .ip-faq summary { padding: 18px 20px; font-weight: 700; cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  .ip-faq summary::-webkit-details-marker { display: none; }
+  .ip-faq summary::after { content: '+'; color: var(--violet); font-size: 20px; line-height: 1; }
+  .ip-faq details[open] summary::after { content: '−'; }
+  .ip-faq p { margin: 0; padding: 0 20px 18px; color: var(--ink-2); }
+  @media (max-width: 560px) { .ip-contact li { grid-template-columns: 1fr; gap: 4px; } }
+</style>

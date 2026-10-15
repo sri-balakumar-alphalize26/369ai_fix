@@ -32,6 +32,28 @@
     "value": "2003",
     "label": "since"
    }
+  ],
+  "popular": [
+   {
+    "label": "Laptop Repair",
+    "link": "/services?cat=laptop#catalog"
+   },
+   {
+    "label": "iPhone Repair",
+    "link": "/services?cat=mobile&q=iPhone#catalog"
+   },
+   {
+    "label": "Printer Repair",
+    "link": "/services?cat=printer#catalog"
+   },
+   {
+    "label": "CCTV Installation",
+    "link": "/services?cat=cctv#catalog"
+   },
+   {
+    "label": "Data Recovery",
+    "link": "/services?cat=data#catalog"
+   }
   ]
  },
  "services": {
@@ -105,18 +127,18 @@
   "foot": "Check your area →",
   "cards": [
    {
-    "title": "Doorstep Service",
-    "short": "We repair it at your door",
+    "title": "We come to you",
+    "short": "Our technician visits at the time you pick",
     "eta": "Technician at your door in about 60 minutes",
-    "steps": "Book a slot | Technician arrives | Repaired on the spot",
+    "steps": "Book a slot | Technician visits | Fixed on the spot ✓",
     "body": "A technician rides to your home or office with parts and tools. Phones and laptops are fixed in front of you; printers, CCTV and Wi-Fi are installed and serviced on-site."
    },
    {
-    "title": "Pickup & Service",
-    "short": "We collect, repair and return it",
-    "eta": "Picked up same day, back in 24–48 hours",
-    "steps": "Rider picks up | Repaired in our lab | Delivered back",
-    "body": "A rider collects the phone, laptop, printer or drive, our lab repairs it, and it comes back to the same address."
+    "title": "Needs a part or more work",
+    "short": "Price confirmed with you first",
+    "eta": "Back in 24–48 hours",
+    "steps": "Taken to our lab | Repaired | Delivered back",
+    "body": "If it cannot be fixed on the spot, the device goes to our lab, is repaired and comes back to the same address."
    }
   ]
  },
@@ -401,13 +423,13 @@
  "svcHead": {
   "eyebrow": "Services",
   "title1": "Doorstep repair,",
-  "title2": "or we pick it up.",
-  "lead": "Choose how you want the service done, check that we reach your area, then pick your device."
+  "title2": "on the spot or in our lab.",
+  "lead": "Our technician comes to you first. Check that we reach your area, then pick your device and repairs."
  },
  "svcModes": {
-  "eyebrow": "Choose your service",
-  "title": "How should we reach you?",
-  "fee": "Visit / pickup fee",
+  "eyebrow": "How it works",
+  "title": "We come to you first",
+  "fee": "Visit fee",
   "feePrice": "OMR 0"
  },
  "coverage": {
@@ -446,7 +468,7 @@
     "text": "Diagnosis before any work"
    },
    {
-    "text": "Visit or pickup OMR 0"
+    "text": "Technician visit OMR 0"
    },
    {
     "text": "Updates on WhatsApp"
@@ -569,7 +591,7 @@
     "slug": "about",
     "column": "Company",
     "kind": "Text page",
-    "body": ""
+    "body": "<p>Danat Fix is the repair service of Danat Computers, selling and repairing computers on Computer Street, Ruwi, since 2003.</p><p>Today our technicians repair phones, tablets, laptops, desktops and printers, and install CCTV and Wi-Fi, at your door or after picking the device up, from our three branches in Ruwi (Muscat), Sohar and Salalah.</p><p>Every job starts with a diagnosis and an estimate before any work, and you get updates on WhatsApp.</p>"
    },
    {
     "title": "Contact",
@@ -607,5 +629,157 @@
     "body": ""
    }
   ]
- }
+ },
+ "areaGeo": {
+  "Ruwi": [
+   23.593,
+   58.545
+  ],
+  "Muttrah": [
+   23.617,
+   58.567
+  ],
+  "Wadi Kabir": [
+   23.573,
+   58.578
+  ],
+  "Darsait": [
+   23.607,
+   58.555
+  ],
+  "Al Wattayah": [
+   23.595,
+   58.498
+  ],
+  "Qurum": [
+   23.605,
+   58.478
+  ],
+  "Al Khuwair": [
+   23.593,
+   58.426
+  ],
+  "Madinat Sultan Qaboos": [
+   23.588,
+   58.448
+  ],
+  "Al Ghubrah": [
+   23.585,
+   58.395
+  ],
+  "Bausher": [
+   23.555,
+   58.395
+  ],
+  "Al Azaiba": [
+   23.583,
+   58.362
+  ],
+  "Al Hail": [
+   23.645,
+   58.285
+  ],
+  "Al Mawaleh": [
+   23.628,
+   58.25
+  ],
+  "Al Khoudh": [
+   23.61,
+   58.18
+  ],
+  "Seeb": [
+   23.67,
+   58.19
+  ],
+  "Mabellah": [
+   23.63,
+   58.13
+  ],
+  "Al Amerat": [
+   23.52,
+   58.49
+  ],
+  "Qurayyat": [
+   23.26,
+   58.92
+  ],
+  "Sohar": [
+   24.347,
+   56.709
+  ],
+  "Falaj Al Qabail": [
+   24.4,
+   56.63
+  ],
+  "Al Hambar": [
+   24.33,
+   56.73
+  ],
+  "Liwa": [
+   24.53,
+   56.57
+  ],
+  "Shinas": [
+   24.74,
+   56.47
+  ],
+  "Saham": [
+   24.17,
+   56.89
+  ],
+  "Al Khaburah": [
+   23.97,
+   57.1
+  ],
+  "Barka": [
+   23.68,
+   57.89
+  ],
+  "Al Suwaiq": [
+   23.85,
+   57.44
+  ],
+  "Salalah": [
+   17.019,
+   54.089
+  ],
+  "Al Saada": [
+   17.05,
+   54.13
+  ],
+  "Al Dahariz": [
+   17.03,
+   54.14
+  ],
+  "Awqad": [
+   17.03,
+   54.06
+  ],
+  "Taqah": [
+   17.04,
+   54.4
+  ],
+  "Mirbat": [
+   16.99,
+   54.69
+  ],
+  "Raysut": [
+   16.95,
+   53.99
+  ]
+ },
+ "zonePins": [
+  [
+   23.593,
+   58.556
+  ],
+  [
+   24.347,
+   56.709
+  ],
+  [
+   17.019,
+   54.089
+  ]
+ ]
 }

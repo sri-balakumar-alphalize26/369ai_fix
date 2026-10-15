@@ -1,0 +1,664 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- ================================================================ the screen -->
+    <t t-name="369ai_fix.SiteEditor">
+        <Layout display="{ controlPanel: {} }" className="'o_fx h-100'">
+            <div class="fx-loading" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin me-2"/>Loading the website…</div>
+            <div class="fx" t-elif="!d.site_id">No website yet. Add one under Website Details first.</div>
+            <div class="fx" t-else="">
+                <div class="fx-toolbar">
+                    <div class="fx-title">
+                        <h1><t t-if="page === 'home'">Home page</t><t t-elif="page === 'services'">Services page</t><t t-elif="page === 'brands'">Brand logos</t><t t-elif="page === 'photos'">Service pictures</t><t t-else="">Info pages</t></h1>
+                        <small t-if="page === 'brands'">The brands as the website shows them. Click one to upload or replace its logo. Changes are saved as you type.</small>
+                        <small t-elif="page === 'photos'">Every repair service with its website photo. Click one to add photos or pick the one shown.</small>
+                        <small t-else="">Click a part of the page to edit it. Hover a field to see where it shows. Changes are saved as you type.</small>
+                    </div>
+                    <select t-if="d.sites.length > 1" class="fx-select" t-on-change="switchSite">
+                        <option t-foreach="d.sites" t-as="s" t-key="s.id" t-att-value="s.id" t-att-selected="s.id === d.site_id" t-esc="s.name"/>
+                    </select>
+                    <t t-if="page === 'home'">
+                        <select class="fx-select" t-on-change="(ev) => this.switchHomePage(parseInt(ev.target.value, 10))" title="Which saved home page you are editing">
+                            <option t-foreach="d.home.pages" t-as="p" t-key="p.id" t-att-value="p.id" t-att-selected="p.id === state.pageId">
+                                <t t-esc="p.name"/> · <t t-esc="p.state_note"/>
+                            </option>
+                        </select>
+                        <button class="fx-btn" t-on-click="openHomePageForm" title="Name, dates, everyday page, duplicate"><i class="fa fa-calendar me-1"/>Page settings</button>
+                        <label t-if="hiddenCount" class="fx-check"><input type="checkbox" t-model="state.showHidden"/> Show hidden (<t t-esc="hiddenCount"/>)</label>
+                    </t>
+                    <span class="fx-gap"/>
+                    <div class="fx-screens" role="group" aria-label="Screen">
+                        <button t-att-class="state.screen === 'desktop' ? 'fx-on' : ''" t-on-click="() => state.screen = 'desktop'"><i class="fa fa-desktop"/> Desktop</button>
+                        <button t-att-class="state.screen === 'phone' ? 'fx-on' : ''" t-on-click="() => state.screen = 'phone'"><i class="fa fa-mobile"/> Phone</button>
+                    </div>
+                    <button class="fx-btn" t-on-click="() => this.openWebsite(page === 'home' ? '/' : page === 'services' ? '/services' : (infoPage ? '/page/' + infoPage.slug : '/'))"><i class="fa fa-external-link me-1"/>Open website</button>
+                    <span t-attf-class="fx-status fx-status-{{ state.status }}"><i t-attf-class="fa {{ state.status === 'saving' ? 'fa-circle-o-notch fa-spin' : state.status === 'error' ? 'fa-exclamation-circle' : 'fa-check' }} me-1"/><t t-esc="statusText"/></span>
+                </div>
+
+                <div class="fx-cols">
+                    <div class="fx-canvas-wrap">
+                        <div t-attf-class="fx-canvas fx-{{ state.screen }}">
+                            <div class="fx-chrome"><span class="fx-dots"><i/><i/><i/></span><span class="fx-url"><t t-esc="siteHost"/><t t-if="page === 'services' or page === 'photos'">/services</t><t t-if="page === 'brands'">/ · brands we repair</t><t t-if="page === 'pages' and infoPage">/page/<t t-esc="infoPage.slug"/></t></span></div>
+                            <div class="fx-screen"><div class="fx-scroll" t-ref="canvas">
+                                <div class="fx-site">
+                                    <t t-if="page === 'home'" t-call="369ai_fix.FxHome"/>
+                                    <t t-elif="page === 'services'" t-call="369ai_fix.FxServices"/>
+                                    <t t-elif="page === 'brands'" t-call="369ai_fix.FxBrands"/>
+                                    <t t-elif="page === 'photos'" t-call="369ai_fix.FxPhotos"/>
+                                    <t t-else="" t-call="369ai_fix.FxInfo"/>
+                                </div>
+                            </div></div>
+                        </div>
+                    </div>
+                    <aside class="fx-panel" t-on-mouseover="onPanelOver" t-on-mouseleave="() => state.hover = ''"><t t-call="369ai_fix.FxPanel"/></aside>
+                </div>
+            </div>
+        </Layout>
+    </t>
+
+    <!-- A clickable part of the page: tag, drag grip, eye, and the drawing inside -->
+    <t t-name="369ai_fix.FxBand">
+        <div t-attf-class="fx-band {{ isSel(kind, id) ? 'fx-on' : '' }} {{ rec and !rec.active ? 'fx-hidden' : '' }}"
+             t-att-data-band="draggable ? id : undefined" t-att-data-kind="kind" t-on-click="(ev) => this.select(kind, id, ev)">
+            <div class="fx-tools">
+                <span class="fx-tag" t-esc="label"/>
+                <span t-if="rec and !rec.active" class="fx-tag fx-tag-off">Hidden</span>
+                <button t-if="draggable" type="button" class="fx-tool fx-grip" title="Drag to reorder" aria-label="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                <button t-if="rec" type="button" class="fx-tool" t-att-title="rec.active ? 'Hide from the website' : 'Show on the website'" t-on-click.stop="() => this.toggle(model, rec)"><i t-attf-class="fa {{ rec.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                <span t-else="" class="fx-tool fx-tool-edit"><i class="fa fa-pencil"/></span>
+            </div>
+            <div class="fx-band-in"><t t-call="{{ inner }}"/></div>
+        </div>
+    </t>
+
+    <!-- The panel's title bar: back to the list, and jump to any other part of the page. Stays on top while the panel scrolls. -->
+    <t t-name="369ai_fix.FxPaneHead">
+        <div class="fx-pane-head">
+            <button type="button" class="fx-btn fx-btn-sm fx-back" t-on-click="back"><i class="fa fa-arrow-left"/> <t t-esc="backLabel"/></button>
+            <div class="fx-jump">
+                <button type="button" class="fx-ic" title="Previous part" t-on-click="() => this.stepPart(-1)"><i class="fa fa-chevron-left"/></button>
+                <select class="fx-select fx-select-sm" title="Jump to another part of the page" t-on-change="(ev) => this.jumpTo(ev.target.value)">
+                    <option t-foreach="parts" t-as="p" t-key="p.v" t-att-value="p.v" t-att-selected="p.v === curPart" t-esc="p.name"/>
+                </select>
+                <button type="button" class="fx-ic" title="Next part" t-on-click="() => this.stepPart(1)"><i class="fa fa-chevron-right"/></button>
+            </div>
+        </div>
+    </t>
+
+    <!-- One field of the panel: plain label, eye, the input, a hint. Hover = the part lights up on the page. -->
+    <t t-name="369ai_fix.FxField">
+        <t t-set="h" t-value="help(hk)"/>
+        <label class="fx-f" t-att-data-fx-for="k">
+            <span class="fx-f-label"><t t-esc="h.label"/><i class="fa fa-eye fx-f-eye" title="Hover to see it on the page"/></span>
+            <textarea t-if="h.type === 'area'" t-att-value="rec[field]" t-att-placeholder="h.example" t-on-input="(ev) => this.edit(model, rec, field, ev, { as: as })"/>
+            <input t-elif="h.type === 'number'" type="number" min="1" max="5" t-att-value="rec[field]" t-on-input="(ev) => this.edit(model, rec, field, ev, { as: as })"/>
+            <input t-elif="h.now" t-att-value="rec[field]" t-att-placeholder="h.example" t-on-change="(ev) => this.edit(model, rec, field, ev, { now: true, as: as })"/>
+            <input t-else="" t-att-value="rec[field]" t-att-placeholder="h.example" t-on-input="(ev) => this.edit(model, rec, field, ev, { as: as })"/>
+            <small t-if="h.hint" class="fx-f-hint" t-esc="h.hint"/>
+        </label>
+    </t>
+
+    <!-- ============================================================ site header / footer -->
+    <t t-name="369ai_fix.FxHeaderIn">
+        <header class="fx-hdr">
+            <span t-attf-class="fx-logo{{ hl(K('site', 'name')) }}" t-att-data-fx="K('site', 'name')"><i class="fx-logo-mark"/><t t-esc="site.name"/></span>
+            <nav><a t-foreach="menuLinks" t-as="l" t-key="l.id" t-att-class="hl(K('link', l.id))" t-att-data-fx="K('link', l.id)" t-esc="l.name"/></nav>
+            <span class="fx-loc"><i class="fa fa-map-marker"/><small>Your location</small><b>Select location</b></span>
+            <span t-attf-class="fx-book{{ hl(K('site', 'header_cta')) }}" t-att-data-fx="K('site', 'header_cta')" t-esc="site.header_cta || 'Book a repair'"/>
+        </header>
+    </t>
+
+    <t t-name="369ai_fix.FxFooterIn">
+        <footer class="fx-foot">
+            <div class="fx-foot-grid">
+                <div class="fx-foot-about">
+                    <span class="fx-logo"><i class="fx-logo-mark"/><t t-esc="site.name"/></span>
+                    <p t-att-class="hl(K('site', 'footer_about'))" t-att-data-fx="K('site', 'footer_about')" t-esc="site.footer_about"/>
+                    <ul class="fx-foot-contact">
+                        <li t-if="site.contact_phone" t-att-class="hl(K('site', 'contact_phone'))" t-att-data-fx="K('site', 'contact_phone')"><i class="fa fa-phone"/><t t-esc="site.contact_phone"/></li>
+                        <li t-if="site.contact_email" t-att-class="hl(K('site', 'contact_email'))" t-att-data-fx="K('site', 'contact_email')"><i class="fa fa-envelope-o"/><t t-esc="site.contact_email"/></li>
+                        <li><i class="fa fa-map-marker"/>Check if we cover your area <em>Doorstep</em></li>
+                    </ul>
+                    <p class="fx-foot-h">Follow us</p>
+                    <div class="fx-foot-icons"><i t-attf-class="fa fa-facebook{{ hl(K('site', 'social_facebook')) }}" t-att-data-fx="K('site', 'social_facebook')"/><i t-attf-class="fa fa-instagram{{ hl(K('site', 'social_instagram')) }}" t-att-data-fx="K('site', 'social_instagram')"/><i t-attf-class="fa fa-whatsapp{{ hl(K('site', 'contact_whatsapp')) }}" t-att-data-fx="K('site', 'contact_whatsapp')"/></div>
+                </div>
+                <div class="fx-foot-col"><p class="fx-foot-h">Services</p><ul><li t-foreach="d.tiles" t-as="c" t-key="c.id" t-esc="c.name"/></ul></div>
+                <div class="fx-foot-col"><p class="fx-foot-h">Quick links</p><ul><li t-foreach="quickLinks" t-as="l" t-key="l.id" t-att-class="hl(K('link', l.id))" t-att-data-fx="K('link', l.id)" t-esc="l.name"/></ul></div>
+                <div t-foreach="footerColumns" t-as="col" t-key="col.key" class="fx-foot-col"><p class="fx-foot-h" t-esc="col.label"/><ul><li t-foreach="col.pages" t-as="p" t-key="p.id" t-att-class="hl(K('page', p.id, 'name'))" t-att-data-fx="K('page', p.id, 'name')" t-esc="p.name"/></ul></div>
+            </div>
+            <div class="fx-foot-offices">
+                <p class="fx-foot-h">Our branches</p>
+                <ul class="fx-branches">
+                    <li t-foreach="d.branches.filter((b) => b.active)" t-as="b" t-key="b.id" t-att-class="hl(K('branch', b.id))" t-att-data-fx="K('branch', b.id)">
+                        <b><i class="fa fa-map-marker"/>Oman — <t t-esc="b.name"/></b>
+                        <address><t t-foreach="branchLines(b)" t-as="ln" t-key="ln_index"><t t-esc="ln"/><br/></t></address>
+                        <span t-foreach="phones(b)" t-as="ph" t-key="ph_index" class="fx-tel" t-esc="ph"/>
+                        <span class="fx-dir"><i class="fa fa-location-arrow"/>Get directions</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="fx-foot-base"><span t-att-class="hl(K('site', 'footer_copyright'))" t-att-data-fx="K('site', 'footer_copyright')" t-esc="(site.footer_copyright || '').replace('{year}', year())"/><span t-att-class="hl(K('site', 'footer_credit'))" t-att-data-fx="K('site', 'footer_credit')" t-esc="site.footer_credit || 'Site developed and maintained by alphalize'"/></div>
+        </footer>
+    </t>
+
+    <!-- ===================================================================== home page -->
+    <t t-name="369ai_fix.FxHome">
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'header'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Header'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxHeaderIn'"/></t>
+        <t t-foreach="visibleSections" t-as="s" t-key="s.id">
+            <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'section'"/><t t-set="id" t-value="s.id"/><t t-set="label" t-value="s.name"/><t t-set="rec" t-value="s"/><t t-set="model" t-value="M.section"/><t t-set="draggable" t-value="true"/><t t-set="inner" t-value="'369ai_fix.FxSec_' + s.kind"/></t>
+        </t>
+        <div t-if="!visibleSections.length" class="fx-empty">This page has no sections shown. Add one from the panel on the right.</div>
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'footer'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Footer and contact details'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxFooterIn'"/></t>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_hero">
+        <section class="fx-hero" t-attf-style="{{ s.image ? 'background-image:url(' + s.image + ')' : '' }}">
+            <div class="fx-hero-in">
+                <span t-attf-class="fx-eyebrow light{{ hl(K('sec', s.id, 'eyebrow')) }}" t-att-data-fx="K('sec', s.id, 'eyebrow')" t-esc="s.eyebrow"/>
+                <h1><span t-att-class="hl(K('sec', s.id, 'title'))" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/> <span t-attf-class="fx-g{{ hl(K('sec', s.id, 'title2')) }}" t-att-data-fx="K('sec', s.id, 'title2')" t-esc="s.title2"/></h1>
+                <p t-attf-class="fx-hero-sub{{ hl(K('sec', s.id, 'subtitle')) }}" t-att-data-fx="K('sec', s.id, 'subtitle')" t-esc="s.subtitle"/>
+                <div class="fx-btns"><span t-if="s.button1" t-attf-class="fx-btn-pri{{ hl(K('sec', s.id, 'button1')) }}" t-att-data-fx="K('sec', s.id, 'button1')" t-esc="s.button1"/><span t-if="s.button2" t-attf-class="fx-btn-wa{{ hl(K('sec', s.id, 'button2')) }}" t-att-data-fx="K('sec', s.id, 'button2')"><i class="fa fa-whatsapp"/> <t t-esc="s.button2"/></span></div>
+                <div class="fx-search"><i class="fa fa-search"/><span>What are you looking for?</span><b>Search</b></div>
+                <div t-if="popularOf(s).some((l) => l.active)" class="fx-popular"><span>Popular:</span><a t-foreach="popularOf(s).filter((l) => l.active)" t-as="l" t-key="l.id" t-att-class="hl(K('line', l.id))" t-att-data-fx="K('line', l.id)" t-esc="l.name"/></div>
+                <ul class="fx-facts"><li t-foreach="linesOf(s).filter((l) => l.active)" t-as="l" t-key="l.id" t-att-class="hl(K('line', l.id))" t-att-data-fx="K('line', l.id)"><b t-esc="l.value"/> <t t-esc="l.name"/></li></ul>
+            </div>
+            <span t-if="s.video_url" t-attf-class="fx-video{{ hl(K('sec', s.id, 'video_url')) }}" t-att-data-fx="K('sec', s.id, 'video_url')"><i class="fa fa-play"/> <t t-esc="s.video_url"/></span>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_services">
+        <section class="fx-sec">
+            <span t-attf-class="fx-badge{{ hl(K('sec', s.id, 'badge')) }}" t-att-data-fx="K('sec', s.id, 'badge')"><i/><t t-esc="s.badge || (d.tiles.filter((c) => c.show).length + ' services · doorstep')"/></span>
+            <h2 t-att-class="hl(K('sec', s.id, 'title'))" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/>
+            <div class="fx-tiles"><div t-foreach="d.tiles.filter((c) => c.show)" t-as="c" t-key="c.id" t-attf-class="fx-tile{{ hl(K('tile', c.id)) }}" t-att-data-fx="K('tile', c.id)"><img t-if="c.image" t-att-src="c.image" alt=""/><i t-else=""/><span t-esc="c.name"/></div></div>
+            <div class="fx-mb-head"><div><b t-att-class="hl(K('sec', s.id, 'subtitle'))" t-att-data-fx="K('sec', s.id, 'subtitle')" t-esc="s.subtitle"/><p t-att-class="hl(K('sec', s.id, 'text'))" t-att-data-fx="K('sec', s.id, 'text')" t-esc="s.text"/></div></div>
+            <div class="fx-cards"><div t-foreach="d.most_booked" t-as="p" t-key="p.id" t-attf-class="fx-rc{{ hl(K('mb', p.id)) }}" t-att-data-fx="K('mb', p.id)"><div class="fx-rc-ph" t-attf-style="{{ p.image ? 'background-image:url(' + p.image + ')' : '' }}"><span t-esc="p.device"/></div><div class="fx-rc-bd"><b t-esc="p.name"/><em t-esc="d.price"/></div></div></div>
+            <span t-attf-class="fx-link{{ hl(K('sec', s.id, 'button1')) }}" t-att-data-fx="K('sec', s.id, 'button1')"><t t-esc="s.button1"/> →</span>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_modes">
+        <section class="fx-sec"><t t-call="369ai_fix.FxFlowCard"><t t-set="foot" t-value="s.button1 || 'Check your area →'"/><t t-set="footKey" t-value="K('sec', s.id, 'button1')"/></t></section>
+    </t>
+
+    <t t-name="369ai_fix.FxFlowCard">
+        <div class="fx-flow">
+            <div t-attf-class="fx-flow-head{{ hl(K('line', flow.id1)) }}" t-att-data-fx="K('line', flow.id1)"><span class="fx-mode-icon"><i class="fa fa-home"/></span><div><h3 t-esc="flow.title"/><small t-if="flow.eta" t-esc="flow.eta"/></div></div>
+            <ol class="fx-steps"><li t-foreach="flow.shared" t-as="st" t-key="st_index"><span t-esc="st_index + 1"/><t t-esc="st"/></li></ol>
+            <div class="fx-fork">
+                <div class="fx-branch ok"><b><span class="fx-no"><t t-esc="flow.shared.length + 1"/>a</span><t t-esc="flow.spot"/></b><small>Repaired during the visit, in front of you.</small></div>
+                <div t-attf-class="fx-branch{{ hl(K('line', flow.id2)) }}" t-att-data-fx="K('line', flow.id2)"><b><span class="fx-no"><t t-esc="flow.shared.length + 1"/>b</span><t t-esc="flow.lab.title"/></b><ol class="fx-steps fx-lab"><li t-foreach="flow.lab.steps" t-as="st" t-key="st_index" t-esc="st"/></ol><small t-esc="flow.lab.line"/></div>
+            </div>
+            <span t-attf-class="fx-flow-foot{{ hl(footKey) }}" t-att-data-fx="footKey" t-esc="foot"/>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_brands">
+        <section class="fx-sec">
+            <span t-attf-class="fx-badge{{ hl(K('sec', s.id, 'eyebrow')) }}" t-att-data-fx="K('sec', s.id, 'eyebrow')"><i/><t t-esc="s.eyebrow"/></span>
+            <h2><span t-att-class="hl(K('sec', s.id, 'title'))" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/> <span t-attf-class="fx-g{{ hl(K('sec', s.id, 'title2')) }}" t-att-data-fx="K('sec', s.id, 'title2')" t-esc="s.title2"/></h2>
+            <div class="fx-stats"><div><b><t t-esc="d.brands.length"/>+</b><small>brands</small></div><div><b t-esc="d.tiles.length"/><small>device types</small></div></div>
+            <div class="fx-brands"><div t-foreach="d.brands" t-as="b" t-key="b.id" class="fx-bc"><img t-if="b.logo" t-att-src="b.logo" alt=""/><b t-else="" t-esc="b.name"/><small t-esc="b.caption"/></div></div>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_reviews">
+        <section class="fx-sec">
+            <span t-attf-class="fx-eyebrow{{ hl(K('sec', s.id, 'eyebrow')) }}" t-att-data-fx="K('sec', s.id, 'eyebrow')" t-esc="s.eyebrow"/><h2 t-att-class="hl(K('sec', s.id, 'title'))" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/><p t-attf-class="fx-sub{{ hl(K('sec', s.id, 'text')) }}" t-att-data-fx="K('sec', s.id, 'text')" t-esc="s.text"/>
+            <div class="fx-rv"><figure t-foreach="linesOf(s).filter((l) => l.active)" t-as="l" t-key="l.id" t-att-class="hl(K('line', l.id))" t-att-data-fx="K('line', l.id)"><span class="fx-rv-tag" t-esc="l.extra"/><blockquote t-esc="l.text"/><figcaption><span class="fx-av" t-esc="(l.value || '?')[0]"/><span class="fx-who"><b t-esc="l.name"/><small t-esc="l.value"/></span><span class="fx-stars" t-esc="stars(l.stars)"/></figcaption></figure></div>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_milestones">
+        <section class="fx-sec">
+            <span t-attf-class="fx-eyebrow{{ hl(K('sec', s.id, 'eyebrow')) }}" t-att-data-fx="K('sec', s.id, 'eyebrow')" t-esc="s.eyebrow"/><h2 t-att-class="hl(K('sec', s.id, 'title'))" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/>
+            <ol class="fx-road"><li t-foreach="linesOf(s).filter((l) => l.active)" t-as="l" t-key="l.id" t-attf-class="{{ isTbc(l.value) ? 'tbc' : '' }}{{ hl(K('line', l.id)) }}" t-att-data-fx="K('line', l.id)"><span class="fx-y" t-esc="l.value"/><b t-esc="l.name"/><small t-esc="l.text"/></li></ol>
+            <p t-if="s.text" t-attf-class="fx-note{{ hl(K('sec', s.id, 'text')) }}" t-att-data-fx="K('sec', s.id, 'text')" t-esc="s.text"/>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_partners">
+        <section class="fx-sec center">
+            <span t-attf-class="fx-eyebrow{{ hl(K('sec', s.id, 'eyebrow')) }}" t-att-data-fx="K('sec', s.id, 'eyebrow')" t-esc="s.eyebrow"/><h2><span t-attf-class="fx-g{{ hl(K('sec', s.id, 'title')) }}" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/> <span t-att-class="hl(K('sec', s.id, 'title2'))" t-att-data-fx="K('sec', s.id, 'title2')" t-esc="s.title2"/></h2><p t-attf-class="fx-sub{{ hl(K('sec', s.id, 'text')) }}" t-att-data-fx="K('sec', s.id, 'text')" t-esc="s.text"/>
+            <div class="fx-logos"><span t-foreach="linesOf(s).filter((l) => l.active)" t-as="l" t-key="l.id" t-att-class="hl(K('line', l.id))" t-att-data-fx="K('line', l.id)"><img t-if="l.image" t-att-src="l.image" t-att-alt="l.name"/><b t-else="" t-esc="l.name"/></span></div>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSec_cta">
+        <section class="fx-sec"><div class="fx-cta">
+            <span t-attf-class="fx-eyebrow light{{ hl(K('sec', s.id, 'eyebrow')) }}" t-att-data-fx="K('sec', s.id, 'eyebrow')" t-esc="s.eyebrow"/><h2><span t-att-class="hl(K('sec', s.id, 'title'))" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/> <em t-att-class="hl(K('sec', s.id, 'title2'))" t-att-data-fx="K('sec', s.id, 'title2')" t-esc="s.title2"/></h2><p t-att-class="hl(K('sec', s.id, 'text'))" t-att-data-fx="K('sec', s.id, 'text')" t-esc="s.text"/>
+            <span t-attf-class="fx-btn-white{{ hl(K('sec', s.id, 'button1')) }}" t-att-data-fx="K('sec', s.id, 'button1')" t-esc="s.button1"/>
+            <ul class="fx-trust light"><li t-foreach="linesOf(s).filter((l) => l.active)" t-as="l" t-key="l.id" t-att-class="hl(K('line', l.id))" t-att-data-fx="K('line', l.id)" t-esc="l.name"/></ul>
+        </div></section>
+    </t>
+
+    <!-- ================================================================= services page -->
+    <t t-name="369ai_fix.FxServices">
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'header'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Header'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxHeaderIn'"/></t>
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'svc_head'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Page heading'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxSvcHead'"/></t>
+        <div class="fx-sec fx-catalog"><div class="fx-catalog-note"><i class="fa fa-th-large"/> <b>Our Services</b> — the booking steps (devices, brands, models, repairs and prices) come from the Catalogue and the Pictures screens.</div></div>
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'flow'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Step 1 · How we fix it'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxSvcFlow'"/></t>
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'coverage'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Step 2 · Coverage areas'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxSvcCoverage'"/></t>
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'faq'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'FAQ'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxSvcFaq'"/></t>
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'footer'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Footer and contact details'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxFooterIn'"/></t>
+    </t>
+
+    <t t-name="369ai_fix.FxSvcHead">
+        <section class="fx-pagehead">
+            <span t-attf-class="fx-eyebrow{{ hl(K('site', 'svc_eyebrow')) }}" t-att-data-fx="K('site', 'svc_eyebrow')" t-esc="site.svc_eyebrow"/>
+            <h1><span t-att-class="hl(K('site', 'svc_title'))" t-att-data-fx="K('site', 'svc_title')" t-esc="site.svc_title"/> <span t-attf-class="fx-g{{ hl(K('site', 'svc_title2')) }}" t-att-data-fx="K('site', 'svc_title2')" t-esc="site.svc_title2"/></h1>
+            <p t-attf-class="fx-lead{{ hl(K('site', 'svc_lead')) }}" t-att-data-fx="K('site', 'svc_lead')"><t t-esc="site.svc_lead"/> <t t-esc="d.totals.categories"/> device types, <t t-esc="d.totals.brands"/> brands and <t t-esc="d.totals.models"/>+ models, every estimate <t t-esc="d.price"/>.</p>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSvcFlow">
+        <section class="fx-sec">
+            <div class="fx-step-head"><span class="fx-step-no">1</span><div><span t-attf-class="fx-eyebrow{{ hl(K('site', 'svc_modes_eyebrow')) }}" t-att-data-fx="K('site', 'svc_modes_eyebrow')" t-esc="site.svc_modes_eyebrow"/><h2 t-att-class="hl(K('site', 'svc_modes_title'))" t-att-data-fx="K('site', 'svc_modes_title')" t-esc="site.svc_modes_title"/></div></div>
+            <t t-call="369ai_fix.FxFlowCard"><t t-set="foot" t-value="(site.svc_fee_label || 'Visit fee') + ' ' + d.price + '   ·   Check your area →'"/><t t-set="footKey" t-value="K('site', 'svc_fee_label')"/></t>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSvcCoverage">
+        <section class="fx-sec">
+            <div class="fx-step-head"><span class="fx-step-no">2</span><div><span t-attf-class="fx-eyebrow{{ hl(K('site', 'cov_eyebrow')) }}" t-att-data-fx="K('site', 'cov_eyebrow')" t-esc="site.cov_eyebrow"/><h2 t-att-class="hl(K('site', 'cov_title'))" t-att-data-fx="K('site', 'cov_title')" t-esc="site.cov_title"/></div></div>
+            <div class="fx-cov">
+                <div class="fx-cov-head"><p t-esc="flow.eta"/><span class="fx-search small"><i class="fa fa-search"/>Type your area, e.g. Qurum</span></div>
+                <div class="fx-zones">
+                    <div class="fx-ztabs"><button t-foreach="doorstepZones" t-as="z" t-key="z.id" type="button" t-attf-class="{{ z === zoneShown ? 'fx-on' : '' }}{{ hl(K('zone', z.id)) }}" t-att-data-fx="K('zone', z.id)" t-on-click.stop="() => state.zoneTab = z_index"><i/><span><b t-esc="zoneLabel(z)"/><small><t t-esc="z.areas.length"/> areas<t t-if="zoneBranch(z)"> · <t t-esc="zoneBranch(z)"/></t></small></span></button></div>
+                    <div class="fx-zpanel" t-if="zoneShown"><h4 t-esc="zoneShown.name"/><div class="fx-areas"><span t-foreach="zoneShown.areas" t-as="a" t-key="a.id" t-att-class="hl(K('area', a.id))" t-att-data-fx="K('area', a.id)" t-esc="a.name"/></div></div>
+                    <div class="fx-zmap"><iframe t-if="zoneShown and mapSrc(zoneShown)" t-att-src="mapSrc(zoneShown)" loading="lazy" title="Map"/><div t-else="" class="fx-zmap-empty">Map: the zone needs an area with a position.</div></div>
+                </div>
+                <ul t-attf-class="fx-trust{{ hl(K('site', 'cov_trust')) }}" t-att-data-fx="K('site', 'cov_trust')"><li t-foreach="lines(site.cov_trust)" t-as="t" t-key="t_index" t-esc="fill(t)"/></ul>
+            </div>
+        </section>
+    </t>
+
+    <t t-name="369ai_fix.FxSvcFaq">
+        <section class="fx-sec fx-faq">
+            <div><span class="fx-eyebrow">FAQ</span><h2>Frequently asked questions</h2></div>
+            <div class="fx-faq-list"><details t-foreach="d.faqs.filter((f) => f.active)" t-as="f" t-key="f.id" t-att-open="f_index === 0 ? '' : undefined" t-att-class="hl(K('faq', f.id))" t-att-data-fx="K('faq', f.id)"><summary t-esc="f.name"/><p t-esc="fill(f.answer)"/></details></div>
+        </section>
+    </t>
+
+    <!-- ==================================================================== info pages -->
+    <t t-name="369ai_fix.FxInfo">
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'header'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Header'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxHeaderIn'"/></t>
+        <t t-if="infoPage" t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'page'"/><t t-set="id" t-value="infoPage.id"/><t t-set="label" t-value="'Page · ' + pageLabel(infoPage.kind)"/><t t-set="rec" t-value="infoPage"/><t t-set="model" t-value="M.info"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxInfoIn'"/></t>
+        <div t-else="" class="fx-empty">No info page yet. Add one from the panel on the right.</div>
+        <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="'footer'"/><t t-set="id" t-value="false"/><t t-set="label" t-value="'Footer and contact details'"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxFooterIn'"/></t>
+    </t>
+
+    <t t-name="369ai_fix.FxInfoIn">
+        <t t-set="p" t-value="infoPage"/>
+        <section class="fx-pagehead"><span class="fx-eyebrow" t-esc="site.name"/><h1 t-att-class="hl(K('page', p.id, 'name'))" t-att-data-fx="K('page', p.id, 'name')" t-esc="p.name"/></section>
+        <section class="fx-sec fx-ip">
+            <div t-if="p.kind === 'text'" t-attf-class="fx-ip-text{{ hl(K('page', p.id, 'body')) }}" t-att-data-fx="K('page', p.id, 'body')"><t t-if="p.body" t-out="html(p.body)"/><p t-else="" class="fx-empty-inline">No text yet — press "Write the text" in the panel. Until then this page is not shown on the website.</p></div>
+            <t t-elif="p.kind === 'contact'">
+                <ul class="fx-ip-contact">
+                    <li t-if="site.contact_phone" t-att-class="hl(K('site', 'contact_phone'))" t-att-data-fx="K('site', 'contact_phone')"><b>Phone</b><span t-esc="site.contact_phone"/></li>
+                    <li t-if="site.contact_whatsapp" t-att-class="hl(K('site', 'contact_whatsapp'))" t-att-data-fx="K('site', 'contact_whatsapp')"><b>WhatsApp</b><span>+<t t-esc="site.contact_whatsapp"/></span></li>
+                    <li t-if="site.contact_email" t-att-class="hl(K('site', 'contact_email'))" t-att-data-fx="K('site', 'contact_email')"><b>Email</b><span t-esc="site.contact_email"/></li>
+                    <li t-if="site.contact_address" t-att-class="hl(K('site', 'contact_address'))" t-att-data-fx="K('site', 'contact_address')"><b>Address</b><span t-esc="site.contact_address"/></li>
+                    <li t-if="site.opening_hours" t-att-class="hl(K('site', 'opening_hours'))" t-att-data-fx="K('site', 'opening_hours')"><b>Opening hours</b><span t-esc="site.opening_hours"/></li>
+                </ul>
+                <h2>Our branches</h2>
+                <ul class="fx-ip-cards"><li t-foreach="d.branches.filter((b) => b.active)" t-as="b" t-key="b.id" t-att-class="hl(K('branch', b.id))" t-att-data-fx="K('branch', b.id)"><b t-esc="b.name"/><address><t t-foreach="branchLines(b)" t-as="ln" t-key="ln_index"><t t-esc="ln"/><br/></t></address><span t-foreach="phones(b)" t-as="ph" t-key="ph_index" class="fx-tel" t-esc="ph"/></li></ul>
+            </t>
+            <t t-elif="p.kind === 'areas'">
+                <h2 t-esc="flow.title"/><p class="fx-lead" t-esc="flow.eta"/>
+                <ul class="fx-ip-cards"><li t-foreach="doorstepZones" t-as="z" t-key="z.id" t-att-class="hl(K('zone', z.id))" t-att-data-fx="K('zone', z.id)"><b t-esc="z.name"/><span class="fx-areas"><span t-foreach="z.areas" t-as="a" t-key="a.id" t-esc="a.name"/></span></li></ul>
+                <p class="fx-note">Not listed? <b class="fx-g">Book anyway</b> and we will confirm.</p>
+            </t>
+            <div t-elif="p.kind === 'faq'" class="fx-faq-list"><details t-foreach="d.faqs.filter((f) => f.active)" t-as="f" t-key="f.id" t-att-open="f_index === 0 ? '' : undefined" t-att-class="hl(K('faq', f.id))" t-att-data-fx="K('faq', f.id)"><summary t-esc="f.name"/><p t-esc="fill(f.answer)"/></details></div>
+        </section>
+    </t>
+
+    <!-- =============================================================== brand logos -->
+    <t t-name="369ai_fix.FxBrands">
+        <section class="fx-sec">
+            <span class="fx-badge"><i/>Brands we repair</span>
+            <h2>All the big names, <span class="fx-g">one trusted fix.</span></h2>
+            <p class="fx-sub">The moving strip on the home page shows the brands ticked "In the strip":</p>
+            <div class="fx-brands"><div t-foreach="stripBrands" t-as="b" t-key="b.id" t-attf-class="fx-bc{{ hl(K('brand', b.id)) }}" t-att-data-fx="K('brand', b.id)" t-on-click.stop="() => this.jumpTo('brand:' + b.id)"><img t-if="b.logo" t-att-src="b.logo" alt=""/><b t-else="" t-esc="b.name"/><small t-esc="b.caption"/></div></div>
+            <p t-if="!stripBrands.length" class="fx-empty-inline">No brand is in the strip yet.</p>
+        </section>
+        <section class="fx-sec fx-pics-sec">
+            <h2 style="font-size:20px">Every brand <small class="fx-muted-site"><t t-esc="picsFiltered.length"/> of <t t-esc="state.pics.length"/></small></h2>
+            <p class="fx-sub">In the booking steps and on "Our Services" each brand shows its logo. Click one to edit it.</p>
+            <div class="fx-pics-grid">
+                <div t-foreach="picsFiltered" t-as="b" t-key="b.id" t-attf-class="fx-pic {{ isSel('brand', b.id) ? 'fx-on' : '' }} {{ b.in_strip ? '' : 'fx-dim' }}{{ hl(K('brand', b.id)) }}" t-att-data-fx="K('brand', b.id)" t-on-click="() => this.select('brand', b.id)">
+                    <div class="fx-pic-ph"><img t-if="b.logo" t-att-src="b.logo" alt=""/><span t-else="" class="fx-pic-missing"><i class="fa fa-picture-o"/> no logo</span></div>
+                    <b t-esc="b.name"/><small t-esc="b.caption || (b.in_strip ? 'in the strip' : 'not in the strip')"/>
+                </div>
+            </div>
+            <p t-if="!picsFiltered.length" class="fx-empty">Nothing matches the filter.</p>
+        </section>
+    </t>
+
+    <!-- =========================================================== service pictures -->
+    <t t-name="369ai_fix.FxPhotos">
+        <section class="fx-sec">
+            <span class="fx-badge"><i/>Our services</span>
+            <h2>Repair services <small class="fx-muted-site"><t t-esc="picsFiltered.length"/> of <t t-esc="state.pics.length"/></small></h2>
+            <p class="fx-sub">Each card shows the photo the website uses on the repair cards, in the booking steps and in "Most booked". Click one to add photos or pick the one shown.</p>
+            <div class="fx-cards fx-cards-wide">
+                <div t-foreach="picsFiltered" t-as="p" t-key="p.id" t-attf-class="fx-rc fx-rc-click {{ isSel('service', p.id) ? 'fx-on' : '' }}{{ hl(K('service', p.id)) }}" t-att-data-fx="K('service', p.id)" t-on-click="() => this.select('service', p.id)">
+                    <div class="fx-rc-ph" t-attf-style="{{ p.photo ? 'background-image:url(' + p.photo + ')' : '' }}"><span t-esc="p.device"/><em t-if="!p.photos.length" class="fx-pic-missing"><i class="fa fa-picture-o"/> no photo</em><em t-elif="p.photos.length lt 3" class="fx-pic-few"><t t-esc="p.photos.length"/> photo<t t-if="p.photos.length > 1">s</t></em><i t-if="p.most_booked" class="fa fa-star fx-pic-star" title="Most booked"/></div>
+                    <div class="fx-rc-bd"><b t-esc="p.name"/><small t-if="p.model" t-esc="p.model"/><em t-esc="d.price"/></div>
+                </div>
+            </div>
+            <p t-if="!picsFiltered.length" class="fx-empty">Nothing matches the filter.</p>
+        </section>
+    </t>
+
+    <!-- ===================================================================== the panel -->
+    <t t-name="369ai_fix.FxPanel">
+        <t t-set="sel" t-value="state.sel"/>
+        <t t-set="sec" t-value="selSection"/>
+        <t t-set="ip" t-value="sel and sel.kind === 'page' ? infoPage : null"/>
+
+        <!-- brand logos / service pictures: the list, filters and search -->
+        <div t-if="(page === 'brands' or page === 'photos') and !selPic" class="fx-pane">
+            <div class="fx-pane-head"><h2 t-esc="page === 'brands' ? 'Brand logos' : 'Service pictures'"/></div>
+            <p class="fx-hint"><i class="fa fa-hand-pointer-o me-1"/>Click a <t t-esc="page === 'brands' ? 'brand' : 'service'"/> on the left, or find it here.</p>
+            <input class="fx-in" type="search" t-att-placeholder="page === 'brands' ? 'Find a brand…' : 'Find a repair, device or model…'" t-att-value="state.q" t-on-input="(ev) => state.q = ev.target.value"/>
+            <div class="fx-filters"><button t-foreach="page === 'brands' ? BRAND_FILTERS : PHOTO_FILTERS" t-as="f" t-key="f[0]" type="button" t-attf-class="fx-filter {{ state.filter === f[0] ? 'fx-on' : '' }}" t-on-click="() => state.filter = f[0]" t-esc="f[1]"/></div>
+            <p class="fx-muted"><b t-esc="picsCounts.total"/> in all · <b t-esc="picsCounts.a"/> <t t-esc="picsCounts.aLabel"/> · <b t-esc="picsCounts.b"/> <t t-esc="picsCounts.bLabel"/></p>
+            <ul class="fx-list">
+                <li t-foreach="picsFiltered" t-as="r" t-key="r.id" t-att-data-fx-for="K(page === 'brands' ? 'brand' : 'service', r.id)"><button type="button" class="fx-list-btn" t-on-click="() => this.jumpTo((page === 'brands' ? 'brand:' : 'service:') + r.id)">
+                    <img t-if="r.logo or r.photo" class="fx-thumb" t-att-src="r.logo || r.photo" alt=""/><i t-else="" class="fx-thumb"/>
+                    <span class="fx-row-name"><t t-esc="r.name"/><small t-if="page === 'photos'"><t t-esc="r.device"/><t t-if="r.model"> · <t t-esc="r.model"/></t></small></span>
+                    <small t-if="page === 'brands'" t-esc="r.logo ? (r.in_strip ? 'in strip' : '') : 'no logo'"/><small t-else="" t-esc="r.photos.length ? r.photos.length + ' photo' + (r.photos.length > 1 ? 's' : '') : 'no photo'"/>
+                </button></li>
+            </ul>
+        </div>
+
+        <!-- one brand -->
+        <div t-elif="page === 'brands' and selPic" class="fx-pane">
+            <t t-set="b" t-value="selPic"/>
+            <t t-call="369ai_fix.FxPaneHead"/>
+            <h2 class="fx-pane-title" t-esc="b.name"/>
+            <p class="fx-about">Its logo shows in the booking steps, on "Our Services" and, when ticked, in the brands strip on the home page.</p>
+            <details class="fx-group" open="">
+                <summary>Logo</summary>
+                <div class="fx-img fx-img-big"><img t-if="b.logo" t-att-src="b.logo" alt=""/><span t-else="" class="fx-img-empty">No logo yet: the name shows instead.</span></div>
+                <div class="fx-adds"><label class="fx-btn fx-btn-sm"><i class="fa fa-upload"/> <t t-esc="b.logo ? 'Replace logo' : 'Upload logo'"/><input type="file" accept="image/*" hidden="hidden" t-on-change="(ev) => this.uploadLogo(b, ev)"/></label><button t-if="b.logo" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.clearLogo(b)">Remove</button></div>
+                <small class="fx-f-hint">PNG or SVG with a transparent background looks best. It is shrunk to 512 px.</small>
+            </details>
+            <details class="fx-group" open="">
+                <summary>Home page strip</summary>
+                <label class="fx-switch"><input type="checkbox" t-att-checked="b.in_strip" t-on-change="() => this.toggle(M.brand, b, 'in_strip', 'web_in_strip')"/><i/><span t-esc="b.in_strip ? 'In the brands strip' : 'Not in the brands strip'"/></label>
+                <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'brand.caption'"/><t t-set="k" t-value="K('brand', b.id)"/><t t-set="model" t-value="M.brand"/><t t-set="rec" t-value="b"/><t t-set="field" t-value="'caption'"/><t t-set="as" t-value="'web_caption'"/></t>
+                <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'brand.color'"/><t t-set="k" t-value="K('brand', b.id)"/><t t-set="model" t-value="M.brand"/><t t-set="rec" t-value="b"/><t t-set="field" t-value="'color'"/><t t-set="as" t-value="'web_color'"/></t>
+            </details>
+        </div>
+
+        <!-- one service -->
+        <div t-elif="page === 'photos' and selPic" class="fx-pane">
+            <t t-set="sv" t-value="selPic"/>
+            <t t-call="369ai_fix.FxPaneHead"/>
+            <h2 class="fx-pane-title" t-esc="sv.name"/>
+            <p class="fx-about"><t t-esc="sv.device"/><t t-if="sv.model"> · <t t-esc="sv.model"/></t> · <t t-esc="d.price"/>. The ticked photo is the one the website shows; the others wait in the gallery.</p>
+            <details class="fx-group" open="">
+                <summary>Photos <small><t t-esc="sv.photos.length"/> in the gallery</small></summary>
+                <div class="fx-gallery">
+                    <div t-foreach="sv.photos" t-as="ph" t-key="ph.id" t-attf-class="fx-gal {{ ph.shown ? 'fx-on' : '' }}" t-att-data-fx-for="K('service', sv.id)">
+                        <img t-att-src="ph.url" t-att-alt="ph.name"/>
+                        <span t-if="ph.shown" class="fx-gal-badge"><i class="fa fa-check"/> On website</span>
+                        <div class="fx-gal-tools"><button t-if="!ph.shown" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.showPhoto(ph)">Show this one</button><button type="button" class="fx-ic danger" title="Remove photo" t-on-click="() => this.removePhoto(sv, ph)"><i class="fa fa-trash-o"/></button></div>
+                    </div>
+                </div>
+                <p t-if="!sv.photos.length" class="fx-empty-inline">No photo yet: the card shows a plain pattern on the website.</p>
+                <div class="fx-adds"><label class="fx-btn fx-btn-sm"><i class="fa fa-upload"/> Add photos<input type="file" accept="image/*" multiple="multiple" hidden="hidden" t-on-change="(ev) => this.uploadPhotos(sv, ev)"/></label></div>
+                <small class="fx-f-hint">You can pick several files at once. The first photo of a service becomes the shown one.</small>
+            </details>
+            <details class="fx-group" open="">
+                <summary>Home page</summary>
+                <label class="fx-switch"><input type="checkbox" t-att-checked="sv.most_booked" t-on-change="() => this.toggle(M.product, sv, 'most_booked', 'web_most_booked')"/><i/><span t-esc="sv.most_booked ? 'In &quot;Most booked repairs&quot;' : 'Not in &quot;Most booked repairs&quot;'"/></label>
+                <small class="fx-f-hint">The order of the Most booked cards is set on the Home page editor.</small>
+            </details>
+        </div>
+
+        <!-- nothing picked -->
+        <div t-elif="!sel" class="fx-pane">
+            <div class="fx-pane-head"><h2>What to edit</h2></div>
+            <p class="fx-hint"><i class="fa fa-hand-pointer-o me-1"/>Click any part of the page on the left: the header, a section, the footer. Its wording and lines open here. Hover a field and the part it changes lights up on the page.</p>
+            <t t-if="page === 'home'">
+                <h3 class="fx-h3">Sections</h3>
+                <ul class="fx-list">
+                    <li t-foreach="d.home.sections" t-as="s" t-key="s.id" t-att-class="s.active ? '' : 'fx-dim'"><button type="button" class="fx-list-btn" t-on-click="() => this.select('section', s.id)"><i class="fa fa-bars"/><t t-esc="s.name"/><small t-if="!s.active">hidden</small></button></li>
+                </ul>
+                <div t-if="missingKinds.length" class="fx-adds"><span class="fx-muted">Add a section:</span><button t-foreach="missingKinds" t-as="k" t-key="k.key" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addSection(k.key)"><i class="fa fa-plus"/> <t t-esc="k.name"/></button></div>
+                <h3 class="fx-h3">Saved home pages</h3>
+                <ul class="fx-list">
+                    <li t-foreach="d.home.pages" t-as="p" t-key="p.id"><button type="button" t-attf-class="fx-list-btn {{ p.id === state.pageId ? 'fx-on' : '' }}" t-on-click="() => this.switchHomePage(p.id)"><i t-attf-class="fa {{ p.state === 'live' ? 'fa-check-circle text-success' : 'fa-circle-o' }}"/><t t-esc="p.name"/><small t-esc="p.state_note"/></button></li>
+                </ul>
+                <p class="fx-muted">Page settings (name, dates, everyday page, duplicate) are under <b>Page settings</b> above. Pictures come from the Pictures screens.</p>
+            </t>
+            <t t-if="page === 'services'">
+                <ul class="fx-list">
+                    <li><button type="button" class="fx-list-btn" t-on-click="() => this.select('svc_head')"><i class="fa fa-header"/>Page heading</button></li>
+                    <li><button type="button" class="fx-list-btn" t-on-click="() => this.select('flow')"><i class="fa fa-home"/>Step 1 · How we fix it</button></li>
+                    <li><button type="button" class="fx-list-btn" t-on-click="() => this.select('coverage')"><i class="fa fa-map-marker"/>Step 2 · Coverage areas</button></li>
+                    <li><button type="button" class="fx-list-btn" t-on-click="() => this.select('faq')"><i class="fa fa-question-circle"/>FAQ</button></li>
+                    <li><button type="button" class="fx-list-btn" t-on-click="() => this.select('footer')"><i class="fa fa-address-card-o"/>Footer and contact details</button></li>
+                </ul>
+            </t>
+            <t t-if="page === 'pages'"><t t-call="369ai_fix.FxPanelPageList"/></t>
+        </div>
+
+        <!-- site parts: header, footer, services heading, flow, coverage -->
+        <div t-elif="SITE_FORM[sel.kind]" class="fx-pane">
+            <t t-set="form" t-value="SITE_FORM[sel.kind]"/>
+            <t t-call="369ai_fix.FxPaneHead"/>
+            <h2 class="fx-pane-title" t-esc="form.title"/>
+            <p class="fx-about" t-esc="form.about"/>
+            <details t-foreach="form.groups" t-as="g" t-key="g.title" class="fx-group" open="">
+                <summary t-esc="g.title"/>
+                <t t-foreach="g.fields" t-as="f" t-key="f">
+                    <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'site.' + f"/><t t-set="k" t-value="K('site', f)"/><t t-set="model" t-value="M.site"/><t t-set="rec" t-value="site"/><t t-set="field" t-value="f"/></t>
+                </t>
+            </details>
+            <t t-if="sel.kind === 'header' or sel.kind === 'footer'">
+                <details class="fx-group" open="">
+                    <summary><t t-esc="sel.kind === 'header' ? 'Menu' : 'Quick links (footer)'"/> <small>drag to reorder</small></summary>
+                    <div class="fx-rows" t-ref="rows">
+                        <div t-foreach="d.links.filter((l) => l.kind === (sel.kind === 'header' ? 'header' : 'quick'))" t-as="l" t-key="l.id" t-attf-class="fx-row {{ l.active ? '' : 'fx-dim' }}" t-att-data-row="l.id" t-att-data-fx-for="K('link', l.id)">
+                            <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                            <input class="fx-in" t-att-value="l.name" placeholder="Label" t-on-input="(ev) => this.edit(M.link, l, 'name', ev)"/>
+                            <input class="fx-in" t-att-value="l.link" placeholder="/services" title="Opens: a page on the site or a web address" t-on-input="(ev) => this.edit(M.link, l, 'link', ev)"/>
+                            <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.link, l)" t-att-title="l.active ? 'Hide' : 'Show'"><i t-attf-class="fa {{ l.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                            <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.link, l)" title="Remove"><i class="fa fa-trash-o"/></button>
+                        </div>
+                    </div>
+                    <small class="fx-f-hint">Label, then what it opens (a page on the site such as /services, or a full web address).</small>
+                    <button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addLink(sel.kind === 'header' ? 'header' : 'quick')"><i class="fa fa-plus"/> Link</button>
+                </details>
+            </t>
+            <details t-if="sel.kind === 'footer'" class="fx-group" open="">
+                <summary>Branches <small>footer and Contact page</small></summary>
+                <div t-foreach="d.branches" t-as="b" t-key="b.id" t-attf-class="fx-card {{ b.active ? '' : 'fx-dim' }}" t-att-data-fx-for="K('branch', b.id)">
+                    <div class="fx-card-head"><input class="fx-in strong" t-att-value="b.name" placeholder="Branch, e.g. Ruwi" t-on-input="(ev) => this.edit(M.branch, b, 'name', ev)"/><button type="button" class="fx-ic" t-on-click="() => this.toggle(M.branch, b)"><i t-attf-class="fa {{ b.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button><button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.branch, b)"><i class="fa fa-trash-o"/></button></div>
+                    <t t-foreach="['address', 'phones', 'map_query']" t-as="f" t-key="f"><t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'branch.' + f"/><t t-set="k" t-value="K('branch', b.id)"/><t t-set="model" t-value="M.branch"/><t t-set="rec" t-value="b"/><t t-set="field" t-value="f"/></t></t>
+                </div>
+                <button type="button" class="fx-btn fx-btn-sm" t-on-click="addBranch"><i class="fa fa-plus"/> Branch</button>
+            </details>
+            <details t-if="sel.kind === 'flow'" class="fx-group" open="">
+                <summary>The two steps of the flow</summary>
+                <div class="fx-info">Shared with the Home page ("How we fix it"). Line 1 is the visit: its last step is the "fixed on the spot" branch. Line 2 is when it needs a part or more work.</div>
+                <div class="fx-rows" t-ref="rows">
+                    <div t-if="d.flow" t-foreach="d.flow.lines.filter((l) => l.role !== 'popular')" t-as="l" t-key="l.id" class="fx-row fx-row-card" t-att-data-row="l.id" t-att-data-fx-for="K('line', l.id)">
+                        <div class="fx-row-top"><span class="fx-muted" t-esc="l_index === 0 ? 'Line 1 · the visit' : 'Line 2 · needs a part or more work'"/></div>
+                        <t t-foreach="LINE_COLS.modes" t-as="col" t-key="col"><t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'line.modes.' + col"/><t t-set="k" t-value="K('line', l.id)"/><t t-set="model" t-value="M.line"/><t t-set="rec" t-value="l"/><t t-set="field" t-value="col"/></t></t>
+                    </div>
+                    <p t-if="!d.flow" class="fx-muted">The everyday home page has no "How we fix it" section yet. Add it on the Home page.</p>
+                </div>
+            </details>
+            <details t-if="sel.kind === 'coverage'" class="fx-group" open="">
+                <summary>Zones and areas <small>the website shows the Doorstep zones</small></summary>
+                <label class="fx-check"><input type="checkbox" t-model="state.showPickup"/> Also show Pickup zones (kept, not on the site)</label>
+                <div class="fx-rows" t-ref="rows">
+                    <div t-foreach="d.zones.filter((z) => z.mode === 'doorstep' || state.showPickup)" t-as="z" t-key="z.id" t-attf-class="fx-row fx-row-card {{ z.active ? '' : 'fx-dim' }}" t-att-data-row="z.id" t-att-data-fx-for="K('zone', z.id)">
+                        <div class="fx-row-top">
+                            <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                            <span class="fx-pill" t-esc="z.mode === 'doorstep' ? 'Doorstep' : 'Pickup'"/>
+                            <input class="fx-in strong" t-att-value="z.name" placeholder="e.g. Muscat (Ruwi branch)" t-on-input="(ev) => this.edit(M.zone, z, 'name', ev)"/>
+                            <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.zone, z)"><i t-attf-class="fa {{ z.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                            <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.zone, z)"><i class="fa fa-trash-o"/></button>
+                        </div>
+                        <div class="fx-chips">
+                            <span t-foreach="z.areas" t-as="a" t-key="a.id" class="fx-chip" t-att-data-fx-for="K('area', a.id)" t-att-title="a.latitude ? ('Position ' + a.latitude.toFixed(3) + ', ' + a.longitude.toFixed(3)) : 'No map position yet'"><i t-if="!a.latitude" class="fa fa-question-circle-o"/><t t-esc="a.name"/><button type="button" t-on-click="() => this.remove(M.area, a)" title="Remove area">×</button></span>
+                            <input class="fx-chip-in" placeholder="+ Add an area, Enter" t-att-value="state.newArea[z.id] || ''" t-on-input="(ev) => state.newArea[z.id] = ev.target.value" t-on-keydown="(ev) => this.onAreaKey(z, ev)"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="fx-adds"><button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addZone('doorstep')"><i class="fa fa-plus"/> Doorstep zone</button><button t-if="state.showPickup" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addZone('pickup')"><i class="fa fa-plus"/> Pickup zone</button></div>
+                <small class="fx-f-hint">A new area finds its map position on OpenStreetMap when saved, so "check my location" on the site recognises it. A <i class="fa fa-question-circle-o"/> means it has none yet (type it in under Lists ▸ Coverage Areas).</small>
+            </details>
+        </div>
+
+        <!-- a home section -->
+        <div t-elif="sel.kind === 'section' and sec" class="fx-pane">
+            <t t-set="form" t-value="SECTION_FORM[sec.kind]"/>
+            <t t-call="369ai_fix.FxPaneHead"/>
+            <h2 class="fx-pane-title" t-esc="sec.name"/>
+            <div class="fx-switchrow"><label class="fx-switch"><input type="checkbox" t-att-checked="sec.active" t-on-change="() => this.toggle(M.section, sec)"/><i/><span t-esc="sec.active ? 'Shown on the website' : 'Hidden from the website'"/></label><button type="button" class="fx-ic danger" title="Remove this section" t-on-click="() => this.remove(M.section, sec, sec.name)"><i class="fa fa-trash-o"/></button></div>
+            <p class="fx-about" t-esc="form.about"/>
+            <details t-foreach="form.groups" t-as="g" t-key="g.title" class="fx-group" open="">
+                <summary t-esc="g.title"/>
+                <t t-foreach="g.fields" t-as="f" t-key="f">
+                    <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'sec.' + sec.kind + '.' + f"/><t t-set="k" t-value="K('sec', sec.id, f)"/><t t-set="model" t-value="M.section"/><t t-set="rec" t-value="sec"/><t t-set="field" t-value="f"/></t>
+                </t>
+                <div t-if="g.image" class="fx-f"><span class="fx-f-label">Still picture</span>
+                    <div class="fx-img"><img t-if="sec.image" t-att-src="sec.image" alt=""/><span t-else="" class="fx-img-empty">none</span>
+                        <label class="fx-btn fx-btn-sm"><i class="fa fa-upload"/> Upload<input type="file" accept="image/*" hidden="hidden" t-on-change="(ev) => this.upload(M.section, sec, ev)"/></label>
+                        <button t-if="sec.image" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.clearImage(M.section, sec)">Remove</button>
+                    </div>
+                    <small class="fx-f-hint">Shown behind the title before the video plays, and when there is no video.</small>
+                </div>
+            </details>
+
+            <!-- hero: the Popular links -->
+            <details t-if="sec.kind === 'hero'" class="fx-group" open="">
+                <summary>Popular links <small>the chips under the search bar</small></summary>
+                <div t-foreach="popularOf(sec)" t-as="l" t-key="l.id" t-attf-class="fx-row {{ l.active ? '' : 'fx-dim' }}" t-att-data-fx-for="K('line', l.id)">
+                    <input class="fx-in" t-att-value="l.name" placeholder="Label, e.g. Laptop Repair" t-on-input="(ev) => this.edit(M.line, l, 'name', ev)"/>
+                    <input class="fx-in" t-att-value="l.link" placeholder="/services?cat=laptop#catalog" title="Opens" t-on-input="(ev) => this.edit(M.line, l, 'link', ev)"/>
+                    <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.line, l)" t-att-title="l.active ? 'Hide' : 'Show'"><i t-attf-class="fa {{ l.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                    <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.line, l)" title="Remove"><i class="fa fa-trash-o"/></button>
+                </div>
+                <small class="fx-f-hint">Label, then what it opens. Press the eye to hide a chip without deleting it.</small>
+                <button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addPopular(sec)"><i class="fa fa-plus"/> Popular link</button>
+            </details>
+
+            <!-- what we fix: tiles and most booked -->
+            <t t-if="sec.kind === 'services'">
+                <details class="fx-group" open="">
+                    <summary>Device tiles <small>eye = show on the home page</small></summary>
+                    <div t-foreach="d.tiles" t-as="c" t-key="c.id" t-attf-class="fx-row {{ c.show ? '' : 'fx-dim' }}" t-att-data-fx-for="K('tile', c.id)">
+                        <img t-if="c.image" class="fx-thumb" t-att-src="c.image" alt=""/><i t-else="" class="fx-thumb"/>
+                        <span class="fx-row-name" t-esc="c.name"/>
+                        <button type="button" class="fx-ic" t-on-click="() => this.toggleTile(c)" t-att-title="c.show ? 'Hide this tile' : 'Show this tile'"><i t-attf-class="fa {{ c.show ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                    </div>
+                    <small class="fx-f-hint">The device types from the Catalogue. Their names and pictures are edited there and under Pictures ▸ Device Pictures.</small>
+                </details>
+                <details class="fx-group" open="">
+                    <summary>Most booked repairs <small>drag to reorder</small></summary>
+                    <div class="fx-rows" t-ref="rows">
+                        <div t-foreach="d.most_booked" t-as="p" t-key="p.id" class="fx-row" t-att-data-row="p.id" t-att-data-fx-for="K('mb', p.id)">
+                            <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                            <img t-if="p.image" class="fx-thumb" t-att-src="p.image" alt=""/><i t-else="" class="fx-thumb"/>
+                            <span class="fx-row-name"><t t-esc="p.name"/><small t-esc="p.device"/></span>
+                            <button type="button" class="fx-ic danger" t-on-click="() => this.removeMostBooked(p)" title="Take off the home page"><i class="fa fa-eye-slash"/></button>
+                        </div>
+                    </div>
+                    <div class="fx-mb-add">
+                        <input class="fx-in" placeholder="Add a repair: type its name, e.g. Water" t-att-value="state.mbQuery" t-on-input="searchServices"/>
+                        <ul t-if="state.mbResults.length" class="fx-mb-results"><li t-foreach="state.mbResults" t-as="r" t-key="r.id"><button type="button" t-on-click="() => this.pickService(r)"><i class="fa fa-plus"/><t t-esc="r.name"/><small><t t-esc="r.device"/><t t-if="r.model"> · <t t-esc="r.model"/></t></small></button></li></ul>
+                        <small t-elif="state.mbQuery.length >= 2 and !state.mbSearching" class="fx-f-hint">Nothing found. Repairs come from the Catalogue ▸ Repair Services.</small>
+                    </div>
+                    <small class="fx-f-hint">Each card shows the repair's website photo (Pictures ▸ Service Pictures) and its price.</small>
+                </details>
+            </t>
+
+            <!-- lines -->
+            <details t-if="LINE_COLS[sec.kind]" class="fx-group" open="">
+                <summary><t t-esc="LINE_TITLE[sec.kind]"/> <small>drag to reorder</small></summary>
+                <div class="fx-rows" t-ref="rows">
+                    <div t-foreach="linesOf(sec)" t-as="l" t-key="l.id" t-attf-class="fx-row fx-row-card {{ l.active ? '' : 'fx-dim' }}" t-att-data-row="l.id" t-att-data-fx-for="K('line', l.id)">
+                        <div class="fx-row-top">
+                            <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                            <span class="fx-muted">#<t t-esc="l_index + 1"/></span>
+                            <span class="fx-gap"/>
+                            <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.line, l)"><i t-attf-class="fa {{ l.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                            <button t-if="sec.kind !== 'modes'" type="button" class="fx-ic danger" t-on-click="() => this.remove(M.line, l, l.name)"><i class="fa fa-trash-o"/></button>
+                        </div>
+                        <t t-foreach="LINE_COLS[sec.kind]" t-as="col" t-key="col"><t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'line.' + sec.kind + '.' + col"/><t t-set="k" t-value="K('line', l.id)"/><t t-set="model" t-value="M.line"/><t t-set="rec" t-value="l"/><t t-set="field" t-value="col"/></t></t>
+                        <div t-if="sec.kind === 'partners'" class="fx-img"><img t-if="l.image" t-att-src="l.image" alt=""/><span t-else="" class="fx-img-empty">no logo</span>
+                            <label class="fx-btn fx-btn-sm"><i class="fa fa-upload"/> Logo<input type="file" accept="image/*" hidden="hidden" t-on-change="(ev) => this.upload(M.line, l, ev)"/></label>
+                            <button t-if="l.image" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.clearImage(M.line, l)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+                <button t-if="sec.kind !== 'modes'" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addLine(sec)"><i class="fa fa-plus"/> <t t-esc="singular(LINE_TITLE[sec.kind])"/></button>
+            </details>
+        </div>
+
+        <!-- services: faq -->
+        <div t-elif="sel.kind === 'faq'" class="fx-pane">
+            <t t-call="369ai_fix.FxPaneHead"/>
+            <h2 class="fx-pane-title">FAQ</h2>
+            <p class="fx-about">The questions at the bottom of the Services page and on the FAQ page. Drag to reorder; the eye hides one.</p>
+            <div class="fx-rows" t-ref="rows">
+                <div t-foreach="d.faqs" t-as="f" t-key="f.id" t-attf-class="fx-row fx-row-card {{ f.active ? '' : 'fx-dim' }}" t-att-data-row="f.id" t-att-data-fx-for="K('faq', f.id)">
+                    <div class="fx-row-top">
+                        <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                        <input class="fx-in strong" t-att-value="f.name" placeholder="Question?" t-on-input="(ev) => this.edit(M.faq, f, 'name', ev)"/>
+                        <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.faq, f)"><i t-attf-class="fa {{ f.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                        <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.faq, f)"><i class="fa fa-trash-o"/></button>
+                    </div>
+                    <textarea class="fx-in" t-att-value="f.answer" placeholder="The answer ({price} = the price shown)" t-on-input="(ev) => this.edit(M.faq, f, 'answer', ev)"/>
+                </div>
+            </div>
+            <button type="button" class="fx-btn fx-btn-sm" t-on-click="addFaq"><i class="fa fa-plus"/> Question</button>
+        </div>
+
+        <!-- info pages: the list -->
+        <div t-elif="sel.kind === 'pagelist'" class="fx-pane">
+            <div class="fx-pane-head"><h2>Info pages</h2></div>
+            <t t-call="369ai_fix.FxPanelPageList"/>
+        </div>
+
+        <!-- info pages: one page -->
+        <div t-elif="sel.kind === 'page' and ip" class="fx-pane">
+            <t t-call="369ai_fix.FxPaneHead"/>
+            <h2 class="fx-pane-title" t-esc="ip.name"/>
+            <div class="fx-switchrow"><label class="fx-switch"><input type="checkbox" t-att-checked="ip.active" t-on-change="() => this.toggle(M.info, ip)"/><i/><span t-esc="ip.active ? 'Shown on the website' : 'Hidden from the website'"/></label><button type="button" class="fx-ic danger" title="Remove this page" t-on-click="() => this.remove(M.info, ip)"><i class="fa fa-trash-o"/></button></div>
+            <p class="fx-about">A page of its own at /page/<t t-esc="ip.slug"/>, listed in the footer column you pick.</p>
+            <details class="fx-group" open="">
+                <summary>Page</summary>
+                <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'page.name'"/><t t-set="k" t-value="K('page', ip.id, 'name')"/><t t-set="model" t-value="M.info"/><t t-set="rec" t-value="ip"/><t t-set="field" t-value="'name'"/></t>
+                <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'page.slug'"/><t t-set="k" t-value="K('page', ip.id, 'name')"/><t t-set="model" t-value="M.info"/><t t-set="rec" t-value="ip"/><t t-set="field" t-value="'slug'"/></t>
+                <label class="fx-f"><span class="fx-f-label">Footer column</span><select t-on-change="(ev) => this.edit(M.info, ip, 'column', ev, { now: true })"><option t-foreach="INFO_COLUMNS" t-as="c" t-key="c[0]" t-att-value="c[0]" t-att-selected="c[0] === ip.column" t-esc="c[1]"/></select><small class="fx-f-hint">Where the link to this page sits in the footer.</small></label>
+                <label class="fx-f"><span class="fx-f-label">Kind</span><select t-on-change="(ev) => this.edit(M.info, ip, 'kind', ev, { now: true })"><option t-foreach="INFO_KINDS" t-as="k" t-key="k[0]" t-att-value="k[0]" t-att-selected="k[0] === ip.kind" t-esc="k[1]"/></select><small class="fx-f-hint">Text page: you write it. Contact, Areas and FAQ fill themselves from the other screens.</small></label>
+            </details>
+            <div t-if="ip.kind === 'text'" class="fx-adds" t-att-data-fx-for="K('page', ip.id, 'body')"><button type="button" class="fx-btn" t-on-click="() => this.writePageText(ip)"><i class="fa fa-pencil"/> Write the text</button><span class="fx-muted">Opens Odoo's text editor. The page shows on the site once it has text.</span></div>
+            <div t-else="" class="fx-info">This page fills itself from <b t-esc="ip.kind === 'contact' ? 'the footer and contact details' : ip.kind === 'areas' ? 'the coverage areas' : 'the FAQ'"/>.</div>
+        </div>
+
+        <div t-else="" class="fx-pane"><p class="fx-hint">Click a part of the page to edit it.</p></div>
+    </t>
+
+    <t t-name="369ai_fix.FxPanelPageList">
+        <p class="fx-hint">Each page opens at /page/&lt;web address&gt; and is listed in the footer column you pick. Click one to edit it; drag to reorder.</p>
+        <div class="fx-rows" t-ref="rows">
+            <div t-foreach="d.pages" t-as="p" t-key="p.id" t-attf-class="fx-row {{ p.active ? '' : 'fx-dim' }} {{ p.id === state.infoId ? 'fx-on' : '' }}" t-att-data-row="p.id" t-att-data-fx-for="K('page', p.id, 'name')">
+                <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                <button type="button" class="fx-list-btn" t-on-click="() => this.select('page', p.id)"><i class="fa fa-file-text-o"/><t t-esc="p.name"/><small><t t-esc="p.column"/> · <t t-esc="pageLabel(p.kind)"/><t t-if="p.kind === 'text' and !p.body"> · no text</t></small></button>
+                <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.info, p)"><i t-attf-class="fa {{ p.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+            </div>
+        </div>
+        <button type="button" class="fx-btn fx-btn-sm" t-on-click="addInfoPage"><i class="fa fa-plus"/> Page</button>
+    </t>
+
+</templates>

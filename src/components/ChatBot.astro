@@ -3,11 +3,14 @@
 // Answers come only from the site's own data; anything else hands off to WhatsApp.
 import { site, price } from '../data/site';
 import { categories } from '../data/devices';
-import { coverage } from '../data/coverage';
+import { staticContent, type Coverage } from '../lib/content';
+
+// Coverage areas from Odoo (passed by Base), else the site's own list.
+const { coverage = staticContent().coverage } = Astro.props as { coverage?: Coverage };
 
 const tel = site.phone.tel.replace('+', '');
 const wa = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
-const areas = [...new Set(Object.values(coverage).flatMap((m) => m.zones.flatMap((z) => z.areas)))];
+const areas = [...new Set([coverage.doorstep, coverage.pickup].flatMap((m) => m.zones.flatMap((z) => z.areas)))];
 const kb = {
   devices: categories.map((c) => ({ id: c.id, name: c.name, issues: c.issues })),
   areas,

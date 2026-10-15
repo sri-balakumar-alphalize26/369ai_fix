@@ -4,14 +4,19 @@
 // Track your repair (sends the reference to Danat on WhatsApp — there is no
 // booking system yet, so no status is shown that we cannot know).
 import { site } from '../data/site';
-import { coverage } from '../data/coverage';
+import { staticContent, coverLine, type Coverage } from '../lib/content';
 import { categories } from '../data/devices';
 import { DIAL } from '../lib/phone';
 
+// Coverage areas come from Odoo (Fix Website ▸ Coverage Areas) through the page; the site's own list otherwise.
+const { coverage = staticContent().coverage } = Astro.props as { coverage?: Coverage };
+const areaGeo = coverage.geo;
+const serveLine = coverLine(coverage);
+const regions = serveLine.replace(/^We serve (.*?) from our .*$/, '$1');
 const doorstep = coverage.doorstep.zones.flatMap((z) => z.areas);
 const pickup = coverage.pickup.zones.flatMap((z) => z.areas);
 
-import { areaGeo, branchGeo } from '../lib/areaGeo';
+import { branchGeo } from '../lib/areaGeo';
 
 const suggIndex = [
   ...categories.map((c) => ({ t: c.name, k: 'Device', href: `/services?cat=${c.id}#catalog` })),
@@ -23,7 +28,9 @@ const suggestions = [
   ...new Set(categories.flatMap((c) => c.brands.map((b) => b.name))),
   ...categories.flatMap((c) => c.brands.flatMap((b) => b.models)),
 ];
-const popular = [
+// The "Popular:" chips: from Odoo (top banner's Popular links) when the page passes them, else the site's own.
+const { popular: odooPopular } = Astro.props as { popular?: { name: string; link: string }[] };
+const popular = odooPopular ? odooPopular.map((p) => ({ label: p.name, href: p.link })) : [
   { label: 'Laptop Repair', href: '/services?cat=laptop#catalog' },
   { label: 'iPhone Repair', href: '/services?cat=mobile&q=iPhone#catalog' },
   { label: 'Printer Repair', href: '/services?cat=printer#catalog' },
@@ -42,7 +49,7 @@ const trackSteps = [
 const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>';
 ---
 
-<div class="hs" data-hs data-sugg={JSON.stringify(suggIndex)} data-tel={tel} data-cats={JSON.stringify(catIndex)} data-geo={JSON.stringify({ areaGeo, branchGeo, doorstep, pickup, eta: { doorstep: coverage.doorstep.eta, pickup: coverage.pickup.eta } })}>
+<div class="hs" data-hs data-sugg={JSON.stringify(suggIndex)} data-tel={tel} data-cats={JSON.stringify(catIndex)} data-geo={JSON.stringify({ areaGeo, branchGeo, doorstep, pickup, eta: { doorstep: coverage.doorstep.eta, pickup: coverage.pickup.eta }, regions })}>
   <form class="hs-row" data-hs-find>
     <label class="hs-field">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -93,7 +100,7 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <small class="lp-sec">Popular areas</small>
       <div class="lp-pills">{['Ruwi', 'Qurum', 'Al Khuwair', 'Seeb', 'Al Mawaleh', 'Sohar', 'Barka', 'Salalah'].map((a) => <button type="button" data-place={a}>{a}</button>)}</div>
     </div>
-    <p class="lp-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>We serve Muscat, Al Batinah and Dhofar from our Ruwi, Sohar and Salalah branches.</p>
+    <p class="lp-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg>{serveLine}</p>
   </aside></div>
   <div class="hs-result" data-hs-result aria-live="polite" hidden></div>
 
@@ -151,7 +158,7 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
   if (root) {
     const tel = root.dataset.tel!;
     const cats: { id: string; words: string[] }[] = JSON.parse(root.dataset.cats!);
-    const geo = JSON.parse(root.dataset.geo!) as { areaGeo: Record<string, [number, number]>; branchGeo: { name: string; at: [number, number] }[]; doorstep: string[]; pickup: string[]; eta: { doorstep: string; pickup: string } };
+    const geo = JSON.parse(root.dataset.geo!) as { areaGeo: Record<string, [number, number]>; branchGeo: { name: string; at: [number, number] }[]; doorstep: string[]; pickup: string[]; eta: { doorstep: string; pickup: string }; regions: string };
     const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
     const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
     const result = root.querySelector<HTMLElement>('[data-hs-result]')!;
@@ -471,7 +478,7 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             route: [how === 'typed' ? 'This address' : 'You', dist, esc(br.name)],
             lines: [[false, 'Doorstep repair not available', ''], [false, 'Pickup & drop not available', '']],
             text: outside
-              ? 'We currently repair in Muscat, Al Batinah and Dhofar. Booking for someone in Oman? Check their address instead.'
+              ? `We currently repair in ${geo.regions}. Booking for someone in Oman? Check their address instead.`
               : 'Message us and we’ll confirm whether a technician can reach you.',
             actions: `<button type="button" class="lr-btn pri" data-lp-open>${svg('pin')}Check another address</button>${waBtn(`Hi Danat Fix, do you cover my location? ${mapLink}`, 'Ask on WhatsApp')}`,
             foot,

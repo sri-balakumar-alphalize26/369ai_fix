@@ -43,9 +43,8 @@ export const brandColor: Record<string, string> = {
 
 export const quickLinks = [
   { label: 'Book a Repair', href: '/services#catalog' },
-  { label: 'Check Coverage', href: '/services#modes' },
-  { label: 'Doorstep Service', href: '/services?mode=doorstep#modes' },
-  { label: 'Pickup & Service', href: '/services?mode=pickup#modes' },
+  { label: 'How we fix it', href: '/services#modes' },
+  { label: 'Check Coverage', href: '/services#coverage' },
   { label: 'Repair Catalog', href: '/services#catalog' },
   { label: 'FAQ', href: '/services#faq' },
   { label: 'Our Team', href: '/team' },

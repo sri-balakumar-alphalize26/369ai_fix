@@ -32,6 +32,10 @@ const fullTitle = title ? `${title} · ${siteName}` : `${siteName} — ${tagline
 const menu = C.header.menu.length ? C.header.menu.map((m) => ({ href: m.link, label: m.label })) : nav;
 const waNumber = C.whatsapp || site.whatsapp;
 const year = String(new Date().getFullYear());
+// Info pages (Fix Website ▸ Info Pages) listed in their footer column
+const pageCols = ([['company', 'Company'], ['help', 'Help'], ['policies', 'Policies']] as const)
+  .map(([key, label]) => ({ label, pages: content.pages.filter((p) => p.column === key) }))
+  .filter((c) => c.pages.length);
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 
 // Services mega menu. Every link lands on the Services page — the site stays three pages.
@@ -68,7 +72,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
     <Popups />
     <LocalCurrency />
     <Engage />
-    <ChatBot />
+    <ChatBot coverage={content.coverage} />
     <CartDrawer />
     <div class="aurora" aria-hidden="true">
       <span class="orb o1"></span>
@@ -111,7 +115,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
     </main>
 
     <footer class="footer">
-      <div class="wrap ft-grid">
+      <div class="wrap ft-grid" style={`--cols:${2 + pageCols.length}`}>
         <div class="ft-about">
           <a href="/" class="logo foot-logo" aria-label={siteName} data-no-brand><img class="logo-369" data-for="danatfix" src="/brand/danat-fix-mark.png" alt="Danat Fix" width="196" height="200" loading="lazy" /><img class="logo-369" data-for="369" src="/brand/369-ai-fix-mark.png" alt="369 ai Fix" width="257" height="200" loading="lazy" /></a>
           <p class="ft-desc">{C.footer.about || `${tagline}. Phones, laptops, printers, CCTV and Wi-Fi — repaired at your door or picked up and brought back, across ${site.country} since ${C.since || site.since}.`}</p>
@@ -137,6 +141,12 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
             {C.quick_links.map((n) => <li><a href={n.link} target={/^https?:/.test(n.link) ? '_blank' : undefined} rel={/^https?:/.test(n.link) ? 'noopener' : undefined}>{n.label}</a></li>)}
           </ul>
         </div>
+        {pageCols.map((c) => (
+          <div class="ft-col" role="navigation" aria-label={c.label}>
+            <p class="ft-h">{c.label}</p>
+            <ul>{c.pages.map((p) => <li><a href={`/page/${p.slug}`}>{p.title}</a></li>)}</ul>
+          </div>
+        ))}
       </div>
       <div class="wrap ft-offices">
         <p class="ft-h">Our branches</p>
@@ -370,7 +380,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 
   /* footer — light, columns like the Alphalize / 369 footers */
   .footer { margin-top: 28px; background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--violet) 5%, var(--surface))); color: var(--ink-2); border-top: 1px solid var(--line); border-radius: 32px 32px 0 0; }
-  .ft-grid { display: grid; grid-template-columns: minmax(280px, 1.4fr) 1fr 1fr; gap: 28px 40px; padding: 36px 0 24px; }
+  .ft-grid { display: grid; grid-template-columns: minmax(260px, 1.4fr) repeat(calc(var(--cols, 2)), minmax(0, 1fr)); gap: 28px 32px; padding: 36px 0 24px; }
   .ft-about .foot-logo img { height: 52px; width: auto; }
   @media (max-width: 560px) { .ft-about .foot-logo img { height: 44px; } }
   .ft-desc { margin: 14px 0 18px; max-width: 46ch; font-size: 14.5px; line-height: 1.6; color: var(--ink-2); }
@@ -405,8 +415,8 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
   .ft-dir:hover { border-color: var(--violet); color: var(--violet); transform: translateY(-2px); }
   @media (max-width: 900px) { .ft-branches { grid-template-columns: 1fr; } }
   .ft-dev { font-weight: 800; color: var(--violet); }
-  @media (max-width: 1000px) { .ft-grid { grid-template-columns: 1fr 1fr; } .ft-about { grid-column: 1 / -1; } }
-  @media (max-width: 560px) { .ft-grid { grid-template-columns: 1fr; gap: 20px; padding-top: 28px; } }
+  @media (max-width: 1100px) { .ft-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } .ft-about { grid-column: 1 / -1; } }
+  @media (max-width: 560px) { .ft-grid { grid-template-columns: 1fr 1fr; gap: 20px 16px; padding-top: 28px; } }
   .ft-base {
     display: flex;
     justify-content: space-between;

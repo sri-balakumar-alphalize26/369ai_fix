@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Coverage Areas: the doorstep and pickup zones and their areas -->
+    <record id="view_fix_coverage_zone_list" model="ir.ui.view">
+        <field name="name">fix.coverage.zone.list</field>
+        <field name="model">fix.coverage.zone</field>
+        <field name="arch" type="xml">
+            <list default_order="mode, sequence" decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="mode"/>
+                <field name="name"/>
+                <field name="area_count"/>
+                <field name="site_id" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fix_coverage_zone_form" model="ir.ui.view">
+        <field name="name">fix.coverage.zone.form</field>
+        <field name="model">fix.coverage.zone</field>
+        <field name="arch" type="xml">
+            <form string="Coverage zone">
+                <sheet>
+                    <widget name="web_ribbon" title="Hidden" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. Muscat (Ruwi branch)"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="mode" widget="radio" options="{'horizontal': true}"/>
+                            <field name="site_id"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                        <group string="Map on the Services page">
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                            <div colspan="2" class="text-muted small">Empty: the map centres on the first area.</div>
+                        </group>
+                    </group>
+                    <separator string="Areas, in order - drag to rearrange"/>
+                    <field name="area_ids" nolabel="1" context="{'default_zone_id': id}">
+                        <list editable="bottom" default_order="sequence">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="latitude" optional="show"/>
+                            <field name="longitude" optional="show"/>
+                        </list>
+                    </field>
+                    <div class="text-muted small">
+                        A new area finds its map position on OpenStreetMap when saved, so the "check my location" box on the site
+                        recognises it. If it stays at 0, type the position in. Areas not listed can still book; the team confirms.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fix_coverage_zone_search" model="ir.ui.view">
+        <field name="name">fix.coverage.zone.search</field>
+        <field name="model">fix.coverage.zone</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="area_ids" string="Area"/>
+                <filter name="doorstep" string="Doorstep" domain="[('mode', '=', 'doorstep')]"/>
+                <filter name="pickup" string="Pickup" domain="[('mode', '=', 'pickup')]"/>
+                <separator/>
+                <filter name="hidden" string="Hidden" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_mode" string="Service" context="{'group_by': 'mode'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fix_coverage" model="ir.actions.act_window">
+        <field name="name">Coverage Areas</field>
+        <field name="res_model">fix.coverage.zone</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_group_mode': 1, 'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add the areas the website says you cover</p>
+            <p>Each zone (for example "Muscat (Ruwi branch)") lists its areas. The website shows the <b>Doorstep</b> zones (the technician
+               always comes first); Pickup zones are kept here but not shown. The arrival time is in Home Page ▸ How we fix it.
+               The coverage wording and trust points are in Website Details ▸ Services page.</p>
+        </field>
+    </record>
+
+    <!-- FAQs -->
+    <record id="view_fix_site_faq_list" model="ir.ui.view">
+        <field name="name">fix.site.faq.list</field>
+        <field name="model">fix.site.faq</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" default_order="sequence" decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="answer" widget="text"/>
+                <field name="site_id" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_fix_faqs" model="ir.actions.act_window">
+        <field name="name">FAQs</field>
+        <field name="res_model">fix.site.faq</field>
+        <field name="view_mode">list</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a question</p>
+            <p>Shown at the bottom of the Services page and on the FAQ info page, in this order. {price} in an answer becomes the price shown on the site.</p>
+        </field>
+    </record>
+
+    <!-- Info pages -->
+    <record id="view_fix_site_page_list" model="ir.ui.view">
+        <field name="name">fix.site.page.list</field>
+        <field name="model">fix.site.page</field>
+        <field name="arch" type="xml">
+            <list default_order="sequence" decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="url"/>
+                <field name="column"/>
+                <field name="kind"/>
+                <field name="site_id" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fix_site_page_form" model="ir.ui.view">
+        <field name="name">fix.site.page.form</field>
+        <field name="model">fix.site.page</field>
+        <field name="arch" type="xml">
+            <form string="Info page">
+                <sheet>
+                    <widget name="web_ribbon" title="Hidden" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. About us"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="slug" placeholder="about"/>
+                            <field name="url"/>
+                            <field name="column"/>
+                        </group>
+                        <group>
+                            <field name="kind"/>
+                            <field name="site_id"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info" role="alert" invisible="kind != 'contact'">
+                        This page fills itself from <b>Website Details</b>: contact details and branches.
+                    </div>
+                    <div class="alert alert-info" role="alert" invisible="kind != 'areas'">
+                        This page fills itself from <b>Coverage Areas</b>.
+                    </div>
+                    <div class="alert alert-info" role="alert" invisible="kind != 'faq'">
+                        This page fills itself from <b>FAQs</b>.
+                    </div>
+                    <separator string="Text" invisible="kind != 'text'"/>
+                    <field name="body" nolabel="1" invisible="kind != 'text'" placeholder="Write the page here: headings, paragraphs, lists and links."/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fix_pages" model="ir.actions.act_window">
+        <field name="name">Info Pages</field>
+        <field name="res_model">fix.site.page</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a page such as About us, Privacy policy or Terms</p>
+            <p>Each page opens at /page/&lt;web address&gt; and is listed in the footer column you pick.</p>
+        </field>
+    </record>
+</odoo>
