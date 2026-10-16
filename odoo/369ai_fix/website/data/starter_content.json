@@ -61,8 +61,8 @@
   "badge": "7 services · doorstep & pickup",
   "title": "What can we fix for you?",
   "mostTitle": "Most booked repairs",
-  "mostSub": "Doorstep or pickup · estimate OMR 0",
-  "price": "OMR 0",
+  "mostSub": "Doorstep or pickup · price confirmed before any work",
+  "price": "Price after check",
   "allLink": "View all services",
   "tiles": [
    {
@@ -430,7 +430,7 @@
   "eyebrow": "How it works",
   "title": "We come to you first",
   "fee": "Visit fee",
-  "feePrice": "OMR 0"
+  "feePrice": "Price after check"
  },
  "coverage": {
   "eyebrow": "Check your area",
@@ -468,7 +468,7 @@
     "text": "Diagnosis before any work"
    },
    {
-    "text": "Technician visit OMR 0"
+    "text": "Visit fee: {price}"
    },
    {
     "text": "Updates on WhatsApp"
@@ -482,7 +482,7 @@
   "items": [
    {
     "q": "Is there a charge if you only inspect the device?",
-    "a": "No. Diagnosis and the visit or pickup are shown as OMR 0 — you get an estimate before any work starts."
+    "a": "The technician checks your device and tells you the price before any work starts — nothing is done without your OK. Visit fee: {price}."
    },
    {
     "q": "How long does a repair take?",
@@ -557,7 +557,7 @@
  },
  "footer": {
   "about": "Electronics repair at your doorstep. Phones, laptops, printers, CCTV and Wi-Fi — repaired at your door or picked up and brought back, across Oman since 2003.",
-  "copyright": "© 2026 Danat Fix. All rights reserved. · Estimates shown as OMR 0 — pricing to be announced.",
+  "copyright": "© {year} Danat Fix. All rights reserved.",
   "credit": "Site developed and maintained by alphalize",
   "services": "Mobile Phones, Tablets & iPads, Laptops & MacBooks, Desktops & All-in-ones, Printers, CCTV Installation, Networking & Wi-Fi, Data Recovery, IT Support",
   "quick": [

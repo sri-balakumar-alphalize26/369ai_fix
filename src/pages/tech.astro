@@ -1,0 +1,221 @@
+---
+// The technician's link from WhatsApp: /tech?v=<visit>&t=<token>. Shows the customer and
+// address, moves the visit along (Start trip, Arrived with the customer's code, Start work,
+// Done) and, while the visit is open, sends the phone's location to Odoo every ~20 s so the
+// customer sees the technician coming on My orders. Everything goes through /api/tech.
+import Base from '../layouts/Base.astro';
+export const prerender = false;
+---
+
+<Base title="Your visit" description="The technician's visit page." quiet>
+  <section class="section">
+    <div class="wrap tv" data-tv>
+      <p class="tv-load" data-tv-load>Loading your visit…</p>
+
+      <div data-tv-main hidden>
+        <div class="tv-top">
+          <span class="eyebrow" data-tv-ref></span>
+          <h1 class="h-lg" data-tv-state></h1>
+        </div>
+
+        <div class="tv-card">
+          <h3 data-tv-name></h3>
+          <p class="tv-sum" data-tv-sum></p>
+          <p class="tv-addr" data-tv-addr></p>
+          <p class="tv-slot" data-tv-slot hidden></p>
+          <div class="tv-acts">
+            <a class="tv-btn ghost" data-tv-call href="#" hidden>Call customer</a>
+            <a class="tv-btn ghost" data-tv-dir href="#" target="_blank" rel="noopener" hidden>Directions</a>
+          </div>
+        </div>
+
+        <div class="tv-card" data-tv-step hidden>
+          <div class="tv-code" data-tv-codebox hidden>
+            <label for="tv-code">Ask the customer for their 4-digit arrival code</label>
+            <input id="tv-code" data-tv-code inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
+          </div>
+          <button type="button" class="tv-btn big" data-tv-go></button>
+          <p class="tv-hint" data-tv-hint></p>
+        </div>
+
+        <div class="tv-card tv-end" data-tv-end hidden></div>
+
+        <div class="tv-gps" data-tv-gps hidden>
+          <i data-tv-dot></i><span data-tv-gpstext></span>
+        </div>
+      </div>
+
+      <p class="tv-msg" data-tv-msg role="alert" hidden></p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const q = new URLSearchParams(location.search);
+  const v = q.get('v') || '', t = q.get('t') || '';
+  const msg = (m: string) => { const el = $('[data-tv-msg]'); el.textContent = m; el.hidden = !m; };
+  const ERR: Record<string, string> = {
+    unknown: 'This link does not work. Ask the office to send you a new one.',
+    expired: 'This link has expired. Ask the office to send you a new one.',
+    unavailable: 'Cannot reach the office system right now. Keep this page open; it tries again.',
+  };
+  // The one button per step: [label, action, hint]
+  const STEP: Record<string, [string, string, string]> = {
+    assigned: ['Start trip', 'on_the_way', 'Tap when you leave. The customer is told you are on the way.'],
+    on_the_way: ['I have arrived', 'arrive', 'Tap at the door.'],
+    arrived: ['Start work', 'start', 'Tap when you start checking the device.'],
+    in_progress: ['Repair done', 'done', 'Tap when the visit is finished.'],
+  };
+
+  let view: any = null;
+  let fix: GeolocationPosition | null = null;
+  let sentAt = 0, sentFixAt = 0, watchId: number | null = null, pingTimer: ReturnType<typeof setInterval> | null = null;
+  let lock: any = null, battery: any = null;
+
+  const api = (body?: unknown) => fetch(body ? '/api/tech' : `/api/tech?v=${encodeURIComponent(v)}&t=${encodeURIComponent(t)}`, body
+    ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ v, t, ...(body as object) }) }
+    : { cache: 'no-store' }).then((r) => r.json()).catch(() => ({ ok: false, error: 'unavailable' }));
+
+  const where = () => fix ? {
+    lat: fix.coords.latitude, lng: fix.coords.longitude, accuracy: fix.coords.accuracy,
+    heading: fix.coords.heading ?? null, speed: fix.coords.speed ?? null,
+    battery: battery ? battery.level : null,
+  } : {};
+
+  function render(d: any) {
+    view = d;
+    $('[data-tv-load]').hidden = true; $('[data-tv-main]').hidden = false;
+    $('[data-tv-ref]').textContent = `Visit ${d.ref}${d.order ? ' · order ' + d.order : ''}`;
+    $('[data-tv-state]').textContent = d.state_label;
+    const c = d.customer || {};
+    $('[data-tv-name]').textContent = c.name || 'Customer';
+    $('[data-tv-sum]').textContent = d.summary || '';
+    $('[data-tv-addr]').textContent = [c.building, c.floor_flat, c.address, c.area, c.landmark && `near ${c.landmark}`].filter(Boolean).join(', ');
+    const slot = $('[data-tv-slot]');
+    slot.hidden = !d.slot;
+    if (d.slot) slot.textContent = 'Visit time: ' + new Date(d.slot.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      + (d.slot.end ? ' to ' + new Date(d.slot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+    const call = $<HTMLAnchorElement>('[data-tv-call]'), dir = $<HTMLAnchorElement>('[data-tv-dir]');
+    call.hidden = !c.phone; if (c.phone) call.href = 'tel:+' + String(c.phone).replace(/\D/g, '');
+    dir.hidden = !d.directions_url; if (d.directions_url) dir.href = d.directions_url;
+
+    const step = STEP[d.state];
+    $('[data-tv-step]').hidden = !step;
+    if (step) {
+      $('[data-tv-go]').textContent = step[0];
+      $('[data-tv-hint]').textContent = step[2];
+      $('[data-tv-codebox]').hidden = !(step[1] === 'arrive' && d.need_code);
+    }
+    const end = $('[data-tv-end]');
+    end.hidden = !!step;
+    if (!step) end.textContent = d.state === 'done' ? 'Visit completed. Thank you! You can close this page.'
+      : d.state === 'cancelled' ? 'This visit was cancelled. Ask the office if you have questions.'
+      : 'The office has not assigned this visit yet.';
+    if (d.share) startGps(); else stopGps();
+  }
+
+  async function load() {
+    const d = await api();
+    if (!d.ok && !view) { $('[data-tv-load]').hidden = true; msg(ERR[d.error] || ERR.unavailable); return; }
+    if (d.ok) { msg(''); render(d); }
+  }
+
+  $('[data-tv-go]').addEventListener('click', async () => {
+    const step = view && STEP[view.state];
+    if (!step) return;
+    const btn = $<HTMLButtonElement>('[data-tv-go]');
+    const code = $<HTMLInputElement>('[data-tv-code]').value.replace(/\D/g, '');
+    if (step[1] === 'arrive' && view.need_code && code.length !== 4) { msg('Enter the 4-digit code from the customer.'); return; }
+    btn.disabled = true; msg('');
+    const d = await api({ action: step[1], code, ...where() });
+    btn.disabled = false;
+    if (d.ref) render(d);
+    if (!d.ok) msg(d.message || ERR[d.error] || 'That did not work. Try again.');
+    else $<HTMLInputElement>('[data-tv-code]').value = '';
+  });
+
+  // ---- location: sent while the visit is open and this page is on screen ----
+  function gpsText(text: string, ok: boolean) {
+    $('[data-tv-gps]').hidden = false;
+    $('[data-tv-gpstext]').textContent = text;
+    $('[data-tv-dot]').className = ok ? 'ok' : 'bad';
+  }
+
+  async function ping() {
+    if (!fix || document.hidden) return;
+    const every = (view?.ping_every || 20) * 1000;
+    // A new fix every ping_every, or the same one once a minute so the office sees the signal.
+    if (fix.timestamp === sentFixAt && Date.now() - sentAt < 60000) return;
+    if (Date.now() - sentAt < every - 1000) return;
+    sentAt = Date.now(); sentFixAt = fix.timestamp;
+    const d = await api({ action: 'ping', ...where() });
+    if (!d.ok) { gpsText('Location not sent. Trying again…', false); return; }
+    gpsText(`Sharing your location with the customer · sent ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, true);
+    if (view && d.state !== view.state) load();
+  }
+
+  function startGps() {
+    if (watchId !== null) return;
+    if (!('geolocation' in navigator) || !window.isSecureContext) {
+      gpsText('This phone cannot share its location here. Open the link in Chrome or Safari.', false);
+      return;
+    }
+    gpsText('Turning on location…', true);
+    watchId = navigator.geolocation.watchPosition((p) => { fix = p; ping(); }, (e) => {
+      gpsText(e.code === e.PERMISSION_DENIED
+        ? 'Location is blocked. Allow location for this site in the browser settings, then reload.'
+        : 'Waiting for GPS signal…', false);
+    }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 });
+    pingTimer = setInterval(ping, 5000);
+    keepAwake();
+  }
+
+  function stopGps() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    if (pingTimer) clearInterval(pingTimer);
+    watchId = null; pingTimer = null;
+    $('[data-tv-gps]').hidden = true;
+    lock?.release?.().catch(() => {}); lock = null;
+  }
+
+  // Keep the screen on while sharing, so the phone does not stop the location.
+  async function keepAwake() {
+    try { lock = await (navigator as any).wakeLock?.request('screen'); } catch { lock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && watchId !== null) { keepAwake(); ping(); load(); }
+  });
+  (navigator as any).getBattery?.().then((b: any) => { battery = b; }).catch(() => {});
+
+  if (!v || !t) { $('[data-tv-load]').hidden = true; msg(ERR.unknown); }
+  else { load(); setInterval(() => { if (!document.hidden) load(); }, 60000); }
+</script>
+
+<style>
+  .tv { max-width: 560px; }
+  .tv-load { color: var(--ink-2); }
+  .tv-top { margin-bottom: 16px; }
+  .tv-top h1 { margin: 6px 0 0; }
+  .tv-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius, 18px); padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .tv-card h3 { margin: 0 0 6px; }
+  .tv-sum { margin: 0 0 8px; color: var(--ink-2); }
+  .tv-addr { margin: 0; color: var(--ink); font-weight: 600; }
+  .tv-slot { margin: 8px 0 0; color: var(--ink-2); }
+  .tv-acts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  .tv-btn { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font: inherit; font-weight: 700; font-size: 16px; cursor: pointer; text-decoration: none; }
+  .tv-btn.ghost { background: var(--tint); color: var(--ink); }
+  .tv-btn.big { width: 100%; height: 58px; font-size: 18px; }
+  .tv-btn:disabled { opacity: .6; }
+  .tv-code { display: grid; gap: 8px; margin-bottom: 14px; }
+  .tv-code label { font-weight: 600; color: var(--ink); }
+  .tv-code input { height: 54px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 26px; letter-spacing: .5em; text-align: center; }
+  .tv-hint { margin: 10px 0 0; font-size: 14px; color: var(--ink-3); }
+  .tv-end { font-weight: 600; color: var(--ink); }
+  .tv-gps { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: var(--tint); color: var(--ink-2); font-size: 14px; }
+  .tv-gps i { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #d63a3a; }
+  .tv-gps i.ok { background: #1a9a52; animation: tvp 1.6s infinite; }
+  @keyframes tvp { 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .tv-gps i.ok { animation: none; } }
+  .tv-msg { margin: 12px 0 0; color: #d63a3a; font-weight: 600; }
+</style>

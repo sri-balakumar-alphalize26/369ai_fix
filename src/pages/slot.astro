@@ -3,12 +3,15 @@
 // Shows the estimate, then either "order the missing part?" (yes / no), "waiting for the
 // part", or the free visit times to pick from. Everything goes through /api/visit.
 import Base from '../layouts/Base.astro';
-import { site } from '../data/site';
-// Per request, so the header, footer and chatbot show what is in Odoo now.
+import { getContent, contactOf } from '../lib/content';
+import { hostOf } from '../lib/odoo';
+// Per request, so the header, footer, chatbot and the phone number show what is in Odoo now.
 export const prerender = false;
+const content = await getContent(hostOf(Astro.request));
+const phone = contactOf(content.site).display;
 ---
 
-<Base title="Pick a time" description="Choose when we come for your repair." quiet>
+<Base title="Pick a time" description="Choose when we come for your repair." quiet content={content}>
   <section class="page-head">
     <div class="wrap">
       <span class="eyebrow">Your repair</span>
@@ -18,7 +21,7 @@ export const prerender = false;
   </section>
 
   <section class="section">
-    <div class="wrap vs" data-vs>
+    <div class="wrap vs" data-vs data-phone={phone}>
       <div class="vs-card" data-v-est hidden>
         <h3>Your estimate <small data-v-ref></small></h3>
         <ul data-v-lines></ul>
@@ -44,7 +47,7 @@ export const prerender = false;
         <h3 data-v-picktitle>Choose a time</h3>
         <p class="vs-booked" data-v-booked hidden></p>
         <div class="vs-days" data-v-days-list></div>
-        <p class="vs-note" data-v-none hidden>No free times right now — please call us on <b>{site.phone.display}</b>.</p>
+        <p class="vs-note" data-v-none hidden>No free times right now — please call us on <b>{phone}</b>.</p>
       </div>
 
       <div class="vs-card" data-v-bye hidden>
@@ -58,16 +61,16 @@ export const prerender = false;
 </Base>
 
 <script>
-  import { site } from '../data/site';
   const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const phone = $('[data-vs]').dataset.phone!;   // the phone number in Odoo's Website Details
   const q = new URLSearchParams(location.search);
   const o = q.get('o') || '', t = q.get('t') || '';
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
   const msg = (m: string) => { const el = $('[data-v-msg]'); el.textContent = m; el.hidden = !m; };
   const show = (k: string) => ['est', 'parts', 'wait', 'pick', 'bye'].forEach((n) => ($(`[data-v-${n}]`).hidden = !k.split(' ').includes(n)));
   const ERR: Record<string, string> = {
-    expired: `This link has expired — please call us on ${site.phone.display}.`,
-    unknown: `This link doesn't work — please call us on ${site.phone.display}.`,
+    expired: `This link has expired — please call us on ${phone}.`,
+    unknown: `This link doesn't work — please call us on ${phone}.`,
     cancelled: 'This booking is closed.',
     full: 'Sorry, that time just filled up — please choose another.',
     'too late to change': 'It is too close to your visit to change it now — please call us.',

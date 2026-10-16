@@ -6,10 +6,10 @@ import DeviceArt from '../components/DeviceArt.astro';
 import Testimonials from '../components/Testimonials.astro';
 import { artFor, note } from '../data/menu';
 import { photo } from '../data/photos';
-import { price, site } from '../data/site';
+import { fromMoney, hasPrice } from '../data/site';
 import { categories as staticCategories } from '../data/devices';
 import { getCatalog } from '../lib/catalog';
-import { getContent, waLink, repairFlow } from '../lib/content';
+import { getContent, waLink, repairFlow, contactOf } from '../lib/content';
 import { hostOf } from '../lib/odoo';
 import { statSync } from 'node:fs';
 // Rendered per request: the sections, their wording, the device tiles, the "most booked"
@@ -38,15 +38,18 @@ const heroPoster = hero?.poster || stamp('/media/kling.jpg');
 const tiles = catalog.categories.filter((c) => c.showHome !== false && (catalog.odoo || (c.id !== 'printer' && c.id !== 'cctv')));
 // --- most booked: the repair services ticked "Most booked" in Odoo (their gallery photo), else the site's own list ---
 const localPhoto = (cid: string, iss: string) => (photo[`${cid}:${iss}`] ? `/media/repairs/${photo[`${cid}:${iss}`]}.jpg` : '');
-type Pick = { photo: string; iss: string; cat: string; dev: string; devFull: string; note: string; wa: string; price: string };
+// price: "from OMR x" when Odoo has one, else "Price after check"; px / pid go into the cart with "Add"
+type Pick = { photo: string; iss: string; cat: string; dev: string; devFull: string; note: string; wa: string; price: string; px: number | null; pid: number | null };
 const fromCatalog: Pick[] = catalog.categories.flatMap((c) => c.services.filter((s) => s.mostBooked && !s.b && !s.s && !s.m).map((s) => ({
   seq: s.homeSequence ?? 0, photo: s.image || localPhoto(c.id, s.name), iss: s.name, cat: c.id, dev: one(c.name), devFull: c.name, note: note(s.name),
-  wa: wa(`Hi ${C.name}, I want to book a ${s.name} service for my ${one(c.name).toLowerCase()}.`), price: catalog.odoo && s.price ? `from ${price(s.price)}` : price(),
+  wa: wa(`Hi ${C.name}, I want to book a ${s.name} service for my ${one(c.name).toLowerCase()}.`),
+  price: fromMoney(catalog.odoo ? s.price : null), px: catalog.odoo && hasPrice(s.price) ? s.price : null, pid: s.id,
 }))).sort((a, b) => a.seq - b.seq);
 const homePicks: Pick[] = fromCatalog.length ? fromCatalog : content.mostBooked.map((p) => {
   const c = staticCategories.find((x) => x.name === p.categories[0]) ?? staticCategories[0];
   return { photo: p.image || localPhoto(c.id, p.name), iss: p.name, cat: c.id, dev: one(c.name), devFull: c.name, note: note(p.name),
-    wa: wa(`Hi ${C.name}, I want to book a ${p.name} service for my ${one(c.name).toLowerCase()}.`), price: price() };
+    wa: wa(`Hi ${C.name}, I want to book a ${p.name} service for my ${one(c.name).toLowerCase()}.`),
+    price: fromMoney(content.odoo ? p.price : null), px: content.odoo && hasPrice(p.price) ? p.price : null, pid: null };
 });
 
 // --- brands strip: the brands ticked "In the brands strip" with a logo in Odoo; else the site's own logo files ---
@@ -101,7 +104,7 @@ const TRUST_ICONS = [
 const link = (href: string, fallback: string) => href || fallback;
 ---
 
-<Base content={content}>
+<Base content={content} catalog={catalog}>
   {order.map((kind) => (
     <Fragment>
       {kind === 'hero' && hero && (
@@ -121,7 +124,7 @@ const link = (href: string, fallback: string) => href || fallback;
         </a>}
         {hero.button2 && <a href={link(hero.button2_link, wa(`Hi ${C.name}, I want to book a repair.`))} target="_blank" rel="noopener" class="btn btn-wa"><Fragment set:html={WA} /> {hero.button2}</a>}
       </div>
-      <div class="vhero-search" data-reveal style="--d:.24s"><HeroSearch coverage={content.coverage} popular={hero.popular} /></div>
+      <div class="vhero-search" data-reveal style="--d:.24s"><HeroSearch coverage={content.coverage} popular={hero.popular} categories={catalog.categories} contact={contactOf(C)} /></div>
       {hero.lines.length > 0 && <ul class="hero-facts" data-reveal style="--d:.3s">
         {hero.lines.map((l) => { const n = parseInt(l.value, 10); const suffix = l.value.replace(/^[\d,]+/, ''); return (
           <li><b data-count={Number.isFinite(n) ? n : undefined} data-suffix={suffix || undefined} data-from={n > 1900 && n < 2100 ? '1990' : undefined}>{l.value}</b> {l.name}</li>
@@ -174,7 +177,7 @@ const link = (href: string, fallback: string) => href || fallback;
                     <div class="uc-foot">
                       <span><em>{m.price}</em></span>
                       <a class="uc-wa" target="_blank" rel="noopener" href={m.wa} aria-label={`Book ${m.iss} on WhatsApp`} set:html={WA} />
-                      <button type="button" class="uc-add" data-uc-add data-dev={m.devFull} data-cat={m.cat} data-iss={m.iss}><span class="p">+</span><span class="t">Add</span></button>
+                      <button type="button" class="uc-add" data-uc-add data-dev={m.devFull} data-cat={m.cat} data-iss={m.iss} data-px={m.px ?? ''} data-pid={m.pid ?? ''}><span class="p">+</span><span class="t">Add</span></button>
                     </div>
                   </div>
                 </article>
@@ -422,7 +425,9 @@ const link = (href: string, fallback: string) => href || fallback;
     document.querySelector('[data-uc-prev]')!.addEventListener('click', () => nudge(-1));
     document.querySelector('[data-uc-next]')!.addEventListener('click', () => nudge(1));
     document.querySelectorAll<HTMLElement>('[data-uc-add]').forEach((b) => b.addEventListener('click', () => {
-      (window as any).danatCart?.add({ device: b.dataset.dev!, cat: b.dataset.cat, model: '', issues: [b.dataset.iss!] });
+      const iss = b.dataset.iss!, px = Number(b.dataset.px), pid = Number(b.dataset.pid);
+      (window as any).danatCart?.add({ device: b.dataset.dev!, cat: b.dataset.cat, model: '', issues: [iss],
+        ...(px > 0 ? { px: { [iss]: px } } : {}), ...(pid ? { pid: { [iss]: pid } } : {}) });
       b.classList.add('done'); b.querySelector('.t')!.textContent = 'Added';
       setTimeout(() => { b.classList.remove('done'); b.querySelector('.t')!.textContent = 'Add'; }, 1500);
     }));

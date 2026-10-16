@@ -9,7 +9,7 @@ import { categories as staticCategories } from '../data/devices';
 import { milestones as staticMilestones, homeServices } from '../data/home';
 import { photo } from '../data/photos';
 import { reviews as staticReviews } from '../data/reviews';
-import { nav as staticNav, serviceModes, site, price, PRICE, type ServiceModeId } from '../data/site';
+import { nav as staticNav, serviceModes, site, priceWord, PRICE, type ServiceModeId } from '../data/site';
 import { coverage as staticCoverage } from '../data/coverage';
 import { faqs as staticFaqs, infoPages as staticPages } from '../data/faq';
 import { areaGeo as staticGeo } from './areaGeo';
@@ -26,6 +26,7 @@ export type Section = {
 export type Branch = { name: string; lines: string[]; phones: string[]; map: string; hours: string };
 export type SiteContent = {
   name: string; tagline: string; phone: string; whatsapp: string; email: string; address: string; hours: string; since: string;
+  visit_fee: number;   // the visit fee product's price in Odoo (0 = none set: "price after check")
   social: { facebook: string; instagram: string };
   header: { cta: string; cta_link: string; menu: { label: string; link: string }[] };
   quick_links: { label: string; link: string }[];
@@ -62,7 +63,8 @@ const sec = (kind: SectionKind, p: Partial<Section>): Section => ({
   kind, eyebrow: '', title: '', title2: '', subtitle: '', text: '', badge: '', button1: '', button1_link: '', button2: '', button2_link: '', lines: [], ...p,
 });
 const line = (p: Partial<Line>): Line => ({ name: '', value: '', text: '', extra: '', stars: 5, link: '', ...p });
-const fill = (t: string) => t.replaceAll('{price}', price());
+// {price} in Odoo texts: the visit fee ("OMR 5"), or "price after check" when there is none
+const fill = (t: string, fee: number) => t.replaceAll('{price}', priceWord(fee));
 const showable = (p: InfoPage) => !!p.slug && (p.kind !== 'text' || !!p.body.replace(/<[^>]*>/g, '').trim());
 // Map centre for each zone, in zone order (Muscat, Sohar/Al Batinah, Salalah/Dhofar)
 const ZONE_PINS: [number, number][] = [[23.593, 58.556], [24.347, 56.709], [17.019, 54.089]];
@@ -77,7 +79,7 @@ const staticCoverageOf = (): Coverage => {
   const zones = (id: ServiceModeId) => staticCoverage[id].zones.map((z, k) => ({ name: z.name, areas: [...z.areas], pin: ZONE_PINS[k] ?? null }));
   return {
     eyebrow: 'Check your area', title: 'Where we cover',
-    trust: ['Diagnosis before any work', `Technician visit ${price()}`, 'Updates on WhatsApp', 'Not listed? Book anyway — we confirm'],
+    trust: ['Diagnosis before any work', `Visit fee: ${priceWord(PRICE)}`, 'Updates on WhatsApp', 'Not listed? Book anyway — we confirm'],
     doorstep: { eta: staticCoverage.doorstep.eta, zones: zones('doorstep') }, pickup: { eta: staticCoverage.pickup.eta, zones: zones('pickup') },
     geo: { ...staticGeo },
   };
@@ -116,14 +118,14 @@ export function staticContent(): Content {
     odoo: false,
     site: {
       name: site.name, tagline: site.tagline, phone: site.phone.display, whatsapp: site.whatsapp, email: site.email, address: site.address,
-      hours: '', since: String(site.since), social: { facebook: site.social.facebook, instagram: site.social.instagram },
+      hours: '', since: String(site.since), visit_fee: PRICE, social: { facebook: site.social.facebook, instagram: site.social.instagram },
       header: { cta: 'Book a repair', cta_link: '/services#catalog', menu: staticNav.map((n) => ({ label: n.label, link: n.href })) },
       quick_links: [...staticNav.map((n) => ({ label: n.label, link: n.href })),
         { label: 'Get an estimate', link: '/services#catalog' }, { label: 'Check location', link: '/#check-location' },
         { label: 'Book on WhatsApp', link: `https://wa.me/${site.whatsapp}` }],
       branches: site.branchInfo.map((b) => ({ name: b.name, lines: b.lines, phones: b.phones, map: b.map, hours: '' })),
       footer: { about: `${site.tagline}. Phones, laptops, printers, CCTV and Wi-Fi — repaired at your door or picked up and brought back, across ${site.country} since ${site.since}.`,
-        copyright: `© {year} ${site.name}. All rights reserved. · Estimates shown as ${price()} — pricing to be announced.`, credit: '' },
+        copyright: `© {year} ${site.name}. All rights reserved.`, credit: '' },
     },
     sections: [
       sec('hero', { eyebrow: `Doorstep electronics repair · ${site.country}`, title: 'Your Technology.', title2: 'Fixed Right.',
@@ -131,7 +133,7 @@ export function staticContent(): Content {
         video: '/media/kling.mp4', poster: '/media/kling.jpg',
         popular: [{ name: 'Laptop Repair', link: '/services?cat=laptop#catalog' }, { name: 'iPhone Repair', link: '/services?cat=mobile&q=iPhone#catalog' }, { name: 'Printer Repair', link: '/services?cat=printer#catalog' }, { name: 'CCTV Installation', link: '/services?cat=cctv#catalog' }, { name: 'Data Recovery', link: '/services?cat=data#catalog' }],
         lines: [line({ value: `${homeServices.length}+`, name: 'services' }), line({ value: String(site.branches.length), name: 'branches' }), line({ value: String(site.since), name: 'since' })] }),
-      sec('services', { title: 'What can we fix for you?', subtitle: 'Most booked repairs', text: `Doorstep or pickup · estimate ${price()}`, button1: 'View all services', button1_link: '/services#all' }),
+      sec('services', { title: 'What can we fix for you?', subtitle: 'Most booked repairs', text: 'Doorstep or pickup · price confirmed before any work', button1: 'View all services', button1_link: '/services#all' }),
       sec('modes', { button1: 'Check your area →', button1_link: '/services#coverage',
         lines: serviceModes.map((m) => line({ name: m.title, extra: m.short, value: m.eta ?? '', text: m.steps.join('\n') })) }),
       sec('brands', { eyebrow: 'Brands we repair', title: 'All the big names,', title2: 'one trusted fix.' }),
@@ -158,6 +160,7 @@ export function staticContent(): Content {
 
 function fromOdoo(raw: any): Content {
   const st = raw.site || {};
+  const fee = Number(st.visit_fee) || 0;
   // Empty in Odoo = the site's own wording, so a blank field never leaves a hole
   const sv = st.services || {};
   const services = Object.fromEntries(Object.entries(STATIC_SERVICES).map(([k, v]) => [k, s(sv[k]) || v])) as ServicesPage;
@@ -178,11 +181,11 @@ function fromOdoo(raw: any): Content {
   const odooGeo = Object.fromEntries(Object.entries(cv.geo || {}).map(([n, p]: [string, any]) => [n, [Number(p[0]), Number(p[1])] as [number, number]]));
   const coverage: Coverage = {
     eyebrow: s(cv.eyebrow) || sc.eyebrow, title: s(cv.title) || sc.title,
-    trust: (cv.trust || []).length ? cv.trust.map((t: any) => fill(s(t))) : sc.trust,
+    trust: (cv.trust || []).length ? cv.trust.map((t: any) => fill(s(t), fee)) : sc.trust,
     doorstep: { eta: modes[0].eta, zones: zonesOf('doorstep') }, pickup: { eta: modes[1].eta, zones: zonesOf('pickup') },
     geo: { ...staticGeo, ...odooGeo },
   };
-  const faq = (st.faq || []).map((f: any) => ({ q: s(f.q), a: fill(s(f.a)) })).filter((f: { q: string }) => f.q);
+  const faq = (st.faq || []).map((f: any) => ({ q: s(f.q), a: fill(s(f.a), fee) })).filter((f: { q: string }) => f.q);
   const pages: InfoPage[] = (st.pages || []).map((p: any) => ({ title: s(p.title), slug: s(p.slug), column: p.column || 'none', kind: p.kind || 'text', body: s(p.body) }));
   return {
     services, modes, coverage,
@@ -191,7 +194,7 @@ function fromOdoo(raw: any): Content {
     odoo: true,
     site: {
       name: s(st.name) || site.name, tagline: s(st.tagline), phone: s(st.phone), whatsapp: s(st.whatsapp).replace(/\D/g, ''), email: s(st.email),
-      address: s(st.address), hours: s(st.hours), since: s(st.since),
+      address: s(st.address), hours: s(st.hours), since: s(st.since), visit_fee: fee,
       social: { facebook: s(st.social?.facebook), instagram: s(st.social?.instagram) },
       header: { cta: s(st.header?.cta), cta_link: s(st.header?.cta_link), menu: (st.header?.menu || []).map((m: any) => ({ label: s(m.label), link: s(m.link) })) },
       quick_links: (st.quick_links || []).map((m: any) => ({ label: s(m.label), link: s(m.link) })),
@@ -229,5 +232,13 @@ export async function getContent(host: string): Promise<Content> {
   }
 }
 
+export type Contact = { display: string; tel: string; wa: string };
+/** The site's phone and WhatsApp number, from Odoo (Website Details) else the site's own:
+ * the phone as shown, the same for tel: links (+ and digits), and the WhatsApp digits for wa.me. */
+export function contactOf(c?: SiteContent): Contact {
+  const display = c?.phone || site.phone.display;
+  return { display, tel: display.replace(/[^+\d]/g, ''), wa: c?.whatsapp || site.whatsapp };
+}
+
 /** A WhatsApp link to the site's number with a message, e.g. for "WhatsApp us" buttons. */
-export const waLink = (c: SiteContent, msg: string) => `https://wa.me/${c.whatsapp || site.whatsapp}?text=${encodeURIComponent(msg)}`;
+export const waLink = (c: SiteContent, msg: string) => `https://wa.me/${contactOf(c).wa}?text=${encodeURIComponent(msg)}`;

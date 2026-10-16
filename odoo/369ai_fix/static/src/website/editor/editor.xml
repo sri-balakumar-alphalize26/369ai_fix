@@ -172,7 +172,7 @@
             <h2 t-att-class="hl(K('sec', s.id, 'title'))" t-att-data-fx="K('sec', s.id, 'title')" t-esc="s.title"/>
             <div class="fx-tiles"><div t-foreach="d.tiles.filter((c) => c.show)" t-as="c" t-key="c.id" t-attf-class="fx-tile{{ hl(K('tile', c.id)) }}" t-att-data-fx="K('tile', c.id)"><img t-if="c.image" t-att-src="c.image" alt=""/><i t-else=""/><span t-esc="c.name"/></div></div>
             <div class="fx-mb-head"><div><b t-att-class="hl(K('sec', s.id, 'subtitle'))" t-att-data-fx="K('sec', s.id, 'subtitle')" t-esc="s.subtitle"/><p t-att-class="hl(K('sec', s.id, 'text'))" t-att-data-fx="K('sec', s.id, 'text')" t-esc="s.text"/></div></div>
-            <div class="fx-cards"><div t-foreach="d.most_booked" t-as="p" t-key="p.id" t-attf-class="fx-rc{{ hl(K('mb', p.id)) }}" t-att-data-fx="K('mb', p.id)"><div class="fx-rc-ph" t-attf-style="{{ p.image ? 'background-image:url(' + p.image + ')' : '' }}"><span t-esc="p.device"/></div><div class="fx-rc-bd"><b t-esc="p.name"/><em t-esc="d.price"/></div></div></div>
+            <div class="fx-cards"><div t-foreach="d.most_booked" t-as="p" t-key="p.id" t-attf-class="fx-rc{{ hl(K('mb', p.id)) }}" t-att-data-fx="K('mb', p.id)"><div class="fx-rc-ph" t-attf-style="{{ p.image ? 'background-image:url(' + p.image + ')' : '' }}"><span t-esc="p.device"/></div><div class="fx-rc-bd"><b t-esc="p.name"/><em t-esc="p.price ? 'from OMR ' + p.price : d.price_later"/></div></div></div>
             <span t-attf-class="fx-link{{ hl(K('sec', s.id, 'button1')) }}" t-att-data-fx="K('sec', s.id, 'button1')"><t t-esc="s.button1"/> →</span>
         </section>
     </t>
@@ -247,14 +247,14 @@
         <section class="fx-pagehead">
             <span t-attf-class="fx-eyebrow{{ hl(K('site', 'svc_eyebrow')) }}" t-att-data-fx="K('site', 'svc_eyebrow')" t-esc="site.svc_eyebrow"/>
             <h1><span t-att-class="hl(K('site', 'svc_title'))" t-att-data-fx="K('site', 'svc_title')" t-esc="site.svc_title"/> <span t-attf-class="fx-g{{ hl(K('site', 'svc_title2')) }}" t-att-data-fx="K('site', 'svc_title2')" t-esc="site.svc_title2"/></h1>
-            <p t-attf-class="fx-lead{{ hl(K('site', 'svc_lead')) }}" t-att-data-fx="K('site', 'svc_lead')"><t t-esc="site.svc_lead"/> <t t-esc="d.totals.categories"/> device types, <t t-esc="d.totals.brands"/> brands and <t t-esc="d.totals.models"/>+ models, every estimate <t t-esc="d.price"/>.</p>
+            <p t-attf-class="fx-lead{{ hl(K('site', 'svc_lead')) }}" t-att-data-fx="K('site', 'svc_lead')"><t t-esc="site.svc_lead"/> <t t-esc="d.totals.categories"/> device types, <t t-esc="d.totals.brands"/> brands and <t t-esc="d.totals.models"/>+ models. No price shown? The technician tells you after checking.</p>
         </section>
     </t>
 
     <t t-name="369ai_fix.FxSvcFlow">
         <section class="fx-sec">
             <div class="fx-step-head"><span class="fx-step-no">1</span><div><span t-attf-class="fx-eyebrow{{ hl(K('site', 'svc_modes_eyebrow')) }}" t-att-data-fx="K('site', 'svc_modes_eyebrow')" t-esc="site.svc_modes_eyebrow"/><h2 t-att-class="hl(K('site', 'svc_modes_title'))" t-att-data-fx="K('site', 'svc_modes_title')" t-esc="site.svc_modes_title"/></div></div>
-            <t t-call="369ai_fix.FxFlowCard"><t t-set="foot" t-value="(site.svc_fee_label || 'Visit fee') + ' ' + d.price + '   ·   Check your area →'"/><t t-set="footKey" t-value="K('site', 'svc_fee_label')"/></t>
+            <t t-call="369ai_fix.FxFlowCard"><t t-set="foot" t-value="(site.svc_fee_label || 'Visit fee') + (d.visit_fee ? ' OMR ' + d.visit_fee : ': price after check') + '   ·   Check your area →'"/><t t-set="footKey" t-value="K('site', 'svc_fee_label')"/></t>
         </section>
     </t>
 
@@ -344,7 +344,7 @@
             <div class="fx-cards fx-cards-wide">
                 <div t-foreach="picsFiltered" t-as="p" t-key="p.id" t-attf-class="fx-rc fx-rc-click {{ isSel('service', p.id) ? 'fx-on' : '' }}{{ hl(K('service', p.id)) }}" t-att-data-fx="K('service', p.id)" t-on-click="() => this.select('service', p.id)">
                     <div class="fx-rc-ph" t-attf-style="{{ p.photo ? 'background-image:url(' + p.photo + ')' : '' }}"><span t-esc="p.device"/><em t-if="!p.photos.length" class="fx-pic-missing"><i class="fa fa-picture-o"/> no photo</em><em t-elif="p.photos.length lt 3" class="fx-pic-few"><t t-esc="p.photos.length"/> photo<t t-if="p.photos.length > 1">s</t></em><i t-if="p.most_booked" class="fa fa-star fx-pic-star" title="Most booked"/></div>
-                    <div class="fx-rc-bd"><b t-esc="p.name"/><small t-if="p.model" t-esc="p.model"/><em t-esc="d.price"/></div>
+                    <div class="fx-rc-bd"><b t-esc="p.name"/><small t-if="p.model" t-esc="p.model"/><em t-esc="p.price ? 'from OMR ' + p.price : d.price_later"/></div>
                 </div>
             </div>
             <p t-if="!picsFiltered.length" class="fx-empty">Nothing matches the filter.</p>
@@ -398,7 +398,7 @@
             <t t-set="sv" t-value="selPic"/>
             <t t-call="369ai_fix.FxPaneHead"/>
             <h2 class="fx-pane-title" t-esc="sv.name"/>
-            <p class="fx-about"><t t-esc="sv.device"/><t t-if="sv.model"> · <t t-esc="sv.model"/></t> · <t t-esc="d.price"/>. The ticked photo is the one the website shows; the others wait in the gallery.</p>
+            <p class="fx-about"><t t-esc="sv.device"/><t t-if="sv.model"> · <t t-esc="sv.model"/></t> · <t t-esc="sv.price ? 'from OMR ' + sv.price : d.price_later"/>. The ticked photo is the one the website shows; the others wait in the gallery.</p>
             <details class="fx-group" open="">
                 <summary>Photos <small><t t-esc="sv.photos.length"/> in the gallery</small></summary>
                 <div class="fx-gallery">

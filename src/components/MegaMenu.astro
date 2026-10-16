@@ -4,17 +4,26 @@
 // (picked from the Theme widget, or ?menu=N). Hover/tab switching for the
 // styles with a device list is wired in Base.astro via [data-d] / [data-dp].
 import DeviceArt from './DeviceArt.astro';
-import { price } from '../data/site';
-import { categories, iconPaths } from '../data/devices';
-import { note, brandColor, quickLinks, artFor } from '../data/menu';
+import CatArt from './CatArt.astro';
+import { money, PRICE_LATER } from '../data/site';
+import { iconPaths } from '../data/devices';
+import { note, brandColor, quickLinks } from '../data/menu';
+import { staticCatalog, fromPrice, type WzCategory } from '../lib/catalog';
 
-const ids = ['mobile', 'laptop', 'printer', 'cctv', 'network', 'data', 'itsupport'];
-const cats = ids.map((id) => categories.find((c) => c.id === id)!);
+// Device types, repairs and brands: Odoo's catalogue (passed by Base), in its order; the site's own lists otherwise.
+const { categories = staticCatalog().categories } = Astro.props as { categories?: WzCategory[] };
+const cats = categories;
+// nicer names for the device types the site knows; a type added in Odoo shows its own name
 const label: Record<string, string> = { mobile: 'Mobile Phone', laptop: 'Laptop', printer: 'Printer', cctv: 'CCTV', network: 'Network', data: 'Data Recovery', itsupport: 'IT Support' };
 const tabName: Record<string, string> = { cctv: 'CCTV & Security' };
+const nameOf = (c: WzCategory) => label[c.id] ?? c.name;
 const catHref = (id: string) => `/services?cat=${id}#catalog`;
 const brandHref = (id: string, name: string) => `/services?cat=${id}&q=${encodeURIComponent(name)}#catalog`;
-const phoneBrands = categories.find((c) => c.id === 'mobile')!.brands;
+const phoneCat = cats.find((c) => c.id === 'mobile') ?? cats[0];
+const phoneBrands = phoneCat?.brands ?? [];
+const itSupport = cats.find((c) => c.id === 'itsupport');
+const fromOf = (c: WzCategory) => { const p = fromPrice(c); return p === null ? '' : ` From ${money(p)}.`; };
+const lowest = cats.map(fromPrice).filter((p): p is number => p !== null);
 
 // Small line icons for repair items
 const ri: Record<string, string> = {
@@ -73,10 +82,10 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
     <div class="panels">
       {cats.map((c, i) => (
         <div class:list={['p1', { on: i === 0 }]} data-dp={c.id}>
-          <div class="p1-art"><DeviceArt kind={artFor[c.id]} /></div>
+          <div class="p1-art"><CatArt cat={c} /></div>
           <div class="p1-body">
-            <h3>{label[c.id]} Services</h3>
-            <p class="desc">Complete repair and service for {c.short.toLowerCase()}.</p>
+            <h3>{nameOf(c)} Services</h3>
+            <p class="desc">Complete repair and service for {(c.short || c.name).toLowerCase()}.</p>
             <ul class="icon-grid">
               {c.issues.slice(0, 6).map((iss) => (
                 <li><a href={catHref(c.id)}><span class="ig" set:html={svg(issueIcon(iss))} />{iss}</a></li>
@@ -97,9 +106,9 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
       {cats.map((c, i) => (
         <div class:list={['promo-in', { on: i === 0 }]} data-dp={c.id}>
           <h4>Need a repair?</h4>
-          <p>Get your device fixed by experts.</p>
-          <div class="promo-art"><DeviceArt kind={artFor[c.id]} /></div>
-          <a href="/services#catalog" class="btn-b">Book {label[c.id]} Repair <span set:html={arrow} /></a>
+          <p>Get your device fixed by experts.{fromOf(c)}</p>
+          <div class="promo-art"><CatArt cat={c} /></div>
+          <a href="/services#catalog" class="btn-b">Book {nameOf(c)} Repair <span set:html={arrow} /></a>
         </div>
       ))}
     </div>
@@ -116,7 +125,7 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
     </div>
     {cats.map((c, i) => (
       <div class:list={['p2', { on: i === 0 }]} data-dp={c.id}>
-        <div class="p2-art"><DeviceArt kind={artFor[c.id]} /></div>
+        <div class="p2-art"><CatArt cat={c} /></div>
         <ul class="rows">
           {c.issues.slice(0, 6).map((iss) => (
             <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} /><span><b>{iss}</b><small>{note(iss)}</small></span></a></li>
@@ -130,14 +139,14 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
         </div>
         <div class="card-blue">
           <small>Faster. Reliable.</small>
-          <h4>Fast, Reliable {label[c.id]} Repairs</h4>
+          <h4>Fast, Reliable {nameOf(c)} Repairs</h4>
           <ul class="ticks">
             <li><span set:html={check} />Genuine parts</li>
             <li><span set:html={check} />Skilled technicians</li>
             <li><span set:html={check} />Same-day service</li>
             <li><span set:html={check} />All major brands</li>
           </ul>
-          <div class="cb-art"><DeviceArt kind={artFor[c.id]} /></div>
+          <div class="cb-art"><CatArt cat={c} /></div>
           <a href="/services#catalog" class="btn-w">Book a Repair <span set:html={arrow} /></a>
         </div>
       </div>
@@ -146,18 +155,18 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
 
   <!-- 3 · Image grid style -->
   <div class="mv mv-3" data-mv>
-    {cats.slice(0, 6).map((c) => (
+    {cats.filter((c) => c !== itSupport).map((c) => (
       <a href={catHref(c.id)} class="g3" style={`--h:${c.hue}`}>
         <span class="g3-text"><b>{c.name}</b><small>{c.short}</small></span>
         <span class="circle" set:html={arrow} />
-        <span class="g3-art"><DeviceArt kind={artFor[c.id]} /></span>
+        <span class="g3-art"><CatArt cat={c} /></span>
       </a>
     ))}
-    <a href={catHref('itsupport')} class="g3-wide">
+    {itSupport && <a href={catHref(itSupport.id)} class="g3-wide">
       <span class="ci big" style="--h:205" set:html={svg(iconPaths.support)} />
-      <span><b>IT Support</b><small>Software installation, troubleshooting and more</small></span>
+      <span><b>{nameOf(itSupport)}</b><small>Software installation, troubleshooting and more</small></span>
       <span class="circle" set:html={arrow} />
-    </a>
+    </a>}
   </div>
 
   <!-- 4 · Split banner style -->
@@ -175,8 +184,8 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
     <div class="panels">
       {cats.map((c, i) => (
         <div class:list={['p4', { on: i === 0 }]} data-dp={c.id}>
-          <h3>{label[c.id]} Services</h3>
-          <p class="desc">Professional repair and service for {c.short.toLowerCase()}.</p>
+          <h3>{nameOf(c)} Services</h3>
+          <p class="desc">Professional repair and service for {(c.short || c.name).toLowerCase()}.</p>
           <ul class="lines">
             {c.issues.slice(0, 6).map((iss) => (
               <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} />{iss}<span class="chev" set:html={chev} /></a></li>
@@ -188,20 +197,20 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
     <div class="banner">
       {cats.map((c, i) => (
         <div class:list={['banner-in', { on: i === 0 }]} data-dp={c.id}>
-          <h4>Your {label[c.id].replace(' Phone', '')}<br />Our Expertise</h4>
+          <h4>Your {nameOf(c).replace(' Phone', '')}<br />Our Expertise</h4>
           <ul class="ticks dark">
             <li><span set:html={check} />Genuine parts</li>
             <li><span set:html={check} />Certified technicians</li>
             <li><span set:html={check} />Same-day service</li>
           </ul>
-          <div class="banner-art"><DeviceArt kind={artFor[c.id]} /></div>
-          <a href="/services#catalog" class="btn-b">Book {label[c.id]} Repair <span set:html={arrow} /></a>
+          <div class="banner-art"><CatArt cat={c} /></div>
+          <a href="/services#catalog" class="btn-b">Book {nameOf(c)} Repair <span set:html={arrow} /></a>
         </div>
       ))}
     </div>
     <div class="strip">
-      {phoneBrands.slice(0, 7).map((b) => <a href={brandHref('mobile', b.name)}><i style={`background:${brandColor[b.name] ?? '#555'}`}>{b.name[0]}</i>{b.name}</a>)}
-      <a href={catHref('mobile')} class="view"><span set:html={arrow} /></a>
+      {phoneBrands.slice(0, 7).map((b) => <a href={brandHref(phoneCat.id, b.name)}><i style={`background:${brandColor[b.name] ?? '#555'}`}>{b.name[0]}</i>{b.name}</a>)}
+      <a href={catHref(phoneCat.id)} class="view"><span set:html={arrow} /></a>
     </div>
   </div>
 
@@ -241,23 +250,23 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
     </div>
     <div class="strip">
       <span class="strip-label">Popular Brands</span>
-      {phoneBrands.slice(0, 7).map((b) => <a href={brandHref('mobile', b.name)}><i style={`background:${brandColor[b.name] ?? '#555'}`}>{b.name[0]}</i>{b.name}</a>)}
-      <a href={catHref('mobile')} class="view">View all <span set:html={arrow} /></a>
+      {phoneBrands.slice(0, 7).map((b) => <a href={brandHref(phoneCat.id, b.name)}><i style={`background:${brandColor[b.name] ?? '#555'}`}>{b.name[0]}</i>{b.name}</a>)}
+      <a href={catHref(phoneCat.id)} class="view">View all <span set:html={arrow} /></a>
     </div>
   </div>
 
   <!-- 6 · Visual cards with descriptions -->
   <div class="mv mv-6" data-mv>
-    {cats.slice(0, 6).map((c) => (
+    {cats.map((c) => (
       <a href={catHref(c.id)} class="v6" style={`--h:${c.hue}`}>
         <span class="v6-text"><b>{c.name}</b><small>{c.short}</small></span>
         <span class="circle" set:html={arrow} />
-        <span class="v6-art"><DeviceArt kind={artFor[c.id]} /></span>
+        <span class="v6-art"><CatArt cat={c} /></span>
       </a>
     ))}
   </div>
 
-  <p class="mm-foot">All estimates {price()} · Doorstep or pickup</p>
+  <p class="mm-foot">{lowest.length ? `Repairs from ${money(Math.min(...lowest))}` : PRICE_LATER} · Doorstep or pickup</p>
 </div>
 
 <style>
@@ -333,7 +342,7 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
   .promo-art { flex: 1; min-height: 140px; margin: 6px 0; }
 
   /* ---------- 2 · tabbed ---------- */
-  .tabs { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); border-bottom: 1px solid var(--line); margin-bottom: 16px; }
   .tab { display: grid; justify-items: center; gap: 6px; padding: 8px 4px 12px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); text-align: center; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s; }
   .tab span { width: 24px; height: 24px; }
   .tab span :global(svg) { width: 100%; height: 100%; }

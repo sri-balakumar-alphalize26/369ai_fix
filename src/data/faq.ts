@@ -1,9 +1,9 @@
 // Common questions, answered from how this site's service actually works. Edited in Odoo
 // (Fix Website ▸ FAQs); this is the copy shown when Odoo has never answered.
-import { price, site } from './site';
+import { priceWord, site } from './site';
 
 export const faqs = [
-  { q: 'Is there a charge if you only inspect the device?', a: `No. Diagnosis and the visit or pickup are shown as ${price()} — you get an estimate before any work starts.` },
+  { q: 'Is there a charge if you only inspect the device?', a: `The technician checks your device and tells you the price before any work starts — nothing is done without your OK. Visit fee: ${priceWord(0)}.` },
   { q: 'How long does a repair take?', a: 'Most phone and laptop repairs are done on the spot during a doorstep visit. Pickup repairs come back in 24–48 hours; board-level work can take longer and we tell you upfront.' },
   { q: 'Which devices can be repaired at my door?', a: 'Phones, tablets, laptops, desktops and printers can be done at your door or picked up. CCTV and networking are always installed on-site.' },
   { q: 'Is my data safe?', a: 'Your data stays on your device. We only access what the repair needs, and data recovery jobs are handled in our lab.' },

@@ -3,15 +3,18 @@
 // PLACEHOLDER OFFER: edit `promo` below with the client's real offer.
 // Each piece remembers being dismissed (localStorage), so returning visitors
 // are not shown it again.
-import { site, price } from '../data/site';
+import { site, money, feeLine, hasPrice } from '../data/site';
+import { contactOf, type Contact } from '../lib/content';
 import SpinWheel from './SpinWheel.astro';
 
-const whatsappLink = (msg: string) => `https://wa.me/${site.phone.tel.replace('+', '')}?text=${encodeURIComponent(msg)}`;
+// WhatsApp number and visit fee from Odoo (passed by Base), else the site's own.
+const { contact = contactOf(), visitFee = 0 } = Astro.props as { contact?: Contact; visitFee?: number };
+const whatsappLink = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURIComponent(msg)}`;
 
 const promo = {
   badge: 'Flash offer',
   title: 'Free diagnosis this week',
-  body: `Book a doorstep visit or pickup and the check-up is on us — visit fee ${price()}.`,
+  body: `Book a doorstep visit or pickup and the check-up is on us. ${feeLine(visitFee)}.`,
   code: '369FIX',
   showAfterMs: 4000,
 };
@@ -50,8 +53,9 @@ const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis 
     <button type="button" class="po-x" data-po-x aria-label="Close offer">×</button>
     <div class="po-art" aria-hidden="true">
       <span class="po-ring r1"></span><span class="po-ring r2"></span>
-      <span class="po-big">{price()}</span>
-      <span class="po-sub">visit fee</span>
+      {hasPrice(visitFee)
+        ? <><span class="po-big">{money(visitFee)}</span><span class="po-sub">visit fee</span></>
+        : <><span class="po-big po-word">Visit fee</span><span class="po-sub">price after check</span></>}
       {[...Array(10)].map((_, i) => <span class="po-spark" style={`--i:${i}`}></span>)}
     </div>
     <div class="po-body">
@@ -75,7 +79,7 @@ const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis 
   </div>
 </div>
 
-<SpinWheel />
+<SpinWheel contact={contact} />
 
 <!-- Always-available entry to the wheel -->
 <button type="button" class="gift" data-gift aria-label="Spin and win">
@@ -221,6 +225,7 @@ const bar = `Doorstep & pickup repair across ${site.country} — free diagnosis 
   .po-x { position: absolute; right: 14px; top: 14px; z-index: 2; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--tint-2); color: var(--ink); font-size: 22px; line-height: 1; }
   .po-art { position: relative; display: grid; place-content: center; justify-items: center; min-height: 340px; overflow: hidden; color: #fff; background: linear-gradient(150deg, var(--violet), color-mix(in srgb, var(--violet) 45%, #000)); }
   .po-big { position: relative; font-family: var(--display); font-size: 64px; font-weight: 800; letter-spacing: -.03em; line-height: 1; animation: poPulse 2.2s ease-in-out infinite; }
+  .po-big.po-word { font-size: clamp(30px, 4vw, 40px); }   /* no visit fee set in Odoo: words, not an amount */
   .po-sub { position: relative; font-size: 14px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; opacity: .8; margin-top: 6px; }
   @keyframes poPulse { 50% { transform: scale(1.06); } }
   .po-ring { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 2px solid rgba(255,255,255,.18); transform: translate(-50%, -50%); animation: poRing 3s ease-out infinite; }

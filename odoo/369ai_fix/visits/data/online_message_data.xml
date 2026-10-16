@@ -20,4 +20,13 @@ Track them live: {track_url}</field>
         <field name="sequence">12</field>
         <field name="body">Hi {name}, {technician} has arrived at your place 📍 (order {order}).</field>
     </record>
+    <!-- Sent to the technician, not the customer. -->
+    <record id="msg_tech_link" model="online.service.message">
+        <field name="key">tech_link</field>
+        <field name="sequence">13</field>
+        <field name="body">Hi {technician}, new visit for order {order} 🔧
+Customer: {name}, {area}
+Open your visit page and keep it open while you drive. It shares your location with the customer:
+{tech_url}</field>
+    </record>
 </odoo>

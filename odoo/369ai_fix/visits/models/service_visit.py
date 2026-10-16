@@ -10,12 +10,17 @@ way in (so the app bridge stays a thin layer):
 * `_fs_record_position`      - the technician's GPS heartbeat
 * `_fs_set_customer_location` - the customer's point (website, pin, staff)
 * `_fs_track_block`           - what the customer's tracking page may see
+* `_fs_send_tech_link`        - the technician's own web page (/tech on the website),
+  which moves the visit along and sends the phone's GPS until the app takes over
 """
 import base64
+import hashlib
+import hmac
 import logging
 import math
 import secrets
 from datetime import timedelta
+from urllib.parse import quote
 
 from markupsafe import Markup
 
@@ -70,6 +75,10 @@ MAX_CODE_TRIES = 5
 # A trail point is only added once the technician moved this far, so someone
 # parked at a door leaves one point, not a hundred (the delivery app's rule).
 MIN_MOVE_M = 25.0
+# The technician's link stays valid this long after it was sent.
+TECH_LINK_DAYS = 3
+# How often the technician's page sends the phone's position (seconds).
+TECH_PING_S = 20
 
 
 def _iso(value):
@@ -129,6 +138,10 @@ class ServiceVisit(models.Model):
     agent_ref = fields.Char(
         'Partner App agent', copy=False,
         help="The 369 Partner App agent doing this visit. Filled by the app link (coming later).")
+    # The technician's web page link (/tech?v=&t=): only the hash is kept.
+    tech_token_hash = fields.Char(readonly=True, copy=False, groups='base.group_system')
+    tech_token_until = fields.Datetime('Technician link valid until', readonly=True, copy=False)
+    tech_link_sent_on = fields.Datetime('Technician link sent on', readonly=True, copy=False)
 
     # Technician's live position (written by _fs_record_position)
     tech_lat = fields.Float('Latitude', digits=(10, 7), readonly=True, copy=False)
@@ -303,6 +316,7 @@ class ServiceVisit(models.Model):
                 'arrival_tries': 0,
             })
             visit._fs_notify('tech_assigned')
+            visit._fs_send_tech_link()
         return True
 
     def action_on_the_way(self):
@@ -570,3 +584,173 @@ class ServiceVisit(models.Model):
                                'skipped': _("skipped")}.get(status, status)
                        + (' - %s' % detail if detail else '')),
                 message_type='comment', subtype_xmlid='mail.mt_note')
+
+    # ------------------------------------------------------------------
+    # The technician's web page (/tech on the website)
+    # ------------------------------------------------------------------
+    def _fs_site(self):
+        self.ensure_one()
+        return self.site_id or self.order_id.site_id
+
+    def _fs_new_tech_link(self):
+        """A fresh signed link to the technician's page, or '' when the website has no
+        address. The link sent before stops working."""
+        self.ensure_one()
+        site = self._fs_site()
+        track = site._track_url() if site else ''
+        base = track[:-len('/track')] if track.endswith('/track') else track
+        if not base:
+            return ''
+        token = secrets.token_urlsafe(24)
+        self.sudo().write({
+            'tech_token_hash': hashlib.sha256(token.encode()).hexdigest(),
+            'tech_token_until': fields.Datetime.now() + timedelta(days=TECH_LINK_DAYS),
+        })
+        return '%s/tech?v=%s&t=%s' % (base, quote(self.name, safe=''), token)
+
+    def _fs_send_tech_link(self):
+        """WhatsApp the technician their page. Returns (status, link); never raises.
+        The link also goes to the chatter, so the office can forward it by hand."""
+        self.ensure_one()
+        visit = self.sudo()
+        try:
+            link = visit._fs_new_tech_link()
+        except Exception:  # noqa: BLE001 - never block the assignment
+            _logger.exception("Doorstep visit %s: technician link failed", visit.name)
+            return 'error', ''
+        if not link:
+            visit.message_post(body=_("No technician link: the website has no web address "
+                                      "(Configuration ▸ Websites)."), subtype_xmlid='mail.mt_note')
+            return 'skipped', ''
+        site, order = visit._fs_site(), visit.order_id
+        phone = visit.technician_phone
+        if not phone:
+            status, detail = 'skipped', _("the technician has no phone")
+        elif not site.whatsapp_messages:
+            status, detail = 'skipped', _("WhatsApp messages are off for this website")
+        else:
+            text = self.env['online.service.message']._render('tech_link', {
+                'name': visit.customer_name or order.customer_name or _("customer"),
+                'order': order.name or visit.name,
+                'status': dict(VISIT_KEYS).get('tech_link'),
+                'job_card': visit.job_card_id.name or order.job_card_id.name or '',
+                'site': site.name,
+                'summary': order.summary or '',
+                'technician': visit.technician_id.name or '',
+                'technician_phone': phone,
+                'area': visit.area or '',
+                'address': visit.address or '',
+                'tech_url': link,
+            })
+            status, detail = site._wa_send(phone, text) if text else ('skipped', _("the message is switched off"))
+        if status in ('sent', 'queued'):
+            visit.tech_link_sent_on = fields.Datetime.now()
+        result = {'sent': _("sent"), 'queued': _("queued, the gateway will retry"),
+                  'blocked': _("not sent"), 'error': _("failed"), 'skipped': _("not sent")}.get(status, status)
+        visit.message_post(
+            body=Markup(_("Technician's link (WhatsApp %(result)s%(detail)s): <a href=\"%(link)s\" "
+                          "target=\"_blank\">open the technician page</a>")) % {
+                'result': result, 'detail': (' - %s' % detail) if detail else '', 'link': link},
+            message_type='comment', subtype_xmlid='mail.mt_note')
+        return status, link
+
+    def action_send_tech_link(self):
+        """The button: a new link for the technician (the old one stops working)."""
+        self.ensure_one()
+        self._fs_require(OPEN_STATES)
+        status, link = self._fs_send_tech_link()
+        ok = status in ('sent', 'queued')
+        return {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': {
+            'type': 'success' if ok else 'warning',
+            'title': _("Technician's link"),
+            'message': _("Sent on WhatsApp.") if ok else (
+                _("Not sent on WhatsApp. Copy the link from the chatter and send it yourself.")
+                if link else _("No link: set the website's web address first.")),
+            'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+        }}
+
+    @api.model
+    def _fs_from_tech_link(self, host, ref, token):
+        """(visit, '') for a good link, else (empty, 'unknown' | 'expired')."""
+        site = self.env['online.service.site']._for_host(host)
+        if not site or not ref or not token:
+            return self.browse(), 'unknown'
+        visit = self.sudo().search([('name', '=', str(ref)[:30]), '|', ('site_id', '=', site.id),
+                                    ('order_id.site_id', '=', site.id)], limit=1)
+        want = hashlib.sha256(str(token).encode()).hexdigest()
+        if not visit or not visit.tech_token_hash or not hmac.compare_digest(visit.tech_token_hash, want):
+            return self.browse(), 'unknown'
+        if not visit.tech_token_until or visit.tech_token_until < fields.Datetime.now():
+            return self.browse(), 'expired'
+        return visit, ''
+
+    def _fs_tech_view(self):
+        """What the technician's page shows."""
+        self.ensure_one()
+        visit = self.sudo()
+        order = visit.order_id
+        company = visit.company_id
+        return {
+            'ok': True,
+            'ref': visit.name,
+            'order': order.name or '',
+            'state': visit.state,
+            'state_label': dict(STATES)[visit.state],
+            'technician': visit.technician_id.name or '',
+            'customer': {
+                'name': visit.customer_name or order.customer_name or '',
+                'phone': visit.phone or order.phone or '',
+                'area': visit.area or '',
+                'address': visit.address or '',
+                'building': visit.building or '',
+                'floor_flat': visit.floor_flat or '',
+                'landmark': visit.landmark or '',
+            },
+            'summary': order.summary or '',
+            'slot': {'start': _iso(visit.slot_start), 'end': _iso(visit.slot_end)} if visit.slot_start else None,
+            'directions_url': visit.directions_url or '',
+            'need_code': bool(company.fs_arrival_otp and not visit.arrival_verified_on),
+            'tries_left': max(MAX_CODE_TRIES - visit.arrival_tries, 0),
+            'share': visit.state in OPEN_STATES,
+            'ping_every': TECH_PING_S,
+            'last_fix': _iso(visit.tech_fix_on),
+            'distance_km': visit.distance_km or None,
+            'eta_minutes': visit.eta_minutes or None,
+        }
+
+    @api.model
+    def tech_page(self, host, ref, token, action='', lat=None, lng=None, accuracy=None,
+                  heading=None, speed=None, battery=None, code=''):
+        """The technician's page (website server, bot key): what it shows, one step
+        (on_the_way, arrive, start, done) or a GPS ping. Never raises for a bad step."""
+        self.env['online.service.order']._check_website_caller()
+        visit, error = self._fs_from_tech_link(host, ref, token)
+        if error:
+            return {'ok': False, 'error': error}
+        has_fix = valid_fix(lat, lng) is not None
+        if action == 'ping':
+            saved = has_fix and visit._fs_record_position(lat, lng, accuracy, heading, speed, battery)
+            return {'ok': True, 'saved': bool(saved), 'state': visit.state,
+                    'share': visit.state in OPEN_STATES}
+        if has_fix and visit.state in OPEN_STATES:
+            visit._fs_record_position(lat, lng, accuracy, heading, speed, battery)
+        try:
+            if action == 'on_the_way':
+                visit.action_on_the_way()
+            elif action == 'arrive':
+                result = visit._fs_arrive(code=code)
+                if not result.get('ok'):
+                    return dict(visit._fs_tech_view(), ok=False, error=result.get('error'),
+                                message=result.get('message'))
+            elif action == 'start':
+                visit.action_start()
+            elif action == 'done':
+                visit.action_done()
+            elif action:
+                return {'ok': False, 'error': 'unknown action'}
+        except UserError as err:
+            return dict(visit._fs_tech_view(), ok=False, error='state', message=str(err))
+        if action:
+            visit.message_post(body=_("%(step)s, from the technician's page.",
+                                      step=dict(STATES)[visit.state]), subtype_xmlid='mail.mt_note')
+        return visit._fs_tech_view()

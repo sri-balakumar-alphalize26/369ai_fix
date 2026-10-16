@@ -2,7 +2,7 @@
 // One media preview in the lab. `format` fixed = renders only that format;
 // omitted = renders all three and the nearest [data-format] ancestor picks one.
 import { statSync } from 'node:fs';
-import { site, price } from '../data/site';
+import { site } from '../data/site';
 
 // Re-rendered media keeps the same filename, so stamp the URL with the file's
 // modified time — browsers then fetch the new video instead of a cached one.
@@ -30,7 +30,7 @@ const show = (f: Format) => !format || format === f;
     <div class="tilt">
       {show('image') && (
         <div class="media m-image" data-kind="image">
-          <img src={IMG} alt={`Electronics repaired at the doorstep, estimate ${price()}`} width="1280" height="720" loading="lazy" decoding="async" />
+          <img src={IMG} alt="Electronics repaired at the doorstep" width="1280" height="720" loading="lazy" decoding="async" />
         </div>
       )}
       {show('post') && (
@@ -47,7 +47,7 @@ const show = (f: Format) => !format || format === f;
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3L11 13M22 3l-7 19-4-9-9-4z"/></svg>
             <span class="post-cta">Book now</span>
           </div>
-          <p class="post-cap"><b>{site.handle}</b> Phone, laptop, printer or CCTV? We come to you. Estimate {price()}.</p>
+          <p class="post-cap"><b>{site.handle}</b> Phone, laptop, printer or CCTV? We come to you — price confirmed before any work.</p>
         </div>
       )}
       {show('video') && (

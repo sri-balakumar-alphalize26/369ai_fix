@@ -5,15 +5,22 @@
 //  • Exit intent (pointer leaves through the top) or cursor still for 15 s →
 //    slide-in panel from the LEFT asking what service they need.
 // Each shows at most once per browser session, and never on top of another popup.
-import { site, price } from '../data/site';
-import { categories, iconPaths } from '../data/devices';
-import DeviceArt from './DeviceArt.astro';
-import { artFor } from '../data/menu';
-const label: Record<string, string> = { mobile: 'Mobile repair', laptop: 'Laptop repair', printer: 'Printer repair', cctv: 'CCTV installation', network: 'Wi-Fi & networking', data: 'Data recovery' };
+import { money, PRICE_LATER } from '../data/site';
+import { iconPaths } from '../data/devices';
+import CatArt from './CatArt.astro';
+import { staticCatalog, fromPrice, type WzCategory } from '../lib/catalog';
+import { contactOf, type Contact } from '../lib/content';
+// Device types: Odoo's catalogue (passed by Base), else the site's own list. WhatsApp number: Odoo's.
+const { categories = staticCatalog().categories, contact = contactOf() } = Astro.props as { categories?: WzCategory[]; contact?: Contact };
 
-const tel = site.phone.tel.replace('+', '');
-const slides = ['mobile', 'laptop', 'printer', 'cctv', 'data'].map((id) => categories.find((c) => c.id === id)!);
+const tel = contact.wa;
+// The slider: the device types with their own copy below (when in the catalogue), then any added in Odoo
+const SHOWN = ['mobile', 'laptop', 'printer', 'cctv', 'data'];
+const known = new Set(['tablet', 'desktop', 'network', 'itsupport', ...SHOWN]);
+const slides = [...SHOWN.map((id) => categories.find((c) => c.id === id)).filter((c): c is WzCategory => !!c),
+  ...categories.filter((c) => !known.has(c.id))];
 const title: Record<string, [string, string]> = { mobile: ['Mobile', 'Repair'], laptop: ['Laptop', 'Repair'], printer: ['Printer', 'Repair'], cctv: ['CCTV', 'Installation'], data: ['Data', 'Recovery'] };
+const titleOf = (c: WzCategory): [string, string] => title[c.id] ?? [c.name, 'repair at your door'];
 const pitch: Record<string, string> = {
   mobile: 'Screen, battery, charging, camera and more – quick and reliable service.',
   laptop: 'Screens, keyboards, batteries, hinges and board-level repair.',
@@ -28,6 +35,7 @@ const perks: Record<string, string[]> = {
   cctv: ['Site survey first', 'Clean cabling', 'Remote viewing', 'Maintenance plans'],
   data: ['Honest assessment', 'Secure handling', 'All drive types', 'Updates on WhatsApp'],
 };
+const GENERIC_PERKS = ['Expert technicians', 'Price confirmed first', 'At your door', 'Updates on WhatsApp'];
 // Phone country codes + number lengths (shared). The visitor's own country (from /api/currency) is pre-selected.
 import { DIAL as dial } from '../lib/phone';
 ---
@@ -45,17 +53,17 @@ import { DIAL as dial } from '../lib/phone';
         <div class:list={['ig-slide', { on: i === 0 }]} data-slide={i}>
           <div class="ig-copy">
             <span class="ig-eyebrow">Book your slot <i></i></span>
-            <h3>{title[c.id][0]} <em>{title[c.id][1]}</em></h3>
-            <p>{pitch[c.id]}</p>
+            <h3>{titleOf(c)[0]} <em>{titleOf(c)[1]}</em></h3>
+            <p>{pitch[c.id] ?? c.short}</p>
             <ul class="ig-checks">
-              {perks[c.id].map((k) => <li><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>{k}</li>)}
+              {(perks[c.id] ?? GENERIC_PERKS).map((k) => <li><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>{k}</li>)}
             </ul>
-            <div class="ig-from"><small>Starting from</small><b>{price()}</b></div>
+            {fromPrice(c) !== null ? <div class="ig-from"><small>Starting from</small><b>{money(fromPrice(c))}</b></div> : <div class="ig-from"><b>{PRICE_LATER}</b></div>}
           </div>
           <div class="ig-product">
             <span class="ig-hand" aria-hidden="true">We fix it<br />like new!<svg viewBox="0 0 40 60" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M28 4c10 14 8 34-14 48"/><path d="M12 40l1 13 12-5"/></svg></span>
             <span class="ig-glow" aria-hidden="true"></span>
-            <span class="ig-dev"><DeviceArt kind={artFor[c.id]} /></span>
+            <span class="ig-dev"><CatArt cat={c} /></span>
             <span class="ig-pedestal" aria-hidden="true"></span>
           </div>
         </div>
@@ -65,8 +73,8 @@ import { DIAL as dial } from '../lib/phone';
       <div class="ig-thumbs" role="tablist" aria-label="Choose a service">
         {slides.map((c, i) => (
           <button type="button" role="tab" class:list={['ig-thumb', { on: i === 0 }]} data-thumb={i}>
-            <span class="ig-thumb-art"><DeviceArt kind={artFor[c.id]} /></span>
-            <span>{title[c.id].join(' ')}</span>
+            <span class="ig-thumb-art"><CatArt cat={c} /></span>
+            <span>{titleOf(c).join(' ')}</span>
           </button>
         ))}
       </div>

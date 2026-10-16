@@ -1,23 +1,33 @@
 ---
 // Floating WhatsApp button + a simple scripted help bot (no AI, no server).
 // Answers come only from the site's own data; anything else hands off to WhatsApp.
-import { site, price } from '../data/site';
-import { categories } from '../data/devices';
-import { staticContent, type Coverage } from '../lib/content';
+import { site, money, feeLine, hasPrice } from '../data/site';
+import { staticContent, contactOf, type Coverage, type Contact } from '../lib/content';
+import { staticCatalog, type WzCategory } from '../lib/catalog';
 
-// Coverage areas from Odoo (passed by Base), else the site's own list.
-const { coverage = staticContent().coverage } = Astro.props as { coverage?: Coverage };
+// Coverage areas, the devices and repairs (Odoo's catalogue), the phone / WhatsApp number and
+// the visit fee from Odoo (passed by Base), else the site's own lists.
+const { coverage = staticContent().coverage, categories = staticCatalog().categories, contact = contactOf(), visitFee = 0 } =
+  Astro.props as { coverage?: Coverage; categories?: WzCategory[]; contact?: Contact; visitFee?: number };
 
-const tel = site.phone.tel.replace('+', '');
+const tel = contact.wa;
 const wa = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
 const areas = [...new Set([coverage.doorstep, coverage.pickup].flatMap((m) => m.zones.flatMap((z) => z.areas)))];
+// a repair's price: its general (any brand / model) Odoo price when there is one, else none
+const priceOf = (c: WzCategory, name: string) => {
+  const all = c.services.filter((s) => s.name === name && hasPrice(s.price));
+  const p = (all.find((s) => !s.b && !s.s && !s.m) ?? all[0])?.price;
+  return hasPrice(p) ? `from ${money(p)}` : '';
+};
 const kb = {
-  devices: categories.map((c) => ({ id: c.id, name: c.name, issues: c.issues })),
+  devices: categories.map((c) => ({ id: c.id, name: c.name, issues: c.issues.length ? c.issues : [...new Set(c.services.map((s) => s.name))],
+    prices: Object.fromEntries(c.services.map((s): [string, string] => [s.name, priceOf(c, s.name)]).filter(([, p]) => p)) })),
   areas,
   branches: site.branches,
-  phone: site.phone.display,
+  phone: contact.display,
+  tel: contact.tel,
   email: site.email,
-  price: price(),
+  fee: feeLine(visitFee),
   doorstepEta: coverage.doorstep.eta,
   pickupEta: coverage.pickup.eta,
 };
@@ -96,20 +106,21 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       } else if (act.startsWith('iss:')) {
         const [, id, iss] = act.split(':');
         const d = kb.devices.find((x: any) => x.id === id);
-        say(`Got it — <b>${esc(iss)}</b> for ${esc(d.name)}. Estimate: <b>${kb.price}</b>. Tap below and your booking message is ready to send.<br>${waBtn(`Hi Danat Fix, I want to book ${iss} for my ${d.name}.`, 'Book on WhatsApp')}`);
+        const px = d.prices?.[iss];
+        say(`Got it — <b>${esc(iss)}</b> for ${esc(d.name)}. ${px ? `Price: <b>${esc(px)}</b>.` : 'The technician tells you the price after checking it.'} Tap below and your booking message is ready to send.<br>${waBtn(`Hi Danat Fix, I want to book ${iss} for my ${d.name}.`, 'Book on WhatsApp')}`);
         menu();
       } else if (act === 'area') {
         say('Type your area name below (for example <i>Qurum</i> or <i>Sohar</i>) and I\'ll check.');
         setChips([['⬅ Back to menu', 'menu']]);
         (fab.querySelector('[data-bot-form] input') as HTMLInputElement).focus();
       } else if (act === 'price') {
-        say(`Pricing isn't published yet — every estimate on the site shows <b>${kb.price}</b> for now. Our team confirms the price before any work starts.`);
+        say(`Each repair shows its price on the site. Where none is shown, the technician gives you the price after checking the device — always before any work starts.<br>${esc(kb.fee)}.`);
         menu();
       } else if (act === 'time') {
         say(`<b>Doorstep:</b> ${esc(kb.doorstepEta)}.<br><b>Pickup:</b> ${esc(kb.pickupEta)}.`);
         menu();
       } else if (act === 'contact') {
-        say(`We have branches in <b>${kb.branches.join(', ')}</b>.<br>📞 <a href="tel:${esc(kb.phone.replace(/\s/g, ''))}">${esc(kb.phone)}</a><br>✉️ <a href="mailto:${esc(kb.email)}">${esc(kb.email)}</a>`);
+        say(`We have branches in <b>${kb.branches.join(', ')}</b>.<br>📞 <a href="tel:${esc(kb.tel)}">${esc(kb.phone)}</a><br>✉️ <a href="mailto:${esc(kb.email)}">${esc(kb.email)}</a>`);
         menu();
       } else if (act === 'human') {
         say(`Sure — our team replies on WhatsApp.<br>${waBtn('Hello Danat Fix, I would like to talk to someone about a repair.')}`);

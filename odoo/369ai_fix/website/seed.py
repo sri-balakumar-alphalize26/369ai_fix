@@ -80,7 +80,7 @@ def _fill_services_page(site, d):
     """Round 2: Services page wording, coverage areas, FAQs and info pages."""
     env = site.env
     head, modes, cov = d.get('svcHead', {}), d.get('svcModes', {}), d.get('coverage', {})
-    trust = '\n'.join(t['text'].replace('OMR 0', '{price}') for t in cov.get('trust', []))
+    trust = '\n'.join(t['text'] for t in cov.get('trust', []))   # {price} = the visit fee on the site
     vals = {}
     for field, value in (
         ('svc_eyebrow', head.get('eyebrow')), ('svc_title', head.get('title1')), ('svc_title2', head.get('title2')),
@@ -108,7 +108,7 @@ def _fill_services_page(site, d):
                              for k, n in enumerate(names, 1)])
     Faq = env['fix.site.faq'].with_context(active_test=False)
     if not Faq.search_count([('site_id', '=', site.id)]):
-        Faq.create([{'site_id': site.id, 'sequence': i, 'name': f['q'], 'answer': f['a'].replace('OMR 0', '{price}')}
+        Faq.create([{'site_id': site.id, 'sequence': i, 'name': f['q'], 'answer': f['a']}
                     for i, f in enumerate(d.get('faq', {}).get('items', []), 1)])
     Page = env['fix.site.page'].with_context(active_test=False)
     if not Page.search_count([('site_id', '=', site.id)]):

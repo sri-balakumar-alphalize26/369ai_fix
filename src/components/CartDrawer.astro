@@ -4,16 +4,23 @@
 // Anything on the site can add with:  window.danatCart.add({ device, model, issues[], cat? })
 // The booking wizard on /services reads and writes the same cart (set / retarget / clear)
 // and books every line in one go; each change fires a 'danat-cart' event on window.
-import { site, price } from '../data/site';
-import { categories } from '../data/devices';
-import { artFor } from '../data/menu';
+import { site, money, PRICE_LATER } from '../data/site';
 import { photo } from '../data/photos';
-import DeviceArt from './DeviceArt.astro';
-const tel = site.phone.tel.replace('+', '');
+import { staticCatalog, serviceImage, type WzCategory } from '../lib/catalog';
+import { contactOf, type Contact } from '../lib/content';
+import CatArt from './CatArt.astro';
+// Device types and repair photos: Odoo's catalogue (passed by Base), else the site's own lists.
+// The WhatsApp number and the visit fee: Odoo's Website Details / visit fee product.
+const { categories = staticCatalog().categories, contact = contactOf(), visitFee = 0 } =
+  Astro.props as { categories?: WzCategory[]; contact?: Contact; visitFee?: number };
+const tel = contact.wa;
 const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.map((b) => b.name) }));
+// 'category:repair' → picture URL: the site's own photos, with Odoo's repair photos over them
+const photos: Record<string, string> = Object.fromEntries(Object.entries(photo).map(([k, v]) => [k, `/media/repairs/${v}.jpg`]));
+categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)]).forEach((n) => { const u = serviceImage(c, n); if (u) photos[`${c.id}:${n}`] = u; }));
 ---
 
-<div class="cd" data-cd data-tel={tel} data-price={price()} data-cur={site.currency}data-cats={JSON.stringify(cats)} data-photos={JSON.stringify(photo)} hidden>
+<div class="cd" data-cd data-tel={tel} data-price={PRICE_LATER} data-cur={site.currency} data-cats={JSON.stringify(cats)} data-photos={JSON.stringify(photos)} hidden>
   <div class="cd-bg" data-cd-close></div>
   <aside class="cd-panel" role="dialog" aria-modal="true" aria-labelledby="cd-title">
     <header class="cd-head">
@@ -50,16 +57,16 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
         <h3 class="cd-sh">Order summary</h3>
         <div class="cd-row">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8M3 21l6-6M5 3l4 4-2 2-4-4"/></svg>
-          <span>Repairs (<i data-cd-lines>0</i>)</span><b data-cd-sub>{price()}</b>
+          <span>Repairs (<i data-cd-lines>0</i>)</span><b data-cd-sub>{PRICE_LATER}</b>
         </div>
         <div class="cd-row">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
-          <span>Visit / pickup <em class="cd-info" tabindex="0" aria-label="Doorstep visit or pickup, confirmed on WhatsApp" data-tip="Doorstep visit or pickup — confirmed with you on WhatsApp">i</em></span><b>{price()}</b>
+          <span>Visit fee <em class="cd-info" tabindex="0" aria-label="The technician's visit, confirmed on WhatsApp" data-tip="The technician's visit — confirmed with you on WhatsApp">i</em></span><b>{money(visitFee)}</b>
         </div>
         <div class="cd-total">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h7M14 3l5 5v4M14 3v5h5M9 13h4M9 17h2"/><circle cx="17.5" cy="17.5" r="3.5"/><path d="M17.5 16v1.6l1 .8"/></svg>
           <div><b>Estimated total</b><small>Final price is confirmed after diagnosis, before any work.</small></div>
-          <strong data-cd-total>{price()}</strong>
+          <strong data-cd-total>{PRICE_LATER}</strong>
         </div>
 
         <ul class="cd-trust">
@@ -79,7 +86,7 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
     </footer>
   </aside>
 
-  {categories.map((c) => <template data-cd-art={c.id}><DeviceArt kind={artFor[c.id]} /></template>)}
+  {categories.map((c) => <template data-cd-art={c.id}><CatArt cat={c} /></template>)}
 </div>
 <div class="cd-toast" data-cd-toast role="status" aria-live="polite"></div>
 
@@ -112,11 +119,13 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
   };
   const qtyOf = (it: Item, s: string) => it.qty?.[s] ?? 1;
   const r3 = (n: number) => Math.round(n * 1000) / 1000;
-  const linePrice = (it: Item, s: string) => (it.px?.[s] != null ? `${CUR}${r3(it.px[s] * qtyOf(it, s))}` : P);
-  // total of the repairs with a known price ("from …"); none known: the site's usual estimate
+  // Odoo's 0 = no price yet: shows "Price after check" (P), like a repair without a price
+  const pxIn = (it: Item, s: string) => { const p = it.px?.[s]; return typeof p === 'number' && p > 0 ? p : null; };
+  const linePrice = (it: Item, s: string) => { const p = pxIn(it, s); return p !== null ? `${CUR}${r3(p * qtyOf(it, s))}` : P; };
+  // total of the repairs with a known price ("from …"); none known: "Price after check"
   const totalPrice = () => {
     let sum = 0, known = false;
-    items.forEach((it) => it.issues.forEach((s) => { if (it.px?.[s] != null) { known = true; sum += it.px[s] * qtyOf(it, s); } }));
+    items.forEach((it) => it.issues.forEach((s) => { const p = pxIn(it, s); if (p !== null) { known = true; sum += p * qtyOf(it, s); } }));
     return known ? `from ${CUR}${r3(sum)}` : P;
   };
   const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
@@ -136,7 +145,7 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
       const ph = c && photos[`${c.id}:${s}`];
       return `
       <li class="cd-item">
-        <div class="cd-th" data-art="${ph ? '' : c?.id ?? 'mobile'}">${ph ? `<img src="/media/repairs/${ph}.jpg" alt="" loading="lazy" />` : ''}</div>
+        <div class="cd-th" data-art="${ph ? '' : c?.id ?? 'mobile'}">${ph ? `<img src="${esc(ph)}" alt="" loading="lazy" />` : ''}</div>
         <div class="cd-info-c">
           <span class="cd-chip">${esc(c?.name ?? it.device)}</span>
           <b>${esc(s)}</b>
@@ -180,7 +189,11 @@ const cats = categories.map((c) => ({ id: c.id, name: c.name, brands: c.brands.m
   (window as any).danatCart = {
     add(it: Omit<Item, 'id'>, opts: { open?: boolean; quiet?: boolean } = {}) {
       const same = find(it);
-      if (same) { learn(same, it); it.issues.forEach((s) => { if (!same.issues.includes(s)) same.issues.push(s); }); }
+      if (same) {
+        learn(same, it); it.issues.forEach((s) => { if (!same.issues.includes(s)) same.issues.push(s); });
+        if (it.pid) same.pid = { ...same.pid, ...it.pid };
+        if (it.px) same.px = { ...same.px, ...it.px };
+      }
       else items.push({ ...it, id: newId() });
       save(items); render();
       if (!opts.quiet) toast(`✓ Added to cart — ${it.issues.join(', ')}`);

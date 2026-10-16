@@ -4,7 +4,8 @@
 // copy is used, and failing that the site's own lists (src/data/devices.ts) - then the
 // wizard books the old way (text only, WhatsApp).
 import { categories as staticCategories, type Icon } from '../data/devices';
-import { PRICE } from '../data/site';
+import { PRICE, hasPrice } from '../data/site';
+import { photo } from '../data/photos';
 import { odooCall } from './odoo';
 
 // image / logo / photo: picture URLs chosen in Odoo (369ai_fix_website_content), relative
@@ -99,6 +100,21 @@ function fromOdoo(raw: any): Catalog {
   const order = staticCategories.map((c) => c.id);
   out.sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
   return { odoo: true, deviceLook: raw.device_look === 'photo' ? 'photo' : 'drawing', categories: out, totals: totalsOf(out) };
+}
+
+/** The lowest real price among a category's repairs (Odoo's 0 = no price), or null when none has one. */
+export function fromPrice(cat: WzCategory): number | null {
+  const ps = cat.services.map((s) => s.price).filter(hasPrice);
+  return ps.length ? Math.min(...ps) : null;
+}
+
+/** A repair's picture by name within its category: its Odoo photo, else the site's own
+ * (src/data/photos.ts), else null (the device drawing shows). */
+export function serviceImage(cat: WzCategory, name: string): string | null {
+  const all = cat.services.filter((s) => s.name === name);
+  const odoo = (all.find((s) => !s.b && !s.s && !s.m && s.image) ?? all.find((s) => s.image))?.image;
+  const own = photo[`${cat.id}:${name}`];
+  return odoo || (own ? `/media/repairs/${own}.jpg` : null);
 }
 
 export async function getCatalog(host: string): Promise<Catalog> {

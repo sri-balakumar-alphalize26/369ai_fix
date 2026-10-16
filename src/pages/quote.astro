@@ -2,12 +2,15 @@
 // The link from WhatsApp when the price changed after the technician checked the device:
 // /quote?o=<order>&t=<token>. Shows the old estimate and the new lines; Approve / Decline.
 import Base from '../layouts/Base.astro';
-import { site } from '../data/site';
-// Per request, so the header, footer and chatbot show what is in Odoo now.
+import { getContent, contactOf } from '../lib/content';
+import { hostOf } from '../lib/odoo';
+// Per request, so the header, footer, chatbot and the phone number show what is in Odoo now.
 export const prerender = false;
+const content = await getContent(hostOf(Astro.request));
+const phone = contactOf(content.site).display;
 ---
 
-<Base title="Approve the new price" description="The price for your repair changed after checking the device." quiet>
+<Base title="Approve the new price" description="The price for your repair changed after checking the device." quiet content={content}>
   <section class="page-head">
     <div class="wrap">
       <span class="eyebrow">Your repair</span>
@@ -17,7 +20,7 @@ export const prerender = false;
   </section>
 
   <section class="section">
-    <div class="wrap qs">
+    <div class="wrap qs" data-qs data-phone={phone}>
       <div class="qs-card" data-q-card hidden>
         <h3>After checking your device <small data-q-ref></small></h3>
         <ul data-q-lines></ul>
@@ -36,15 +39,15 @@ export const prerender = false;
 </Base>
 
 <script>
-  import { site } from '../data/site';
   const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const phone = $('[data-qs]').dataset.phone!;   // the phone number in Odoo's Website Details
   const q = new URLSearchParams(location.search);
   const o = q.get('o') || '', t = q.get('t') || '';
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
   const msg = (m: string) => { const el = $('[data-q-msg]'); el.textContent = m; el.hidden = !m; };
   const ERR: Record<string, string> = {
-    expired: `This link has expired — please call us on ${site.phone.display}.`,
-    unknown: `This link doesn't work — please call us on ${site.phone.display}.`,
+    expired: `This link has expired — please call us on ${phone}.`,
+    unknown: `This link doesn't work — please call us on ${phone}.`,
     cancelled: 'This booking is closed.',
   };
   const done = (text: string) => { $('[data-q-acts]').hidden = true; const d = $('[data-q-done]'); d.textContent = text; d.hidden = false; };

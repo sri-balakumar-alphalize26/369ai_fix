@@ -86,6 +86,9 @@
                             invisible="state != 'arrived'"/>
                     <button name="action_done" type="object" string="Done"
                             invisible="state not in ('arrived', 'in_progress')"/>
+                    <button name="action_send_tech_link" type="object" string="Send link to technician"
+                            invisible="state not in ('assigned', 'on_the_way', 'arrived', 'in_progress')"
+                            help="WhatsApp the technician a new link to their visit page. The page shares their location while it is open."/>
                     <button name="action_cancel" type="object" string="Cancel visit"
                             invisible="state in ('done', 'cancelled')"
                             confirm="Cancel this visit?"/>
@@ -209,13 +212,15 @@
                                     <field name="arrived_distance_m"/>
                                     <field name="tech_map_url" widget="url" text="Open in Google Maps"
                                            invisible="not tech_map_url"/>
+                                    <field name="tech_link_sent_on"/>
+                                    <field name="tech_token_until" invisible="not tech_token_until"/>
                                     <field name="agent_ref"/>
                                 </group>
                             </group>
                             <field name="tech_map_html" nolabel="1" readonly="1" invisible="not tech_map_url"/>
                             <div class="text-muted" invisible="tech_map_url">
-                                No position yet. The 369 Partner App will send it while the technician
-                                is on this visit.
+                                No position yet. The technician's phone sends it while their visit page
+                                is open (the link they get on WhatsApp when the visit is assigned).
                             </div>
                         </page>
 

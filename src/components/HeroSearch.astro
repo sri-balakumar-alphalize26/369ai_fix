@@ -3,13 +3,14 @@
 // optional exact GPS → nearest covered area + branch, computed on the device), and
 // Track your repair (sends the reference to Danat on WhatsApp — there is no
 // booking system yet, so no status is shown that we cannot know).
-import { site } from '../data/site';
-import { staticContent, coverLine, type Coverage } from '../lib/content';
-import { categories } from '../data/devices';
+import { staticContent, coverLine, contactOf, type Coverage, type Contact } from '../lib/content';
+import { staticCatalog, type WzCategory } from '../lib/catalog';
 import { DIAL } from '../lib/phone';
 
 // Coverage areas come from Odoo (Fix Website ▸ Coverage Areas) through the page; the site's own list otherwise.
-const { coverage = staticContent().coverage } = Astro.props as { coverage?: Coverage };
+// So do the devices, brands, models and repairs (Odoo's catalogue) and the WhatsApp number.
+const { coverage = staticContent().coverage, categories = staticCatalog().categories, contact = contactOf() } =
+  Astro.props as { coverage?: Coverage; categories?: WzCategory[]; contact?: Contact };
 const areaGeo = coverage.geo;
 const serveLine = coverLine(coverage);
 const regions = serveLine.replace(/^We serve (.*?) from our .*$/, '$1');
@@ -22,6 +23,7 @@ const suggIndex = [
   ...categories.map((c) => ({ t: c.name, k: 'Device', href: `/services?cat=${c.id}#catalog` })),
   ...categories.flatMap((c) => c.brands.map((b) => ({ t: b.name, k: `Brand · ${c.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(b.name)}#catalog` }))),
   ...categories.flatMap((c) => c.brands.flatMap((b) => b.models.map((m) => ({ t: m, k: `Model · ${b.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(m)}#catalog` })))),
+  ...categories.flatMap((c) => [...new Set(c.services.map((s) => s.name))].map((r) => ({ t: r, k: `Repair · ${c.name}`, href: `/services?cat=${c.id}#catalog` }))),
 ];
 const suggestions = [
   ...categories.map((c) => c.name),
@@ -38,7 +40,7 @@ const popular = odooPopular ? odooPopular.map((p) => ({ label: p.name, href: p.l
   { label: 'Data Recovery', href: '/services?cat=data#catalog' },
 ];
 const catIndex = categories.map((c) => ({ id: c.id, words: [c.name, c.short, ...c.name.split(/[\s&]+/)].map((w) => w.toLowerCase()) }));
-const tel = site.phone.tel.replace('+', '');
+const tel = contact.wa;   // WhatsApp number: every "Chat" / "Send on WhatsApp" here opens it
 const trackSteps = [
   { t: 'Booked', d: 'We confirm your slot', icon: '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>' },
   { t: 'Picked up / visited', d: 'Rider or technician arrives', icon: '<circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/>' },

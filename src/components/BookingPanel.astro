@@ -3,10 +3,10 @@
 // the same order as the booking wizard — brand → model → repair cards with Add / − n + —
 // into the site cart; the bar opens the wizard's Cart step to book everything together.
 import DeviceArt from './DeviceArt.astro';
-import { price } from '../data/site';
+import { money, hasPrice, PRICE_LATER } from '../data/site';
 import { iconPaths } from '../data/devices';
 import { artFor, note } from '../data/menu';
-import { staticCatalog, type WzCategory } from '../lib/catalog';
+import { staticCatalog, fromPrice, type WzCategory } from '../lib/catalog';
 interface Props { categories?: WzCategory[]; odoo?: boolean }
 // The wizard's catalogue (Odoo's when connected), so brands, models and repairs carry Odoo's ids.
 const { categories = staticCatalog().categories, odoo = false } = Astro.props;
@@ -31,6 +31,8 @@ const heroCopy: Record<string, [string, string]> = {
   data: ['Get Your Files Back', 'Deleted files, dead drives and formatted disks recovered.'],
   itsupport: ['IT Help When You Need It', 'Software, email, tune-ups and maintenance plans.'],
 };
+// a device type added in Odoo: its name and short text (when it has one)
+const heroOf = (c: WzCategory): [string, string] => [`${c.name} repair at your door`, c.short || 'Our technician comes to you, checks it and fixes it.'];
 const issueIcon = (s: string) => {
   const t = s.toLowerCase();
   const I: [RegExp, string][] = [
@@ -70,8 +72,8 @@ const issueIcon = (s: string) => {
               <div class="bk-hero">
                 <div class="bk-hero-copy">
                   <span class="bk-eye">{c.name} services</span>
-                  <h3>{(heroCopy[c.id] ?? [c.name, c.short])[0]}</h3>
-                  <p>{(heroCopy[c.id] ?? [c.name, c.short])[1]}</p>
+                  <h3>{(heroCopy[c.id] ?? heroOf(c))[0]}</h3>
+                  <p>{(heroCopy[c.id] ?? heroOf(c))[1]}</p>
                   <ul class="bk-feats">
                     <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg><span><b>Fast Service</b><small>In most areas</small></span></li>
                     <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span><b>Genuine Parts</b><small>Trusted repairs</small></span></li>
@@ -81,7 +83,7 @@ const issueIcon = (s: string) => {
                 <div class="bk-hero-art">
                   <span class="bk-orb"></span>
                   <span class:list={['bk-dev', { 'has-pic': !!(c.image || c.drawing) }]}>{(c.image || c.drawing) && <img class="bk-devpic" src={c.image || c.drawing} alt="" onerror={PIC_FAIL} />}<DeviceArt kind={artFor[c.id] ?? 'phone'} /></span>
-                  <span class="bk-from"><small>From</small><b>{price()}</b><i></i></span>
+                  <span class="bk-from">{odoo && fromPrice(c) !== null ? <><small>From</small><b>{money(fromPrice(c))}</b></> : <b>{PRICE_LATER}</b>}<i></i></span>
                 </div>
               </div>
               <!-- 1 brand · 2 model (drawn by the script), then 3 repairs -->
@@ -93,12 +95,12 @@ const issueIcon = (s: string) => {
                 </div>
                 <div class="bk-grid" aria-label={`Repairs for ${c.name}`}>
                   {c.services.map((sv) => (
-                    <div class="bk-card" data-name={sv.name} data-pid={sv.id ?? ''} data-price={sv.price ?? ''} data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''}>
+                    <div class="bk-card" data-name={sv.name} data-pid={sv.id ?? ''} data-price={odoo && hasPrice(sv.price) ? sv.price : ''} data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''}>
                       <span class:list={['bk-pic', { photo: !!picOf(c, sv.name, sv.image) }]}>{picOf(c, sv.name, sv.image) ? <img src={picOf(c, sv.name, sv.image)} alt={sv.name} loading="lazy" width="360" height="200" onerror="this.parentElement.classList.remove('photo');this.remove()" /> : null}<span class:list={['bk-pic-art', { 'has-pic': !!c.drawing }]}>{c.drawing && <img class="bk-artpic" src={c.drawing} alt="" loading="lazy" onerror={PIC_FAIL} />}<DeviceArt kind={artFor[c.id] ?? 'phone'} /></span><span class="bk-badge" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${issueIcon(sv.name)}</svg>`} /></span>
                       <b>{sv.name}</b>
                       <small>{note(sv.name)}</small>
                       <span class="bk-foot">
-                        <span>{odoo && sv.price ? <>from <em>{price(sv.price)}</em></> : <>From <em>{price()}</em></>}</span>
+                        <span>{odoo && hasPrice(sv.price) ? <>from <em>{money(sv.price)}</em></> : <em>{PRICE_LATER}</em>}</span>
                         <button type="button" class="bk-add" data-bk-inc aria-label={`Add ${sv.name}`}>Add</button>
                         <span class="bk-qty" role="group" aria-label={`${sv.name} quantity`} hidden><button type="button" data-bk-dec aria-label="One less">−</button><output>1</output><button type="button" data-bk-inc aria-label="One more">+</button></span>
                       </span>

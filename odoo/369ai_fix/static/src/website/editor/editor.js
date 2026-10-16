@@ -69,7 +69,7 @@ const FIELD_HELP = {
     "sec.services.badge": { label: "Small green pill above the title", hint: "Empty = \"N services · doorstep\"" },
     "sec.services.title": { label: "Title", hint: "e.g. What can we fix for you?" },
     "sec.services.subtitle": { label: "\"Most booked\" title", hint: "e.g. Most booked repairs" },
-    "sec.services.text": { label: "\"Most booked\" line", hint: "Under that title · e.g. Doorstep or pickup · estimate OMR 0", type: "area" },
+    "sec.services.text": { label: "\"Most booked\" line", hint: "Under that title · e.g. Doorstep or pickup · price confirmed before any work", type: "area" },
     "sec.services.button1": { label: "Link text at the bottom", hint: "e.g. View all services" },
     "sec.services.button1_link": { label: "The link opens", hint: "e.g. /services#all" },
     "sec.modes.button1": { label: "Link text at the bottom of the card", hint: "e.g. Check your area →" },

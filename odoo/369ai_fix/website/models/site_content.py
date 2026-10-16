@@ -43,7 +43,7 @@ class OnlineServiceSite(models.Model):
     svc_fee_label = fields.Char(string='Fee label', help='Under the repair flow, before the price, e.g. "Visit fee".')
     cov_eyebrow = fields.Char(string='Coverage small heading', help='e.g. "Check your area"')
     cov_title = fields.Char(string='Coverage title', help='e.g. "Where we cover"')
-    cov_trust = fields.Text(string='Trust points', help='Under the areas, one per line. {price} is replaced by the price shown on the site.')
+    cov_trust = fields.Text(string='Trust points', help='Under the areas, one per line. {price} becomes the visit fee (e.g. OMR 5), or "price after check" when none is set.')
     zone_ids = fields.One2many('fix.coverage.zone', 'site_id', string='Coverage zones')
     faq_ids = fields.One2many('fix.site.faq', 'site_id', string='FAQs')
     page_ids = fields.One2many('fix.site.page', 'site_id', string='Info pages')
@@ -96,6 +96,7 @@ class OnlineServiceSite(models.Model):
             'phone': self.contact_phone or '', 'whatsapp': self.contact_whatsapp or '',
             'email': self.contact_email or '', 'address': self.contact_address or '',
             'hours': self.opening_hours or '', 'since': self.since_year or '',
+            'visit_fee': self._fix_visit_fee(),
             'social': {'facebook': self.social_facebook or '', 'instagram': self.social_instagram or ''},
             'header': {'cta': self.header_cta or '', 'cta_link': self.header_cta_link or '',
                        'menu': [{'label': l.name, 'link': l.link} for l in links if l.kind == 'header' and l.active]},
@@ -110,6 +111,15 @@ class OnlineServiceSite(models.Model):
             'faq': [{'q': f.name, 'a': f.answer or ''} for f in self.faq_ids.sorted('sequence') if f.active],
             'pages': [p._serialize() for p in self.page_ids.sorted('sequence') if p.active],
         }
+
+    def _fix_visit_fee(self):
+        """The visit fee product's sale price (Repair settings: mobile_repair.inspection_charge_product_id,
+        "Inspection / Visit Fee"). 0 when none is set: the site then says "price after check"."""
+        param = self.env['ir.config_parameter'].sudo().get_param('mobile_repair.inspection_charge_product_id')
+        if not param or not str(param).isdigit():
+            return 0
+        fee = self.env['product.product'].sudo().browse(int(param)).exists()
+        return fee.lst_price if fee else 0
 
     def _fix_coverage(self):
         """Doorstep and pickup zones with their areas, and every area's map position (the

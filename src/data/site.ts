@@ -31,10 +31,22 @@ export const site = {
   },
 };
 
-// Manager instruction: no real prices for now (shown as OMR 0). Every amount on the site
-// comes from here, so switching to real pricing later is one change.
+// Prices come from Odoo, per repair (and the visit fee). A repair with no price there (0 or not
+// set) shows PRICE_LATER: the technician gives the price after checking the device. Every
+// amount on the site is worded here. PRICE is the "no price" value of the site's own lists.
 export const PRICE = 0;
-export const price = (amount: number = PRICE) => `${site.currency}${amount}`;
+export const PRICE_LATER = 'Price after check';
+/** A real price (Odoo's 0 means "not set", not "free"). */
+export const hasPrice = (n: number | null | undefined): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+const r3 = (n: number) => Math.round(n * 1000) / 1000;
+/** "OMR 12", or "Price after check" when there is no price. */
+export const money = (n?: number | null) => (hasPrice(n) ? `${site.currency}${r3(n)}` : PRICE_LATER);
+/** "from OMR 12", or "Price after check" when there is no price. */
+export const fromMoney = (n?: number | null) => (hasPrice(n) ? `from ${money(n)}` : PRICE_LATER);
+/** The visit fee line: "Visit fee OMR 5", or "Visit fee: price after check". */
+export const feeLine = (n?: number | null, label = 'Visit fee') => (hasPrice(n) ? `${label} ${money(n)}` : `${label}: ${PRICE_LATER.toLowerCase()}`);
+/** What {price} in Odoo texts becomes (trust points, FAQ answers): the visit fee, else "price after check". */
+export const priceWord = (n?: number | null) => (hasPrice(n) ? money(n) : PRICE_LATER.toLowerCase());
 
 export const nav = [
   { href: '/', label: 'Home' },

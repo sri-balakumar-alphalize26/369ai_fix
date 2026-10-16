@@ -103,6 +103,36 @@ export const prerender = false;
     showLogin();
   });
 
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // The technician's visit (doorstep orders): who, live position, ETA and the arrival code.
+  function visitBlock(v: any) {
+    if (!v || v.state === 'cancelled') return '';
+    const tech = v.technician;
+    const live = v.live;
+    const slot = v.slot ? new Date(v.slot.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    const facts = [
+      v.eta_minutes ? `<b>About ${esc(String(v.eta_minutes))} min away</b>${v.eta_at ? ` · by ${esc(hm(v.eta_at))}` : ''}` : '',
+      v.distance_km ? `${esc(Number(v.distance_km).toFixed(1))} km from you` : '',
+      live ? (live.stale ? 'Signal lost, showing the last known place' : `Updated ${esc(hm(live.fix_on))}`) : '',
+    ].filter(Boolean);
+    return `
+      <div class="tk-visit">
+        <div class="tk-vhead">
+          ${tech?.photo ? `<img src="${esc(tech.photo)}" alt="" width="44" height="44" />` : '<span class="tk-vav" aria-hidden="true"></span>'}
+          <div>
+            <b>${esc(v.state_label)}</b>
+            <span>${tech ? esc(tech.name) : 'We are choosing your technician'}${slot ? ` · ${esc(slot)}` : ''}</span>
+          </div>
+          ${tech?.phone ? `<a class="tk-vcall" href="tel:+${esc(String(tech.phone).replace(/\D/g, ''))}">Call</a>` : ''}
+        </div>
+        ${facts.length ? `<p class="tk-vfacts">${facts.join(' · ')}</p>` : ''}
+        ${live ? `<a class="tk-vmap" href="https://www.google.com/maps/search/?api=1&query=${live.lat},${live.lng}" target="_blank" rel="noopener">See the technician on the map →</a>` : ''}
+        ${v.arrival_code ? `<p class="tk-vcode">Arrival code <b>${esc(String(v.arrival_code))}</b><small>Give this code to the technician when they reach your door. Don't share it before.</small></p>` : ''}
+        <ol class="tk-steps tk-vsteps">${v.steps.map((s: any) => `<li class="${s.done ? 'done' : ''}${s.current ? ' cur' : ''}"><i></i><span>${esc(s.label)}${s.at && s.done ? `<small>${esc(hm(s.at))}</small>` : ''}</span></li>`).join('')}</ol>
+      </div>`;
+  }
+
   function render(data: any) {
     $('[data-tk-who]').textContent = '+' + data.phone;
     const list = $('[data-tk-list]');
@@ -118,7 +148,8 @@ export const prerender = false;
         </header>
         <p class="tk-sum">${esc(o.summary)}</p>
         ${o.cancelled ? '<p class="tk-x">This order was cancelled. Chat with us on WhatsApp if you need help.</p>' : `
-        <ol class="tk-steps">${o.steps.map((s: any) => `<li class="${s.done ? 'done' : ''}${s.current ? ' cur' : ''}"><i></i><span>${esc(s.label)}</span></li>`).join('')}</ol>`}
+        <ol class="tk-steps">${o.steps.map((s: any) => `<li class="${s.done ? 'done' : ''}${s.current ? ' cur' : ''}"><i></i><span>${esc(s.label)}</span></li>`).join('')}</ol>
+        ${visitBlock(o.visit)}`}
         <footer>${o.job_card ? `Job card ${esc(o.job_card)} · ` : ''}Booked ${esc(new Date(o.created.replace(' ', 'T') + 'Z').toLocaleString())}</footer>
       </article>`).join('');
   }
@@ -170,6 +201,19 @@ export const prerender = false;
   .tk-steps li.done { color: var(--ink); }
   .tk-steps li.cur span { font-weight: 700; color: var(--violet); }
   .tk-order footer { font-size: 13px; color: var(--ink-3); }
+  .tk-visit { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 0 0 12px; background: var(--tint); }
+  .tk-vhead { display: flex; align-items: center; gap: 12px; }
+  .tk-vhead img, .tk-vav { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: var(--line); }
+  .tk-vhead div { display: grid; flex: 1; min-width: 0; }
+  .tk-vhead span { font-size: 14px; color: var(--ink-2); }
+  .tk-vcall { padding: 8px 14px; border-radius: 10px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font-weight: 700; text-decoration: none; }
+  .tk-vfacts { margin: 10px 0 0; font-size: 14px; color: var(--ink-2); }
+  .tk-vmap { display: inline-block; margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--violet); }
+  .tk-vcode { display: grid; gap: 2px; margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px dashed var(--line); }
+  .tk-vcode b { font-size: 24px; letter-spacing: .3em; color: var(--ink); }
+  .tk-vcode small { color: var(--ink-3); font-size: 13px; }
+  .tk-vsteps { grid-template-columns: repeat(5, 1fr); margin: 14px 0 0; }
+  .tk-vsteps small { display: block; color: var(--ink-3); font-weight: 400; }
   .tk-empty { padding: 24px; border: 1px dashed var(--line); border-radius: 14px; text-align: center; color: var(--ink-2); }
   @media (max-width: 560px) {
     .tk-steps { grid-template-columns: repeat(3, 1fr); row-gap: 12px; }

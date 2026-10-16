@@ -50,7 +50,10 @@ class OnlineServiceSite(models.Model):
         pages = Page.search([('site_id', '=', site.id)])
         page = pages.filtered(lambda p: p.id == page_id)[:1] or site._fix_live_home_page() or pages[:1]
         everyday = pages.filtered('is_current')[:1] or page
-        price = 'OMR 0'   # the site shows every estimate as OMR 0 for now (src/data/site.ts PRICE)
+        # As the site words it (src/data/site.ts): a repair without a price (0) shows "Price after
+        # check"; {price} in texts becomes the visit fee, or "price after check" when none is set.
+        fee = site._fix_visit_fee()
+        price = f'OMR {fee:g}' if fee > 0 else 'price after check'
         Cat = self.env['device.category']
         cats = Cat.search([], order='id')
         Brand = self.env['device.brand']
@@ -84,7 +87,7 @@ class OnlineServiceSite(models.Model):
             'faqs': [self._fix_row(f, ('name', 'answer', 'active', 'sequence')) for f in site.with_context(active_test=False).faq_ids.sorted('sequence')],
             'pages': [self._fix_row(p, ('name', 'slug', 'column', 'kind', 'active', 'sequence', 'body'))
                       for p in site.with_context(active_test=False).page_ids.sorted('sequence')],
-            'price': price,
+            'price': price, 'visit_fee': fee, 'price_later': 'Price after check',
             'totals': {'categories': len(cats), 'brands': Brand.search_count([]),
                        'models': self.env['device.model'].search_count([]) if 'device.model' in self.env else 0},
             'views': {'page_text': self.env.ref('369ai_fix.view_fix_site_page_text_form').id,

@@ -1,0 +1,17 @@
+---
+// A device type's picture in the menus and pop-ups: the site's own drawing for the types it
+// knows (src/data/menu.ts artFor); for a type added in Odoo, its Odoo photo or drawing, else
+// the generic "support" drawing.
+import DeviceArt from './DeviceArt.astro';
+import { artFor } from '../data/menu';
+interface Props { cat: { id: string; image?: string | null; photo?: string | null; drawing?: string | null } }
+const { cat } = Astro.props;
+const kind = artFor[cat.id];
+const pic = kind ? null : cat.image || cat.drawing || cat.photo || null;
+---
+
+{pic ? <img class="cat-art" src={pic} alt="" loading="lazy" /> : <DeviceArt kind={kind ?? 'support'} />}
+
+<style>
+  .cat-art { display: block; width: 100%; height: 100%; object-fit: contain; }
+</style>

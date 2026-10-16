@@ -92,8 +92,12 @@ class TestDoorstepVisit(TransactionCase):
         self.assertTrue(visit.assigned_on)
         code = visit.sudo().arrival_code
         self.assertRegex(code, r'^\d{4}$')
-        self.assertIn(code, self.sent[-1][1])
-        self.assertIn('Arjun Tech', self.sent[-1][1])
+        # The customer's message, then the technician's link
+        self.assertIn(code, self.sent[-2][1])
+        self.assertIn('Arjun Tech', self.sent[-2][1])
+        self.assertEqual(self.sent[-1][0], '+96890000001')
+        self.assertIn('/tech?v=', self.sent[-1][1])
+        self.assertNotIn(code, self.sent[-1][1])
 
         visit.action_on_the_way()
         self.assertEqual(visit.state, 'on_the_way')
@@ -205,6 +209,44 @@ class TestDoorstepVisit(TransactionCase):
         self.assertIsNone(block['arrival_code'])
         self.assertIsNone(block['technician']['phone'])
         self.assertTrue(all(step['done'] for step in block['steps']))
+
+    def test_technician_page_link(self):
+        _order, visit = self._visit()
+        visit.action_assign()
+        link = self.sent[-1][1].split('/tech?', 1)[1].split()[0]
+        params = dict(part.split('=', 1) for part in link.split('&'))
+        ref, token = visit.name, params['t']
+        Visit = self.env['fix.service.visit']
+
+        self.assertEqual(Visit.tech_page(HOST, ref, 'wrong')['error'], 'unknown')
+        self.assertEqual(Visit.tech_page('other.example', ref, token)['error'], 'unknown')
+        page = Visit.tech_page(HOST, ref, token)
+        self.assertTrue(page['ok'])
+        self.assertEqual(page['state'], 'assigned')
+        self.assertEqual(page['customer']['address'], 'Villa 12')
+        self.assertTrue(page['share'])
+        self.assertNotIn('arrival_code', page)
+
+        ping = Visit.tech_page(HOST, ref, token, action='ping', lat=CUSTOMER[0], lng=58.35, accuracy=9)
+        self.assertTrue(ping['saved'])
+        self.assertAlmostEqual(visit.tech_lng, 58.35, places=5)
+
+        self.assertEqual(Visit.tech_page(HOST, ref, token, action='on_the_way')['state'], 'on_the_way')
+        self.assertEqual(self._track()['eta_minutes'], 21)
+        code = visit.sudo().arrival_code
+        wrong = Visit.tech_page(HOST, ref, token, action='arrive', code='0000' if code != '0000' else '1111')
+        self.assertFalse(wrong['ok'])
+        self.assertEqual(wrong['error'], 'wrong_code')
+        self.assertEqual(Visit.tech_page(HOST, ref, token, action='arrive', code=code)['state'], 'arrived')
+        self.assertFalse(Visit.tech_page(HOST, ref, token, action='fly')['ok'])
+        self.assertTrue(Visit.tech_page(HOST, ref, token, action='done', lat='x')['ok'])
+        self.assertEqual(visit.state, 'done')
+        self.assertFalse(Visit.tech_page(HOST, ref, token, action='ping', lat=23.5, lng=58.4)['saved'])
+
+        # A new link stops the old one
+        visit.state = 'in_progress'
+        visit.action_send_tech_link()
+        self.assertEqual(Visit.tech_page(HOST, ref, token)['error'], 'unknown')
 
     def test_job_card_moves_the_visit(self):
         order, visit = self._visit()

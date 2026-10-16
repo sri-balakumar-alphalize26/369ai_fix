@@ -2,6 +2,9 @@
 // "Spin & Win" offer popup. PLACEHOLDER PRIZES — replace with the client's
 // real offers. Every slice wins; the result is remembered (?offer=spin resets it).
 import { site } from '../data/site';
+import { contactOf, type Contact } from '../lib/content';
+// WhatsApp number from Odoo (passed by Popups), else the site's own.
+const { contact = contactOf() } = Astro.props as { contact?: Contact };
 
 const I = {
   diag: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M9 11h4M11 9v4"/>',
@@ -26,7 +29,7 @@ const pt = (deg: number, r = R) => {
   const a = ((deg - 90) * Math.PI) / 180;
   return [160 + r * Math.cos(a), 160 + r * Math.sin(a)].map((v) => v.toFixed(2)).join(' ');
 };
-const wa = (msg: string) => `https://wa.me/${site.phone.tel.replace('+', '')}?text=${encodeURIComponent(msg)}`;
+const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURIComponent(msg)}`;
 ---
 
 <div class="sw" data-sw hidden data-prizes={JSON.stringify(prizes.map(({ full, code }) => ({ full, code })))}>

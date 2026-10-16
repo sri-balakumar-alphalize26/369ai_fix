@@ -106,7 +106,7 @@ class FixSiteFaq(models.Model):
     sequence = fields.Integer(default=10)
     active = fields.Boolean(string='Shown', default=True)
     name = fields.Char(string='Question', required=True)
-    answer = fields.Text(required=True, help='{price} is replaced by the price shown on the site, e.g. OMR 0.')
+    answer = fields.Text(required=True, help='{price} becomes the visit fee, e.g. OMR 5, or "price after check" when none is set.')
 
 
 class FixSitePage(models.Model):

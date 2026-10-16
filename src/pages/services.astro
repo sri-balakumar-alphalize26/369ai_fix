@@ -1,10 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
-import { price } from '../data/site';
+import { money, hasPrice, PRICE_LATER } from '../data/site';
 import { iconPaths } from '../data/devices';
 import { DIAL } from '../lib/phone';
 import { getCatalog } from '../lib/catalog';
-import { getContent, repairFlow } from '../lib/content';
+import { getContent, repairFlow, contactOf } from '../lib/content';
 import { hostOf } from '../lib/odoo';
 // Rendered per request: devices, brands, models and repairs (with prices) come from Odoo, and
 // so do the page's wording, the doorstep / pickup cards, the coverage areas and the FAQs
@@ -18,7 +18,9 @@ const { services: sv, coverage, faq: faqs } = content;
 // Only the doorstep areas show; the pickup zones stay in Odoo, unused.
 const flow = repairFlow(content.modes);
 const { categories, totals } = catalog;
-const money = (n: number | null) => (n === null ? '' : price(n));
+// a repair's price is only shown when Odoo has one (0 = not set: "Price after check")
+const pxOf = (n: number | null) => (catalog.odoo && hasPrice(n) ? n : null);
+const fee = content.site.visit_fee;
 // Pictures chosen in Odoo sit over the site's own art (class has-pic hides it); if one fails to
 // load, it removes itself and the art shows again.
 const PIC_FAIL = "const p=this.parentElement;p.classList.remove('has-pic');if(!p.querySelector('img:not(.wz-pic),i'))p.classList.remove('logo');this.remove()";
@@ -72,10 +74,11 @@ const payload = JSON.stringify({
   coverage: { doorstep: coverage.doorstep },
   geo: coverage.geo,
   titles: { doorstep: flow.title },
+  wa: contactOf(content.site).wa,   // the WhatsApp number in Odoo's Website Details
 });
 ---
 
-<Base content={content} title="Services" description="Doorstep repair for phones, laptops, desktops, printers, CCTV and networking. Coverage areas across Oman, all brands and models, OMR 0 estimates.">
+<Base content={content} catalog={catalog} title="Services" description="Doorstep repair for phones, laptops, desktops, printers, CCTV and networking. Coverage areas across Oman, all brands and models, price confirmed before any work.">
   <script type="application/json" id="svc-data" set:html={payload} />
 
   <section class="page-head">
@@ -84,7 +87,7 @@ const payload = JSON.stringify({
       <h1 class="h-xl" data-reveal style="--d:.06s">{sv.title} <span class="grad-text">{sv.title2}</span></h1>
       <p class="lead" data-reveal style="--d:.12s">
         {sv.lead}
-        {totals.categories} device types, {totals.brands} brands and {totals.models}+ models, every estimate {price()}.
+        {totals.categories} device types, {totals.brands} brands and {totals.models}+ models. No price shown? The technician tells you after checking.
       </p>
     </div>
   </section>
@@ -133,7 +136,7 @@ const payload = JSON.stringify({
           </div>
         </div>
         <span class="mc-foot">
-          <span>{sv.fee_label} <span class="price-tag">{price()}</span></span>
+          <span>{hasPrice(fee) ? <>{sv.fee_label} <span class="price-tag">{money(fee)}</span></> : <>{sv.fee_label}: <span class="price-tag">{PRICE_LATER.toLowerCase()}</span></>}</span>
           <a class="mc-choose" href="#coverage">Check your area <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
         </span>
       </div>
@@ -277,11 +280,11 @@ const payload = JSON.stringify({
           {categories.map((c) => (
             <div class="wz-issues" data-wz-issues={c.id} hidden>
               {c.services.map((sv) => (
-                <div class="wz-iss" data-iss={sv.name} data-pid={sv.id ?? ''} data-price={sv.price ?? ''}
+                <div class="wz-iss" data-iss={sv.name} data-pid={sv.id ?? ''} data-price={pxOf(sv.price) ?? ''}
                   data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''} style={`--h:${c.hue}`}
                   hidden={!!(sv.b || sv.s || sv.m)}>
                   <span class:list={['wz-ii', { 'has-pic': !!sv.image }]}>{sv.image && <img class="wz-pic" src={sv.image} alt="" loading="lazy" onerror={PIC_FAIL} />}<Fragment set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${issueSvg(sv.name)}</svg>`} /></span>
-                  <span class="wz-in"><b>{sv.name}</b><small>{issueNote(sv.name)}</small><em>{catalog.odoo && sv.price ? `from ${money(sv.price)}` : `Estimate ${price()}`}</em></span>
+                  <span class="wz-in"><b>{sv.name}</b><small>{issueNote(sv.name)}</small><em>{pxOf(sv.price) !== null ? `from ${money(sv.price)}` : PRICE_LATER}</em></span>
                   <span class="wz-act">
                     <button type="button" class="wz-addb" data-iss-add aria-label={`Add ${sv.name}`}>Add</button>
                     <span class="wz-qty" role="group" aria-label={`${sv.name} quantity`} hidden>
@@ -342,7 +345,7 @@ const payload = JSON.stringify({
               </div>
               <ul data-wz-sumlist></ul>
               <div class="wz-tear" aria-hidden="true"></div>
-              <div class="wz-total"><span>Estimated cost</span><b data-wz-sumtotal>{price()}</b></div>
+              <div class="wz-total"><span>Estimated cost</span><b data-wz-sumtotal>{PRICE_LATER}</b></div>
               <p class="wz-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Price confirmed after diagnosis — before any work starts.</p>
             </div>
             <div class="wz-time">
@@ -528,7 +531,7 @@ const payload = JSON.stringify({
 </Base>
 
 <script>
-  import { price, site } from '../data/site';
+  import { money, fromMoney, hasPrice, PRICE_LATER } from '../data/site';
   import { checkPhone, bindPhone, limitPhone, dialFor } from '../lib/phone';
   import { branchGeo, km } from '../lib/areaGeo';
 
@@ -543,6 +546,7 @@ const payload = JSON.stringify({
     coverage: Record<string, { eta: string; zones: { name: string; areas: string[] }[] }>;
     geo: Record<string, [number, number]>;
     titles: Record<string, string>;
+    wa: string;
   };
   const data: Data = JSON.parse(document.getElementById('svc-data')!.textContent!);
   // area positions (from Odoo's coverage areas) for "Use my location" and the postcode suggestions
@@ -644,7 +648,7 @@ const payload = JSON.stringify({
   let fixFor = '';       // cart line (id) whose model is being chosen from the Cart step
   let bookedRef = '';    // set once the booking is made (the cart empties; the Book step shows the done note)
   const LAST = 5;   // 1 device · 2 model · 3 repairs · 4 cart · 5 book
-  const tel = site.phone.tel.replace('+', '');
+  const tel = data.wa;
   const waUrl = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
   const wzCat = () => data.categories.find((c) => c.id === wzState.cat);
   const wzSearch = $<HTMLInputElement>('[data-model-search]', wz);
@@ -685,12 +689,17 @@ const payload = JSON.stringify({
     return all.find((s) => !s.b && !s.s && !s.m) ?? all[0];
   };
   const pidOf = (it: CartItem, issue: string) => it.pid?.[issue] || svcFor(it, issue)?.id || undefined;
-  const pxOf = (it: CartItem, issue: string): number | null => it.px?.[issue] ?? (data.odoo ? svcFor(it, issue)?.price ?? null : null);
+  // a repair's price: the one the cart line carries, else Odoo's; 0 = not set (null, "Price after check")
+  const pxOf = (it: CartItem, issue: string): number | null => {
+    const p = it.px?.[issue] ?? (data.odoo ? svcFor(it, issue)?.price ?? null : null);
+    return hasPrice(p) ? p : null;
+  };
   const r3 = (n: number) => Math.round(n * 1000) / 1000;
+  const lineMoney = (p: number | null, q: number) => (p === null ? PRICE_LATER : money(r3(p * q)));
   const cartTotal = () => {
     let sum = 0, known = false;
     cartItems().forEach((it) => it.issues.forEach((s) => { const p = pxOf(it, s); if (p !== null) { known = true; sum += p * qtyIn(it, s); } }));
-    return known ? `from ${price(r3(sum))}` : price();
+    return known ? fromMoney(r3(sum)) : PRICE_LATER;
   };
   const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
   const cartSummary = () => `${plural(cartCount(), 'repair')} · ${plural(cartItems().length, 'device')}`;
@@ -835,7 +844,7 @@ const payload = JSON.stringify({
     $$('[data-wz-viewcart]', wz).forEach((b) => (b.hidden = !n));
     $('[data-wz-scl]', wz).innerHTML = cartItems().flatMap((it) => it.issues.map((s) => {
       const p = pxOf(it, s), q = qtyIn(it, s);
-      return `<li><span><b>${esc(s)}${q > 1 ? ` ×${q}` : ''}</b><small>${esc(devTitle(it))}</small></span><span>${p === null ? price() : price(r3(p * q))}</span></li>`;
+      return `<li><span><b>${esc(s)}${q > 1 ? ` ×${q}` : ''}</b><small>${esc(devTitle(it))}</small></span><span>${lineMoney(p, q)}</span></li>`;
     })).join('');
     $('[data-wz-sctp]', wz).textContent = cartTotal();
     cbar.hidden = !(side && n && wzSeen);
@@ -874,7 +883,7 @@ const payload = JSON.stringify({
           const p = pxOf(it, s), q = qtyIn(it, s), k = `${esc(it.id)}::${esc(s)}`;
           return `<div class="wz-gl"><b>${esc(s)}</b>
             <span class="wz-qty sm" role="group" aria-label="${esc(s)} quantity"><button type="button" data-gq="${k}::-1" aria-label="One less">−</button><output>${q}</output><button type="button" data-gq="${k}::1" aria-label="One more">+</button></span>
-            <span class="wz-gp">${p === null ? price() : price(r3(p * q))}</span>
+            <span class="wz-gp">${lineMoney(p, q)}</span>
             <button type="button" class="wz-grm" data-gq="${k}::0" aria-label="Remove ${esc(s)}">${TRASH}</button></div>`;
         }).join('')}
       </div>`;
@@ -1067,7 +1076,7 @@ const payload = JSON.stringify({
     $('[data-wz-sumlist]', wz).innerHTML = items.map((it) => (items.length > 1 ? `<li class="wz-sdev">${esc(devTitle(it))}<small>${esc(catFor(it)?.name ?? it.device)}</small></li>` : '')
       + it.issues.map((s) => {
         const p = pxOf(it, s), q = qtyIn(it, s);
-        return `<li style="--i:${k++}"><span>${OK}${esc(s)}${q > 1 ? ` ×${q}` : ''}</span><b>${p === null ? price() : price(r3(p * q))}</b></li>`;
+        return `<li style="--i:${k++}"><span>${OK}${esc(s)}${q > 1 ? ` ×${q}` : ''}</span><b>${lineMoney(p, q)}</b></li>`;
       }).join('')).join('');
     $('[data-wz-sumtotal]', wz).textContent = cartTotal();
     $('[data-acc-book]', wz).textContent = bookLabel();

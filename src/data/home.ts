@@ -1,13 +1,13 @@
 // Content for the conversion-focused Home page.
-import { site, price, PRICE } from './site';
+import { site, fromMoney, PRICE } from './site';
 import { categories } from './devices';
 
 // WhatsApp deep link with a pre-filled message (Danat's verified number).
 export const wa = (msg: string) => `https://wa.me/${site.phone.tel.replace('+', '')}?text=${encodeURIComponent(msg)}`;
 
 // ---- Services grid: 4 top services from each of the 9 device types = 36 ----
-// PRICING PLACEHOLDER: `from` is PRICE (0) for every service until the client
-// supplies real base prices. Set a number per service here and it shows.
+// Offline list only (real prices come from Odoo): `from` is "Price after check" unless a
+// number is set per service here.
 const basePrice: Record<string, number> = {};
 export const homeServices = categories.flatMap((c) =>
   c.issues.slice(0, 4).map((issue) => ({
@@ -17,7 +17,7 @@ export const homeServices = categories.flatMap((c) =>
     icon: c.icon,
     hue: c.hue,
     name: issue,
-    from: price(basePrice[`${c.id}-${issue}`] ?? PRICE),
+    from: fromMoney(basePrice[`${c.id}-${issue}`] ?? PRICE),
     wa: wa(`Hi Danat Fix, I want to book a ${issue} service for my ${c.name.replace(/ &.*$/, '').replace(/s$/, '').toLowerCase()}.`),
   })),
 );
