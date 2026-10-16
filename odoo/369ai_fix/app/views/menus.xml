@@ -6,14 +6,22 @@
               web_icon="369ai_fix,static/description/icon.png"
               sequence="25"/>
 
+    <!-- The Booking Desk is the app's home: every booking from new to done on one screen.
+         It folds in the Live Screen of danatfix_repair_booking (that menu is archived there). -->
+    <menuitem id="menu_fix_desk"
+              name="Booking Desk"
+              parent="menu_fix_root"
+              action="action_fix_desk"
+              sequence="1"/>
+
     <menuitem id="menu_fix_dashboard"
               name="Dashboard"
               parent="menu_fix_root"
               action="action_fix_dashboard"
-              sequence="1"/>
+              sequence="2"/>
 
-    <!-- Live Screen (2), Old Bookings and Booking Desk Settings come from
-         danatfix_repair_booking, which hangs its menus here. -->
+    <!-- Old Bookings and Booking Desk Settings come from danatfix_repair_booking,
+         which hangs its menus here. -->
 
     <!-- Bookings -->
     <menuitem id="menu_fix_bookings" name="Bookings" parent="menu_fix_root" sequence="10"/>

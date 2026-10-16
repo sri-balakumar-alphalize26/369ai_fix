@@ -9,13 +9,15 @@
  *     visit time and nobody has pressed Seen.
  *
  * A service, so it lives as long as the web client. It asks the server every
- * 20 seconds and at once when the bus says something changed. While the Live
- * Screen is open in this tab, the screen owns the sound (see `presence`).
+ * 20 seconds and at once when the bus says something changed. While the Booking
+ * Desk of the 369 ai Fix app (or the old Live Screen) is open in this tab, that
+ * screen owns the sound (see `presence` and `deskIsOpen`).
  */
 
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
 import { BookingAlarm, SLOT_TONE, presence } from "./booking_shared";
+import { deskIsOpen } from "@369ai_fix/app/desk/desk_alarm";
 
 const POLL_MS = 20000;
 const MAX_FAILURES = 3;
@@ -68,8 +70,10 @@ export const bookingAlarmService = {
             slotAlarm.stop();
         }
 
+        const screenOpen = () => presence.screens > 0 || deskIsOpen();
+
         function sync() {
-            if (!state || !armed || presence.screens > 0) {
+            if (!state || !armed || screenOpen()) {
                 stopNew();
                 stopSlot();
                 return;
@@ -88,7 +92,7 @@ export const bookingAlarmService = {
                     // Offset by half a cycle so the two alarms never sound together.
                     const cycle = (state.ring + state.repeat) * 1000;
                     setTimeout(() => {
-                        if (state.slots.length && !presence.screens) {
+                        if (state.slots.length && !screenOpen()) {
                             slotAlarm.ring(state.ring, SLOT_TONE);
                         }
                     }, state.new ? cycle / 2 : 0);
@@ -99,7 +103,8 @@ export const bookingAlarmService = {
             }
         }
 
-        const openScreen = () => action.doAction("danatfix_repair_booking.action_danatfix_booking_screen");
+        // "Open" goes to the Booking Desk, which has the Live Screen's cards and the rest of the flow.
+        const openScreen = () => action.doAction("369ai_fix.action_fix_desk");
 
         async function seen(id) {
             try {
@@ -117,7 +122,7 @@ export const bookingAlarmService = {
                     closeNew();
                     closeNew = null;
                 }
-            } else if (!closeNew && presence.screens === 0) {
+            } else if (!closeNew && !screenOpen()) {
                 closeNew = notification.add(
                     state.new === 1
                         ? _t("1 new website booking to review")
@@ -126,7 +131,7 @@ export const bookingAlarmService = {
                         title: _t("Website booking"),
                         type: "warning",
                         sticky: true,
-                        buttons: [{ name: _t("Open Live Screen"), primary: true, onClick: openScreen }],
+                        buttons: [{ name: _t("Open Booking Desk"), primary: true, onClick: openScreen }],
                         onClose: () => {
                             closeNew = null;
                         },
@@ -141,7 +146,7 @@ export const bookingAlarmService = {
                 }
                 slotKey = key;
             }
-            if (key && !closeSlot && presence.screens === 0) {
+            if (key && !closeSlot && !screenOpen()) {
                 const first = state.slots[0];
                 closeSlot = notification.add(
                     state.slots.length === 1
@@ -155,7 +160,7 @@ export const bookingAlarmService = {
                         buttons: [
                             state.slots.length === 1
                                 ? { name: _t("Seen"), primary: true, onClick: () => seen(first.id) }
-                                : { name: _t("Open Live Screen"), primary: true, onClick: openScreen },
+                                : { name: _t("Open Booking Desk"), primary: true, onClick: openScreen },
                         ],
                         onClose: () => {
                             closeSlot = null;
@@ -185,6 +190,13 @@ export const bookingAlarmService = {
         bus_service.addChannel("danatfix_booking");
         bus_service.subscribe("danatfix_booking/refresh", () => poll());
         bus_service.subscribe("online_service/refresh", () => poll());
+        // the Booking Desk opened or closed in this tab: hand the sound over / take it back
+        document.addEventListener("fix_desk_presence", () => {
+            sync();
+            if (state) {
+                tellThem();
+            }
+        });
         poller = setInterval(poll, POLL_MS);
         poll();
 

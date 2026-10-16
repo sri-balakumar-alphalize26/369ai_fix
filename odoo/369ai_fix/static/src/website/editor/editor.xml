@@ -9,9 +9,10 @@
             <div class="fx" t-else="">
                 <div class="fx-toolbar">
                     <div class="fx-title">
-                        <h1><t t-if="page === 'home'">Home page</t><t t-elif="page === 'services'">Services page</t><t t-elif="page === 'brands'">Brand logos</t><t t-elif="page === 'photos'">Service pictures</t><t t-else="">Info pages</t></h1>
+                        <h1><t t-if="page === 'home'">Home page</t><t t-elif="page === 'services'">Services page</t><t t-elif="page === 'brands'">Brand logos</t><t t-elif="page === 'photos'">Service pictures</t><t t-elif="page === 'popups'">Pop-ups &amp; chat</t><t t-else="">Info pages</t></h1>
                         <small t-if="page === 'brands'">The brands as the website shows them. Click one to upload or replace its logo. Changes are saved as you type.</small>
                         <small t-elif="page === 'photos'">Every repair service with its website photo. Click one to add photos or pick the one shown.</small>
+                        <small t-elif="page === 'popups'">Everything that pops up on the site, drawn as visitors see it. Click one to edit its wording, prizes, replies or slides. Changes are saved as you type.</small>
                         <small t-else="">Click a part of the page to edit it. Hover a field to see where it shows. Changes are saved as you type.</small>
                     </div>
                     <select t-if="d.sites.length > 1" class="fx-select" t-on-change="switchSite">
@@ -38,13 +39,14 @@
                 <div class="fx-cols">
                     <div class="fx-canvas-wrap">
                         <div t-attf-class="fx-canvas fx-{{ state.screen }}">
-                            <div class="fx-chrome"><span class="fx-dots"><i/><i/><i/></span><span class="fx-url"><t t-esc="siteHost"/><t t-if="page === 'services' or page === 'photos'">/services</t><t t-if="page === 'brands'">/ · brands we repair</t><t t-if="page === 'pages' and infoPage">/page/<t t-esc="infoPage.slug"/></t></span></div>
+                            <div class="fx-chrome"><span class="fx-dots"><i/><i/><i/></span><span class="fx-url"><t t-esc="siteHost"/><t t-if="page === 'services' or page === 'photos'">/services</t><t t-if="page === 'brands'">/ · brands we repair</t><t t-if="page === 'popups'">/ · pop-ups &amp; chat</t><t t-if="page === 'pages' and infoPage">/page/<t t-esc="infoPage.slug"/></t></span></div>
                             <div class="fx-screen"><div class="fx-scroll" t-ref="canvas">
                                 <div class="fx-site">
                                     <t t-if="page === 'home'" t-call="369ai_fix.FxHome"/>
                                     <t t-elif="page === 'services'" t-call="369ai_fix.FxServices"/>
                                     <t t-elif="page === 'brands'" t-call="369ai_fix.FxBrands"/>
                                     <t t-elif="page === 'photos'" t-call="369ai_fix.FxPhotos"/>
+                                    <t t-elif="page === 'popups'" t-call="369ai_fix.FxPopups"/>
                                     <t t-else="" t-call="369ai_fix.FxInfo"/>
                                 </div>
                             </div></div>
@@ -92,6 +94,9 @@
             <span class="fx-f-label"><t t-esc="h.label"/><i class="fa fa-eye fx-f-eye" title="Hover to see it on the page"/></span>
             <textarea t-if="h.type === 'area'" t-att-value="rec[field]" t-att-placeholder="h.example" t-on-input="(ev) => this.edit(model, rec, field, ev, { as: as })"/>
             <input t-elif="h.type === 'number'" type="number" min="1" max="5" t-att-value="rec[field]" t-on-input="(ev) => this.edit(model, rec, field, ev, { as: as })"/>
+            <input t-elif="h.type === 'int'" type="number" min="0" step="1" t-att-value="rec[field]" t-att-placeholder="h.example" t-on-input="(ev) => this.edit(model, rec, field, ev, { as: as })"/>
+            <span t-elif="h.type === 'bool'" class="fx-switch" t-on-click.prevent="() => this.toggle(model, rec, field, as)"><input type="checkbox" t-att-checked="rec[field]"/><i/><span t-esc="rec[field] ? h.on : h.off"/></span>
+            <select t-elif="h.type === 'select'" class="fx-in" t-on-change="(ev) => this.edit(model, rec, field, ev, { now: true, as: as })"><option t-foreach="h.options" t-as="o" t-key="o[0]" t-att-value="o[0]" t-att-selected="o[0] === rec[field]" t-esc="o[1]"/></select>
             <input t-elif="h.now" t-att-value="rec[field]" t-att-placeholder="h.example" t-on-change="(ev) => this.edit(model, rec, field, ev, { now: true, as: as })"/>
             <input t-else="" t-att-value="rec[field]" t-att-placeholder="h.example" t-on-input="(ev) => this.edit(model, rec, field, ev, { as: as })"/>
             <small t-if="h.hint" class="fx-f-hint" t-esc="h.hint"/>
@@ -445,14 +450,21 @@
                 </ul>
             </t>
             <t t-if="page === 'pages'"><t t-call="369ai_fix.FxPanelPageList"/></t>
+            <t t-if="page === 'popups'">
+                <ul class="fx-list">
+                    <li t-foreach="POPUP_PARTS" t-as="p" t-key="p[0]"><button type="button" class="fx-list-btn" t-on-click="() => this.jumpTo(p[0])"><i t-attf-class="fa {{ p[2] }}"/><t t-esc="p[1]"/><small t-if="p[0] === 'welcome'" t-esc="welcomeChoice[1]"/><small t-elif="p[0] === 'ann' and !site.ann_show">hidden</small><small t-elif="p[0] === 'cookie' and !site.cookie_show">hidden</small><small t-elif="ITEM_LIST_OF[p[0]]"><t t-esc="activeItems(ITEM_LIST_OF[p[0]]).length"/> <t t-esc="ITEM_KINDS[ITEM_LIST_OF[p[0]]].toLowerCase()"/>s</small></button></li>
+                </ul>
+                <p class="fx-muted">Words in curly brackets, like {site} or {code}, are filled in by the website. The preview on the left shows them filled.</p>
+            </t>
         </div>
 
-        <!-- site parts: header, footer, services heading, flow, coverage -->
+        <!-- site parts: header, footer, services heading, flow, coverage, and the eight pop-up parts -->
         <div t-elif="SITE_FORM[sel.kind]" class="fx-pane">
             <t t-set="form" t-value="SITE_FORM[sel.kind]"/>
             <t t-call="369ai_fix.FxPaneHead"/>
             <h2 class="fx-pane-title" t-esc="form.title"/>
             <p class="fx-about" t-esc="form.about"/>
+            <div t-if="form.legend" class="fx-info"><b>Filled by the website:</b> <t t-esc="legendText(form.legend)"/>. Type them as they are.</div>
             <details t-foreach="form.groups" t-as="g" t-key="g.title" class="fx-group" open="">
                 <summary t-esc="g.title"/>
                 <t t-foreach="g.fields" t-as="f" t-key="f">
@@ -514,6 +526,84 @@
                 </div>
                 <div class="fx-adds"><button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addZone('doorstep')"><i class="fa fa-plus"/> Doorstep zone</button><button t-if="state.showPickup" type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addZone('pickup')"><i class="fa fa-plus"/> Pickup zone</button></div>
                 <small class="fx-f-hint">A new area finds its map position on OpenStreetMap when saved, so "check my location" on the site recognises it. A <i class="fa fa-question-circle-o"/> means it has none yet (type it in under Lists ▸ Coverage Areas).</small>
+            </details>
+            <!-- Spin & Win: the prizes -->
+            <details t-if="sel.kind === 'wheel'" class="fx-group" open="">
+                <summary>Prizes on the wheel <small>drag to reorder · every slice wins</small></summary>
+                <div class="fx-rows" t-ref="rows">
+                    <div t-foreach="items('wheel')" t-as="it" t-key="it.id" t-attf-class="fx-row fx-row-card {{ it.active ? '' : 'fx-dim' }}" t-att-data-row="it.id" t-att-data-fx-for="K('item', it.id)">
+                        <div class="fx-row-top">
+                            <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                            <span class="fx-swatch" t-attf-style="background: {{ it.color || '#ccc' }}; color: {{ it.color2 || '#fff' }}"><t t-esc="it_index + 1"/></span>
+                            <input class="fx-in" t-att-value="it.name2" placeholder="Free" title="Word above" t-on-input="(ev) => this.edit(M.item, it, 'name2', ev)"/>
+                            <input class="fx-in strong" t-att-value="it.name" placeholder="Diagnosis" title="Word on the slice" t-on-input="(ev) => this.edit(M.item, it, 'name', ev)"/>
+                            <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.item, it)" t-att-title="it.active ? 'Hide' : 'Show'"><i t-attf-class="fa {{ it.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                            <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.item, it, it.text || it.name)" title="Remove"><i class="fa fa-trash-o"/></button>
+                        </div>
+                        <div class="fx-two">
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.text'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'text'"/></t>
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.code'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'code'"/></t>
+                        </div>
+                        <div class="fx-three">
+                            <label class="fx-f"><span class="fx-f-label">Icon</span><select class="fx-in" t-on-change="(ev) => this.editItem(it, 'icon', ev.target.value)"><option t-foreach="ICONS" t-as="ic" t-key="ic[0]" t-att-value="ic[0]" t-att-selected="ic[0] === it.icon" t-esc="ic[1]"/></select></label>
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.color'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'color'"/></t>
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.color2'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'color2'"/></t>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addItem('wheel')"><i class="fa fa-plus"/> Prize</button>
+            </details>
+            <!-- Chat assistant: the quick-reply chips -->
+            <details t-if="sel.kind === 'bot'" class="fx-group" open="">
+                <summary>Quick replies <small>the chips under the messages · drag to reorder</small></summary>
+                <div class="fx-rows" t-ref="rows">
+                    <div t-foreach="items('reply')" t-as="it" t-key="it.id" t-attf-class="fx-row {{ it.active ? '' : 'fx-dim' }}" t-att-data-row="it.id" t-att-data-fx-for="K('item', it.id)">
+                        <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                        <input class="fx-in" t-att-value="it.name" placeholder="🔧 Book a repair" title="The chip" t-on-input="(ev) => this.edit(M.item, it, 'name', ev)"/>
+                        <select class="fx-in fx-in-sm" title="What the chip does" t-on-change="(ev) => this.editItem(it, 'code', ev.target.value)"><option t-foreach="INTENTS" t-as="x" t-key="x[0]" t-att-value="x[0]" t-att-selected="x[0] === it.code" t-esc="x[1]"/></select>
+                        <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.item, it)" t-att-title="it.active ? 'Hide' : 'Show'"><i t-attf-class="fa {{ it.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                        <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.item, it)" title="Remove"><i class="fa fa-trash-o"/></button>
+                    </div>
+                </div>
+                <small class="fx-f-hint">The chip, then what it does: it shows the matching answer above. "Opening hours" uses the hours in the footer details.</small>
+                <button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addItem('reply')"><i class="fa fa-plus"/> Chip</button>
+            </details>
+            <!-- Slider: the slides -->
+            <details t-if="sel.kind === 'slider'" class="fx-group" open="">
+                <summary>Slides <small>one per device type · drag to reorder</small></summary>
+                <div class="fx-info">Device types in the catalogue without a slide here still get one, with the generic title and perks above.</div>
+                <div class="fx-rows" t-ref="rows">
+                    <div t-foreach="items('slide')" t-as="it" t-key="it.id" t-attf-class="fx-row fx-row-card {{ it.active ? '' : 'fx-dim' }}" t-att-data-row="it.id" t-att-data-fx-for="K('item', it.id)">
+                        <div class="fx-row-top">
+                            <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                            <select class="fx-in" title="Device type" t-on-change="(ev) => this.editItemCategory(it, ev)"><option value="" t-att-selected="!it.category_id">— device type —</option><option t-foreach="d.tiles" t-as="c" t-key="c.id" t-att-value="c.id" t-att-selected="c.id === it.category_id" t-esc="c.name"/></select>
+                            <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.item, it)" t-att-title="it.active ? 'Hide' : 'Show'"><i t-attf-class="fa {{ it.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                            <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.item, it, it.name)" title="Remove"><i class="fa fa-trash-o"/></button>
+                        </div>
+                        <div class="fx-two">
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.slide.name'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'name'"/></t>
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.slide.name2'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'name2'"/></t>
+                        </div>
+                        <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.slide.text'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'text'"/></t>
+                        <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.slide.text2'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'text2'"/></t>
+                    </div>
+                </div>
+                <button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addItem('slide')"><i class="fa fa-plus"/> Slide</button>
+            </details>
+            <!-- Leaving panel: the tiles -->
+            <details t-if="sel.kind === 'exit'" class="fx-group" open="">
+                <summary>Tiles <small>one per device type · drag to reorder</small></summary>
+                <div class="fx-rows" t-ref="rows">
+                    <div t-foreach="items('tile')" t-as="it" t-key="it.id" t-attf-class="fx-row {{ it.active ? '' : 'fx-dim' }}" t-att-data-row="it.id" t-att-data-fx-for="K('item', it.id)">
+                        <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                        <select class="fx-in" title="Device type" t-on-change="(ev) => this.editItemCategory(it, ev)"><option value="" t-att-selected="!it.category_id">— device type —</option><option t-foreach="d.tiles" t-as="c" t-key="c.id" t-att-value="c.id" t-att-selected="c.id === it.category_id" t-esc="c.name"/></select>
+                        <input class="fx-in" t-att-value="it.name" t-att-placeholder="catName(it.category_id) || 'Label'" title="Label on the tile (empty = the device type)" t-on-input="(ev) => this.edit(M.item, it, 'name', ev)"/>
+                        <button type="button" class="fx-ic" t-on-click="() => this.toggle(M.item, it)" t-att-title="it.active ? 'Hide' : 'Show'"><i t-attf-class="fa {{ it.active ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                        <button type="button" class="fx-ic danger" t-on-click="() => this.remove(M.item, it, tileLabel(it))" title="Remove"><i class="fa fa-trash-o"/></button>
+                    </div>
+                </div>
+                <small class="fx-f-hint">The device type, then the label on the tile (empty = the device type's name). Each tile opens WhatsApp with the tile message.</small>
+                <button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addItem('tile')"><i class="fa fa-plus"/> Tile</button>
             </details>
         </div>
 
@@ -647,6 +737,163 @@
         </div>
 
         <div t-else="" class="fx-pane"><p class="fx-hint">Click a part of the page to edit it.</p></div>
+    </t>
+
+    <!-- ============================================================ pop-ups & chat -->
+    <!-- Each pop-up drawn the way the site shows it, on its dimmed backdrop. The parts are not draggable; the eye lives in the panel. -->
+    <t t-name="369ai_fix.FxPopups">
+        <t t-foreach="POPUP_PARTS" t-as="p" t-key="p[0]">
+            <t t-call="369ai_fix.FxBand"><t t-set="kind" t-value="p[0]"/><t t-set="id" t-value="false"/><t t-set="label" t-value="p[1]"/><t t-set="rec" t-value="null"/><t t-set="draggable" t-value="false"/><t t-set="inner" t-value="'369ai_fix.FxPop_' + p[0]"/></t>
+        </t>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_ann">
+        <div class="fx-pop fx-pop-top">
+            <div t-attf-class="fx-ann {{ site.ann_show ? '' : 'fx-pop-off' }}" t-att-data-fx="K('site', 'ann_show')">
+                <span t-foreach="[0, 1]" t-as="n" t-key="n" class="fx-ann-item"><i>●</i><span t-attf-class="{{ hl(K('site', 'ann_text')) }}" t-att-data-fx="K('site', 'ann_text')" t-esc="fill(site.ann_text) || 'Announcement text'"/><a t-attf-class="{{ hl(K('site', 'ann_button')) }}" t-att-data-fx="K('site', 'ann_button')" t-esc="site.ann_button || 'Book now →'"/></span>
+                <b class="fx-ann-x">×</b>
+            </div>
+            <p class="fx-pop-note"><t t-if="!site.ann_show">Hidden: the bar is switched off. </t>Scrolls once every <t t-esc="site.ann_speed_s || 30"/> s · the × closes it for this visit.</p>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_welcome">
+        <div class="fx-pop fx-pop-top">
+            <div class="fx-welcome" t-att-data-fx="K('site', 'welcome_popup')">
+                <div t-foreach="WELCOME_TYPES" t-as="w" t-key="w[0]" t-attf-class="fx-welcome-opt {{ site.welcome_popup === w[0] ? 'fx-on' : '' }}"><i t-attf-class="fa {{ w[2] }}"/><b t-esc="w[1]"/><small t-if="site.welcome_popup === w[0]">opens first</small></div>
+            </div>
+            <p class="fx-pop-note">Opens <b t-esc="site.welcome_popup === 'flash' ? site.welcome_flash_delay_ms : site.welcome_delay_ms"/> ms after arriving · closed with × = no welcome pop-up for <b t-esc="site.welcome_snooze_days"/> days on that browser.</p>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_flash">
+        <div class="fx-pop">
+            <div class="fx-flash">
+                <div class="fx-flash-art"><i class="fx-ring"/><i class="fx-ring r2"/><b t-esc="d.visit_fee ? 'OMR ' + d.visit_fee : 'Visit fee'"/><small t-esc="d.visit_fee ? 'visit fee' : 'price after check'"/></div>
+                <div class="fx-flash-body">
+                    <span t-attf-class="fx-flash-badge{{ hl(K('site', 'flash_badge')) }}" t-att-data-fx="K('site', 'flash_badge')"><i/><t t-esc="site.flash_badge || 'Flash offer'"/></span>
+                    <h2 t-att-class="hl(K('site', 'flash_title'))" t-att-data-fx="K('site', 'flash_title')" t-esc="site.flash_title || 'Offer title'"/>
+                    <p t-att-class="hl(K('site', 'flash_body'))" t-att-data-fx="K('site', 'flash_body')" t-esc="fill(site.flash_body)"/>
+                    <div class="fx-flash-timer"><span><b>05</b><small>hrs</small></span><span><b>42</b><small>min</small></span><span><b>17</b><small>sec</small></span></div>
+                    <div t-attf-class="fx-flash-code{{ hl(K('site', 'flash_code')) }}" t-att-data-fx="K('site', 'flash_code')"><span>Code</span><b t-esc="site.flash_code || '—'"/><em>Tap to copy</em></div>
+                    <div class="fx-pop-btns"><span t-attf-class="fx-pop-btn primary{{ hl(K('site', 'flash_button')) }}" t-att-data-fx="K('site', 'flash_button')" t-esc="site.flash_button || 'Book with offer'"/><span t-attf-class="fx-pop-btn{{ hl(K('site', 'flash_wa_button')) }}" t-att-data-fx="K('site', 'flash_wa_button')" t-esc="site.flash_wa_button || 'WhatsApp us'"/></div>
+                    <u t-att-class="hl(K('site', 'flash_later'))" t-att-data-fx="K('site', 'flash_later')" t-esc="site.flash_later || 'No thanks'"/>
+                    <small t-attf-class="fx-pop-wa{{ hl(K('site', 'flash_wa_msg')) }}" t-att-data-fx="K('site', 'flash_wa_msg')"><i class="fa fa-whatsapp"/> <t t-esc="fill(site.flash_wa_msg)"/></small>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_wheel">
+        <t t-set="slices" t-value="activeItems('wheel')"/>
+        <div class="fx-pop fx-pop-dark">
+            <span t-attf-class="fx-gift{{ hl(K('site', 'wheel_tab')) }}" t-att-data-fx="K('site', 'wheel_tab')"><i>🎁</i><b t-esc="site.wheel_tab || 'Spin &amp; Win'"/></span>
+            <div class="fx-sw">
+                <span t-attf-class="fx-sw-kicker{{ hl(K('site', 'wheel_eyebrow')) }}" t-att-data-fx="K('site', 'wheel_eyebrow')" t-esc="fill(site.wheel_eyebrow)"/>
+                <h2><span t-att-class="hl(K('site', 'wheel_title'))" t-att-data-fx="K('site', 'wheel_title')" t-esc="site.wheel_title || 'Spin &amp;'"/> <em t-att-class="hl(K('site', 'wheel_title2'))" t-att-data-fx="K('site', 'wheel_title2')" t-esc="site.wheel_title2 || 'Win'"/></h2>
+                <p t-att-class="hl(K('site', 'wheel_subtitle'))" t-att-data-fx="K('site', 'wheel_subtitle')" t-esc="site.wheel_subtitle"/>
+                <div class="fx-sw-stage">
+                    <div class="fx-wheel" t-attf-style="background: {{ wheelGradient() }}">
+                        <span t-foreach="slices" t-as="s" t-key="s.id" t-attf-class="fx-wheel-lab{{ hl(K('item', s.id)) }}" t-att-data-fx="K('item', s.id)" t-att-style="sliceStyle(s_index, slices.length, s)"><small t-esc="s.name2"/><b t-esc="s.name"/></span>
+                        <i class="fx-wheel-ptr"/><b class="fx-wheel-hub">SPIN</b>
+                    </div>
+                    <p t-if="!slices.length" class="fx-empty-inline">No prizes yet: add one in the panel.</p>
+                </div>
+                <span t-attf-class="fx-pop-btn gold{{ hl(K('site', 'wheel_spin')) }}" t-att-data-fx="K('site', 'wheel_spin')" t-esc="site.wheel_spin || 'Spin the wheel'"/>
+                <u t-att-class="hl(K('site', 'wheel_later'))" t-att-data-fx="K('site', 'wheel_later')" t-esc="site.wheel_later || 'Maybe later'"/>
+                <div class="fx-sw-win" t-if="slices.length">
+                    <span t-attf-class="fx-sw-won{{ hl(K('site', 'wheel_won')) }}" t-att-data-fx="K('site', 'wheel_won')" t-esc="site.wheel_won || '🎉 You won'"/>
+                    <h3 t-esc="slices[0].text || slices[0].name"/>
+                    <div class="fx-ticket"><span><small>Your code</small><b t-esc="slices[0].code"/></span><em>Copy</em></div>
+                    <p t-att-class="hl(K('site', 'wheel_note'))" t-att-data-fx="K('site', 'wheel_note')" t-esc="site.wheel_note"/>
+                    <div class="fx-pop-btns"><span t-attf-class="fx-pop-btn primary{{ hl(K('site', 'wheel_book')) }}" t-att-data-fx="K('site', 'wheel_book')" t-esc="site.wheel_book || 'Book now'"/><span t-attf-class="fx-pop-btn{{ hl(K('site', 'wheel_wa')) }}" t-att-data-fx="K('site', 'wheel_wa')" t-esc="site.wheel_wa || 'WhatsApp us'"/></div>
+                    <small t-attf-class="fx-pop-wa{{ hl(K('site', 'wheel_wa_msg')) }}" t-att-data-fx="K('site', 'wheel_wa_msg')"><i class="fa fa-whatsapp"/> <t t-esc="fill((site.wheel_wa_msg || '').replace('{code}', slices[0].code || ''))"/></small>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_bot">
+        <div class="fx-pop fx-pop-bot">
+            <div class="fx-bot">
+                <div class="fx-bot-head"><span class="fx-bot-av"><i class="fa fa-comment"/></span><div><b t-att-class="hl(K('site', 'bot_name'))" t-att-data-fx="K('site', 'bot_name')" t-esc="fill(site.bot_name) || 'Assistant'"/><small t-att-class="hl(K('site', 'bot_status'))" t-att-data-fx="K('site', 'bot_status')" t-esc="site.bot_status"/></div><b class="fx-bot-x">×</b></div>
+                <div class="fx-bot-log">
+                    <div t-attf-class="fx-msg{{ hl(K('site', 'bot_greeting')) }}" t-att-data-fx="K('site', 'bot_greeting')" t-esc="fill(site.bot_greeting) || 'Hi 👋'"/>
+                    <div class="fx-msg me" t-esc="(activeItems('reply')[0] || {}).name || '…'"/>
+                    <div t-attf-class="fx-msg{{ hl(K('site', 'bot_a_' + ((activeItems('reply')[0] || {}).code || 'book'))) }}" t-att-data-fx="K('site', 'bot_a_' + ((activeItems('reply')[0] || {}).code || 'book'))" t-esc="fill(site['bot_a_' + ((activeItems('reply')[0] || {}).code || 'book')]) || '…'"/>
+                </div>
+                <div class="fx-bot-chips"><span t-foreach="activeItems('reply')" t-as="r" t-key="r.id" t-attf-class="{{ hl(K('item', r.id)) }}" t-att-data-fx="K('item', r.id)" t-esc="r.name"/></div>
+                <div class="fx-bot-in"><span t-att-class="hl(K('site', 'bot_placeholder'))" t-att-data-fx="K('site', 'bot_placeholder')" t-esc="site.bot_placeholder || 'Type here…'"/><i class="fa fa-paper-plane"/></div>
+            </div>
+            <div class="fx-fabs">
+                <span class="fx-fab wa"><small t-att-class="hl(K('site', 'bot_wa_tip'))" t-att-data-fx="K('site', 'bot_wa_tip')" t-esc="site.bot_wa_tip || 'WhatsApp us'"/><i class="fa fa-whatsapp"/></span>
+                <span class="fx-fab"><small t-att-class="hl(K('site', 'bot_tip'))" t-att-data-fx="K('site', 'bot_tip')" t-esc="site.bot_tip || 'Ask us anything'"/><i class="fa fa-comment"/></span>
+                <small t-attf-class="fx-pop-wa{{ hl(K('site', 'bot_wa_msg')) }}" t-att-data-fx="K('site', 'bot_wa_msg')"><i class="fa fa-whatsapp"/> <t t-esc="fill(site.bot_wa_msg)"/></small>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_slider">
+        <t t-set="sl" t-value="firstSlide"/>
+        <div class="fx-pop">
+            <div class="fx-ig">
+                <div class="fx-ig-show">
+                    <span t-attf-class="fx-ig-eyebrow{{ hl(K('site', 'eng_eyebrow')) }}" t-att-data-fx="K('site', 'eng_eyebrow')" t-esc="site.eng_eyebrow || 'Book your slot'"/>
+                    <t t-if="sl">
+                        <h3 t-att-class="hl(K('item', sl.id))" t-att-data-fx="K('item', sl.id)"><t t-esc="sl.name"/> <em t-esc="sl.name2"/></h3>
+                        <p t-esc="sl.text"/>
+                        <ul class="fx-ig-checks"><li t-foreach="lines(sl.text2).length ? lines(sl.text2) : lines(site.eng_perks)" t-as="k" t-key="k_index"><i class="fa fa-check-circle"/><t t-esc="k"/></li></ul>
+                    </t>
+                    <t t-else="">
+                        <h3><t t-esc="(d.tiles[0] || {}).name || 'Device'"/> <em t-att-class="hl(K('site', 'eng_title2'))" t-att-data-fx="K('site', 'eng_title2')" t-esc="site.eng_title2 || 'repair at your door'"/></h3>
+                        <ul t-attf-class="fx-ig-checks{{ hl(K('site', 'eng_perks')) }}" t-att-data-fx="K('site', 'eng_perks')"><li t-foreach="lines(site.eng_perks)" t-as="k" t-key="k_index"><i class="fa fa-check-circle"/><t t-esc="k"/></li></ul>
+                    </t>
+                    <div class="fx-ig-from"><small t-att-class="hl(K('site', 'eng_from_label'))" t-att-data-fx="K('site', 'eng_from_label')" t-esc="site.eng_from_label || 'Starting from'"/><b t-esc="d.price"/></div>
+                    <div class="fx-ig-thumbs"><span t-foreach="activeItems('slide')" t-as="s" t-key="s.id" t-attf-class="{{ s === sl ? 'fx-on' : '' }}{{ hl(K('item', s.id)) }}" t-att-data-fx="K('item', s.id)"><t t-esc="s.name"/> <t t-esc="s.name2"/></span><span class="fx-ig-more" t-if="d.tiles.length > activeItems('slide').length">+ <t t-esc="d.tiles.length - activeItems('slide').length"/> generic</span></div>
+                    <p class="fx-pop-note light">Next slide every <t t-esc="site.eng_slide_ms"/> ms · opens after <t t-esc="site.eng_idle_s"/> s idle</p>
+                </div>
+                <div class="fx-ig-form">
+                    <span t-attf-class="fx-ig-pill{{ hl(K('site', 'eng_form_pill')) }}" t-att-data-fx="K('site', 'eng_form_pill')"><i class="fa fa-whatsapp"/> <t t-esc="site.eng_form_pill || 'Book instantly on WhatsApp'"/></span>
+                    <h2 t-att-class="hl(K('site', 'eng_form_title'))" t-att-data-fx="K('site', 'eng_form_title')" t-esc="site.eng_form_title || 'Book your slot'"/>
+                    <p t-att-class="hl(K('site', 'eng_form_subtitle'))" t-att-data-fx="K('site', 'eng_form_subtitle')" t-esc="site.eng_form_subtitle"/>
+                    <div class="fx-ig-tabs"><span class="fx-on"><i class="fa fa-phone"/> Mobile Number</span><span><i class="fa fa-envelope-o"/> Email Address</span></div>
+                    <div class="fx-ig-row"><span class="fx-ig-cc">+968</span><span class="fx-ig-ph">9123 4567</span></div>
+                    <span t-attf-class="fx-pop-btn wa{{ hl(K('site', 'eng_form_send')) }}" t-att-data-fx="K('site', 'eng_form_send')"><i class="fa fa-whatsapp"/> <t t-esc="site.eng_form_send || 'Send on WhatsApp'"/> →</span>
+                    <small t-attf-class="fx-ig-privacy{{ hl(K('site', 'eng_form_privacy')) }}" t-att-data-fx="K('site', 'eng_form_privacy')"><i class="fa fa-lock"/> <t t-esc="site.eng_form_privacy"/></small>
+                    <small t-attf-class="fx-pop-wa{{ hl(K('site', 'eng_wa_msg')) }}" t-att-data-fx="K('site', 'eng_wa_msg')"><i class="fa fa-whatsapp"/> <t t-esc="fill(site.eng_wa_msg)"/></small>
+                    <div class="fx-ig-or"><span>OR</span></div>
+                    <span t-attf-class="fx-ig-all{{ hl(K('site', 'eng_form_all')) }}" t-att-data-fx="K('site', 'eng_form_all')"><i class="fa fa-search"/> <t t-esc="site.eng_form_all || 'View all services'"/> →</span>
+                    <ul t-attf-class="fx-ig-feat{{ hl(K('site', 'eng_form_features')) }}" t-att-data-fx="K('site', 'eng_form_features')"><li t-foreach="features()" t-as="f" t-key="f_index"><i class="fa fa-star"/><b t-esc="f.title"/><small t-esc="f.small"/></li></ul>
+                </div>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_exit">
+        <div class="fx-pop fx-pop-left">
+            <div class="fx-sl">
+                <div class="fx-sl-head"><span class="fx-logo-mark"/><div><b t-att-class="hl(K('site', 'exit_title'))" t-att-data-fx="K('site', 'exit_title')" t-esc="site.exit_title || 'Leaving already? 👋'"/><small t-att-class="hl(K('site', 'exit_status'))" t-att-data-fx="K('site', 'exit_status')"><i/><t t-esc="site.exit_status || 'We reply on WhatsApp'"/></small></div><b class="fx-bot-x">×</b></div>
+                <p t-att-class="hl(K('site', 'exit_text'))" t-att-data-fx="K('site', 'exit_text')" t-esc="site.exit_text"/>
+                <div class="fx-sl-grid"><span t-foreach="activeItems('tile')" t-as="tl" t-key="tl.id" t-attf-class="fx-sl-tile{{ hl(K('item', tl.id)) }}" t-att-data-fx="K('item', tl.id)" t-attf-style="--i: {{ tl_index }}"><i class="fa fa-wrench"/><t t-esc="tileLabel(tl)"/></span></div>
+                <p t-if="!activeItems('tile').length" class="fx-empty-inline">No tiles yet: add one in the panel.</p>
+                <span t-attf-class="fx-pop-btn wa{{ hl(K('site', 'exit_button')) }}" t-att-data-fx="K('site', 'exit_button')"><i class="fa fa-whatsapp"/> <t t-esc="site.exit_button || 'Chat with us on WhatsApp'"/></span>
+                <u t-att-class="hl(K('site', 'exit_link_label'))" t-att-data-fx="K('site', 'exit_link_label')" t-esc="site.exit_link_label || 'See all services →'"/>
+                <small t-attf-class="fx-pop-wa{{ hl(K('site', 'exit_tile_msg')) }}" t-att-data-fx="K('site', 'exit_tile_msg')"><i class="fa fa-whatsapp"/> tile: <t t-esc="fill(site.exit_tile_msg)"/></small>
+                <small t-attf-class="fx-pop-wa{{ hl(K('site', 'exit_wa_msg')) }}" t-att-data-fx="K('site', 'exit_wa_msg')"><i class="fa fa-whatsapp"/> button: <t t-esc="fill(site.exit_wa_msg)"/></small>
+            </div>
+            <p class="fx-pop-note">Opens when the cursor leaves through the top, or sits still for <t t-esc="site.eng_still_s"/> s · once per visit.</p>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.FxPop_cookie">
+        <div class="fx-pop fx-pop-left">
+            <div t-attf-class="fx-ck {{ site.cookie_show ? '' : 'fx-pop-off' }}" t-att-data-fx="K('site', 'cookie_show')">
+                <span class="fx-ck-ico"><i class="fa fa-circle-o"/></span>
+                <div><b t-att-class="hl(K('site', 'cookie_title'))" t-att-data-fx="K('site', 'cookie_title')" t-esc="site.cookie_title || 'We use cookies'"/><p t-att-class="hl(K('site', 'cookie_text'))" t-att-data-fx="K('site', 'cookie_text')" t-esc="site.cookie_text"/></div>
+                <div class="fx-pop-btns right"><span t-attf-class="fx-pop-btn{{ hl(K('site', 'cookie_decline')) }}" t-att-data-fx="K('site', 'cookie_decline')" t-esc="site.cookie_decline || 'Decline'"/><span t-attf-class="fx-pop-btn primary{{ hl(K('site', 'cookie_accept')) }}" t-att-data-fx="K('site', 'cookie_accept')" t-esc="site.cookie_accept || 'Accept'"/></div>
+            </div>
+            <p class="fx-pop-note"><t t-if="!site.cookie_show">Hidden: the notice is switched off. </t>Slides in <t t-esc="site.cookie_delay_ms"/> ms after the page opens, on the first visit only.</p>
+        </div>
     </t>
 
     <t t-name="369ai_fix.FxPanelPageList">

@@ -7,4 +7,5 @@ from . import online_order
 from . import home
 from . import site_content
 from . import site_pages
+from . import site_popups
 from . import editor

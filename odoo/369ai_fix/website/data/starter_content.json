@@ -781,5 +781,231 @@
    17.019,
    54.089
   ]
- ]
+ ],
+ "popups": {
+  "fields": {
+   "ann_text": "Doorstep repair across Oman — free diagnosis this week",
+   "ann_button": "Book now →",
+   "ann_link": "/services#catalog",
+   "ann_speed_s": 30,
+   "welcome_popup": "slot",
+   "welcome_delay_ms": 1500,
+   "welcome_flash_delay_ms": 4000,
+   "welcome_snooze_days": 30,
+   "flash_badge": "Flash offer",
+   "flash_title": "Free diagnosis this week",
+   "flash_body": "Book a doorstep visit and the check-up is on us. {fee}.",
+   "flash_code": "369FIX",
+   "flash_button": "Book with offer",
+   "flash_button_link": "/services#catalog",
+   "flash_wa_button": "WhatsApp us",
+   "flash_wa_msg": "Hello {site} — I'd like to use code {code}",
+   "flash_later": "No thanks",
+   "cookie_title": "We use cookies",
+   "cookie_text": "Only to remember your theme, area and choices on this site. No ads, no tracking.",
+   "cookie_decline": "Decline",
+   "cookie_accept": "Accept",
+   "cookie_delay_ms": 1200,
+   "wheel_tab": "Spin & Win",
+   "wheel_eyebrow": "✦ {site} rewards ✦",
+   "wheel_title": "Spin &",
+   "wheel_title2": "Win",
+   "wheel_subtitle": "Every slice is a free extra on your next repair.",
+   "wheel_spin": "Spin the wheel",
+   "wheel_later": "Maybe later",
+   "wheel_won": "🎉 You won",
+   "wheel_note": "Show this code when you book. Valid on your next repair.",
+   "wheel_book": "Book now",
+   "wheel_wa": "WhatsApp us",
+   "wheel_wa_msg": "Hello {site} — I won on the spin wheel, code: {code}",
+   "bot_name": "{site} Assistant",
+   "bot_status": "Automated help · replies instantly",
+   "bot_greeting": "Hi 👋 I'm the {site} assistant. I can help you book a repair, check your area or find a branch.",
+   "bot_placeholder": "Ask about a repair, area or price…",
+   "bot_tip": "Ask us anything",
+   "bot_wa_tip": "WhatsApp us",
+   "bot_wa_msg": "Hello {site} — I need help with a repair.",
+   "bot_a_book": "Great! Which device needs fixing?",
+   "bot_a_dev": "What's the problem with your {device}?",
+   "bot_a_iss": "Got it — {issue} for {device}. {price} Tap below and your booking message is ready to send.",
+   "bot_a_area": "Type your area name below (for example Qurum or Sohar) and I'll check.",
+   "bot_a_price": "Each repair shows its price on the site. Where none is shown, the technician gives you the price after checking the device — always before any work starts. {fee}.",
+   "bot_a_time": "Our technician comes to you first: {doorstep}. If it needs a part or more work it goes to our lab: {pickup}.",
+   "bot_a_contact": "We have branches in {branches}. 📞 {phone} ✉️ {email}",
+   "bot_a_hours": "We're open {hours}.",
+   "bot_a_human": "Sure — our team replies on WhatsApp.",
+   "bot_a_menu": "How else can I help?",
+   "bot_a_found": "✅ Yes, we cover {area}. Want to book a repair there?",
+   "bot_a_fallback": "I'm not sure about that one — our team can help on WhatsApp.",
+   "eng_eyebrow": "Book your slot",
+   "eng_title2": "repair at your door",
+   "eng_perks": "Expert technicians\nPrice confirmed first\nAt your door\nUpdates on WhatsApp",
+   "eng_from_label": "Starting from",
+   "eng_slide_ms": 3500,
+   "eng_idle_s": 35,
+   "eng_still_s": 15,
+   "eng_wa_msg": "Hi {site}, I want to book {slide}. My contact: {contact}",
+   "eng_form_pill": "Book instantly on WhatsApp",
+   "eng_form_title": "Book your slot",
+   "eng_form_subtitle": "Share your number or email and we'll start the booking on WhatsApp.",
+   "eng_form_privacy": "No spam. We only use your number to confirm the booking.",
+   "eng_form_send": "Send on WhatsApp",
+   "eng_form_all": "View all services",
+   "eng_form_all_link": "/services#all",
+   "eng_form_features": "Quick Service|In most areas\nGenuine Parts|Trusted quality\nBest Price|Transparent pricing",
+   "exit_title": "Leaving already? 👋",
+   "exit_status": "We reply on WhatsApp",
+   "exit_text": "What do you need fixed today? Tap one — we'll reply on WhatsApp.",
+   "exit_button": "Chat with us on WhatsApp",
+   "exit_wa_msg": "Hi {site}, I need help with a repair.",
+   "exit_tile_msg": "Hi {site}, I need help with my {device}.",
+   "exit_link": "/#book-services",
+   "exit_link_label": "See all services →"
+  },
+  "wheel": [
+   {
+    "name2": "Free",
+    "name": "Diagnosis",
+    "text": "Free diagnosis",
+    "code": "SPIN-DIAG",
+    "icon": "diag",
+    "color": "var(--violet)",
+    "color2": "#fff"
+   },
+   {
+    "name2": "Free",
+    "name": "Pickup",
+    "text": "Free pickup & drop",
+    "code": "SPIN-PICK",
+    "icon": "pick",
+    "color": "#f5b400",
+    "color2": "#10241a"
+   },
+   {
+    "name2": "Free",
+    "name": "Cleaning",
+    "text": "Free device cleaning",
+    "code": "SPIN-CLEAN",
+    "icon": "clean",
+    "color": "#16241d",
+    "color2": "#fff"
+   },
+   {
+    "name2": "Priority",
+    "name": "Slot",
+    "text": "Priority same-day slot",
+    "code": "SPIN-FAST",
+    "icon": "fast",
+    "color": "#ff7a45",
+    "color2": "#fff"
+   },
+   {
+    "name2": "Free",
+    "name": "Backup",
+    "text": "Free data backup",
+    "code": "SPIN-DATA",
+    "icon": "data",
+    "color": "color-mix(in srgb, var(--violet) 55%, #fff)",
+    "color2": "#10241a"
+   },
+   {
+    "name2": "Free",
+    "name": "Guard",
+    "text": "Free screen guard",
+    "code": "SPIN-GUARD",
+    "icon": "guard",
+    "color": "#fff",
+    "color2": "#10241a"
+   }
+  ],
+  "replies": [
+   {
+    "name": "🔧 Book a repair",
+    "code": "book"
+   },
+   {
+    "name": "📍 Do you cover my area?",
+    "code": "area"
+   },
+   {
+    "name": "💰 Prices",
+    "code": "price"
+   },
+   {
+    "name": "⏱ How long?",
+    "code": "time"
+   },
+   {
+    "name": "🏢 Branches & contact",
+    "code": "contact"
+   },
+   {
+    "name": "👤 Talk to a person",
+    "code": "human"
+   }
+  ],
+  "slides": [
+   {
+    "category": "Mobile Phone",
+    "name": "Mobile",
+    "name2": "Repair",
+    "text": "Screen, battery, charging, camera and more – quick and reliable service.",
+    "text2": "Genuine parts\nExpert technicians\nAffordable pricing\nQuick turnaround"
+   },
+   {
+    "category": "Laptop",
+    "name": "Laptop",
+    "name2": "Repair",
+    "text": "Screens, keyboards, batteries, hinges and board-level repair.",
+    "text2": "Genuine parts\nBoard-level repair\nAffordable pricing\nPickup & drop"
+   },
+   {
+    "category": "Printer",
+    "name": "Printer",
+    "name2": "Repair",
+    "text": "Paper jams, print quality, toner and setup – fixed on-site.",
+    "text2": "On-site service\nAll major brands\nAffordable pricing\nSetup included"
+   },
+   {
+    "category": "CCTV Installation",
+    "name": "CCTV",
+    "name2": "Installation",
+    "text": "Site survey, camera install, DVR/NVR setup and phone viewing.",
+    "text2": "Site survey first\nClean cabling\nRemote viewing\nMaintenance plans"
+   },
+   {
+    "category": "Data Recovery",
+    "name": "Data",
+    "name2": "Recovery",
+    "text": "Deleted files, dead drives and formatted disks recovered.",
+    "text2": "Honest assessment\nSecure handling\nAll drive types\nUpdates on WhatsApp"
+   }
+  ],
+  "tiles": [
+   {
+    "category": "Mobile Phone",
+    "name": "Mobile Phone"
+   },
+   {
+    "category": "Laptop",
+    "name": "Laptop"
+   },
+   {
+    "category": "Printer",
+    "name": "Printer"
+   },
+   {
+    "category": "CCTV Installation",
+    "name": "CCTV"
+   },
+   {
+    "category": "Networking & Wi-Fi",
+    "name": "Networking"
+   },
+   {
+    "category": "Data Recovery",
+    "name": "Data Recovery"
+   }
+  ]
+ }
 }

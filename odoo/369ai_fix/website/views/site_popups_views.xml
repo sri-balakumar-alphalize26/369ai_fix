@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Website Details: the "Pop-ups & chat" tab (the Fix Website > Pop-ups & chat screen draws the same fields on the page) -->
+    <record id="view_online_site_form_popups" model="ir.ui.view">
+        <field name="name">online.service.site.form.popups</field>
+        <field name="model">online.service.site</field>
+        <field name="inherit_id" ref="369ai_fix.view_online_site_form_content"/>
+        <field name="arch" type="xml">
+            <page name="services_page" position="after">
+                <page string="Pop-ups &amp; chat" name="popups">
+                    <div class="text-muted small mb-2">
+                        Everything that pops up on the site: the announcement bar, the welcome pop-up, the flash offer, the Spin &amp; Win wheel,
+                        the chat assistant, the "Book your slot" slider, the "Leaving already?" panel and the cookie notice.
+                        Empty fields show the site's own wording. Words in curly brackets are filled by the site: {site} the website name,
+                        {code} the offer or prize code, {fee} the visit fee line, {hours} the opening hours, {device} / {issue} / {price} /
+                        {area} / {branches} / {phone} / {email} / {doorstep} / {pickup} in the chat answers.
+                        The <b>Pop-ups &amp; chat</b> screen edits the same things on a drawing of the site.
+                    </div>
+                    <group>
+                        <group string="Announcement bar">
+                            <field name="ann_show" widget="boolean_toggle"/>
+                            <field name="ann_text" placeholder="Doorstep repair across Oman — free diagnosis this week"/>
+                            <field name="ann_button" placeholder="Book now →"/>
+                            <field name="ann_link" placeholder="/services#catalog"/>
+                            <field name="ann_speed_s"/>
+                        </group>
+                        <group string="Welcome pop-up">
+                            <field name="welcome_popup" widget="radio"/>
+                            <field name="welcome_delay_ms"/>
+                            <field name="welcome_flash_delay_ms"/>
+                            <field name="welcome_snooze_days"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Flash offer">
+                            <field name="flash_badge" placeholder="Flash offer"/>
+                            <field name="flash_title" placeholder="Free diagnosis this week"/>
+                            <field name="flash_body" placeholder="Book a doorstep visit and the check-up is on us. {fee}."/>
+                            <field name="flash_code" placeholder="369FIX"/>
+                            <field name="flash_button" placeholder="Book with offer"/>
+                            <field name="flash_button_link" placeholder="/services#catalog"/>
+                            <field name="flash_wa_button" placeholder="WhatsApp us"/>
+                            <field name="flash_wa_msg" placeholder="Hello {site} — I'd like to use code {code}"/>
+                            <field name="flash_later" placeholder="No thanks"/>
+                        </group>
+                        <group string="Cookie notice">
+                            <field name="cookie_show" widget="boolean_toggle"/>
+                            <field name="cookie_title" placeholder="We use cookies"/>
+                            <field name="cookie_text" placeholder="Only to remember your theme, area and choices on this site. No ads, no tracking."/>
+                            <field name="cookie_decline" placeholder="Decline"/>
+                            <field name="cookie_accept" placeholder="Accept"/>
+                            <field name="cookie_delay_ms"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Spin &amp; Win">
+                            <field name="wheel_tab" placeholder="Spin &amp; Win"/>
+                            <field name="wheel_eyebrow" placeholder="✦ {site} rewards ✦"/>
+                            <field name="wheel_title" placeholder="Spin &amp;"/>
+                            <field name="wheel_title2" placeholder="Win"/>
+                            <field name="wheel_subtitle" placeholder="Every slice is a free extra on your next repair."/>
+                            <field name="wheel_spin" placeholder="Spin the wheel"/>
+                            <field name="wheel_later" placeholder="Maybe later"/>
+                            <field name="wheel_won" placeholder="🎉 You won"/>
+                            <field name="wheel_note" placeholder="Show this code when you book. Valid on your next repair."/>
+                            <field name="wheel_book" placeholder="Book now"/>
+                            <field name="wheel_wa" placeholder="WhatsApp us"/>
+                            <field name="wheel_wa_msg" placeholder="Hello {site} — I won on the spin wheel, code: {code}"/>
+                        </group>
+                        <group string="Chat assistant">
+                            <field name="bot_name" placeholder="{site} Assistant"/>
+                            <field name="bot_status" placeholder="Automated help · replies instantly"/>
+                            <field name="bot_greeting" placeholder="Hi 👋 I'm the {site} assistant. I can help you book a repair, check your area or find a branch."/>
+                            <field name="bot_placeholder" placeholder="Ask about a repair, area or price…"/>
+                            <field name="bot_tip" placeholder="Ask us anything"/>
+                            <field name="bot_wa_tip" placeholder="WhatsApp us"/>
+                            <field name="bot_wa_msg" placeholder="Hello {site} — I need help with a repair."/>
+                        </group>
+                    </group>
+                    <group string="Chat answers">
+                        <group>
+                            <field name="bot_a_book" placeholder="Great! Which device needs fixing?"/>
+                            <field name="bot_a_dev" placeholder="What's the problem with your {device}?"/>
+                            <field name="bot_a_iss" placeholder="Got it — {issue} for {device}. {price} Tap below and your booking message is ready to send."/>
+                            <field name="bot_a_area" placeholder="Type your area name below (for example Qurum or Sohar) and I'll check."/>
+                            <field name="bot_a_found" placeholder="✅ Yes, we cover {area}. Want to book a repair there?"/>
+                            <field name="bot_a_price" placeholder="Each repair shows its price on the site. … {fee}."/>
+                        </group>
+                        <group>
+                            <field name="bot_a_time" placeholder="Our technician comes to you first: {doorstep}. If it needs a part or more work it goes to our lab: {pickup}."/>
+                            <field name="bot_a_contact" placeholder="We have branches in {branches}. 📞 {phone} ✉️ {email}"/>
+                            <field name="bot_a_hours" placeholder="We're open {hours}."/>
+                            <field name="bot_a_human" placeholder="Sure — our team replies on WhatsApp."/>
+                            <field name="bot_a_menu" placeholder="How else can I help?"/>
+                            <field name="bot_a_fallback" placeholder="I'm not sure about that one — our team can help on WhatsApp."/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Book-your-slot slider">
+                            <field name="eng_eyebrow" placeholder="Book your slot"/>
+                            <field name="eng_title2" placeholder="repair at your door"/>
+                            <field name="eng_perks" placeholder="Expert technicians&#10;Price confirmed first&#10;At your door&#10;Updates on WhatsApp"/>
+                            <field name="eng_from_label" placeholder="Starting from"/>
+                            <field name="eng_slide_ms"/>
+                            <field name="eng_idle_s"/>
+                            <field name="eng_wa_msg" placeholder="Hi {site}, I want to book {slide}. My contact: {contact}"/>
+                            <field name="eng_form_pill" placeholder="Book instantly on WhatsApp"/>
+                            <field name="eng_form_title" placeholder="Book your slot"/>
+                            <field name="eng_form_subtitle" placeholder="Share your number or email and we'll start the booking on WhatsApp."/>
+                            <field name="eng_form_privacy" placeholder="No spam. We only use your number to confirm the booking."/>
+                            <field name="eng_form_send" placeholder="Send on WhatsApp"/>
+                            <field name="eng_form_all" placeholder="View all services"/>
+                            <field name="eng_form_all_link" placeholder="/services#all"/>
+                            <field name="eng_form_features" placeholder="Quick Service|In most areas&#10;Genuine Parts|Trusted quality&#10;Best Price|Transparent pricing"/>
+                        </group>
+                        <group string="Leaving panel">
+                            <field name="eng_still_s"/>
+                            <field name="exit_title" placeholder="Leaving already? 👋"/>
+                            <field name="exit_status" placeholder="We reply on WhatsApp"/>
+                            <field name="exit_text" placeholder="What do you need fixed today? Tap one — we'll reply on WhatsApp."/>
+                            <field name="exit_button" placeholder="Chat with us on WhatsApp"/>
+                            <field name="exit_wa_msg" placeholder="Hi {site}, I need help with a repair."/>
+                            <field name="exit_tile_msg" placeholder="Hi {site}, I need help with my {device}."/>
+                            <field name="exit_link" placeholder="/#book-services"/>
+                            <field name="exit_link_label" placeholder="See all services →"/>
+                        </group>
+                    </group>
+                    <separator string="Lists: Spin &amp; Win prizes, chat quick replies, slider slides, leaving panel tiles"/>
+                    <div class="text-muted small mb-2">Drag to reorder. The columns mean different things per list — open a row (Lists ▸ Pop-up items) for the full form.</div>
+                    <field name="item_ids" nolabel="1" context="{'default_site_id': id}">
+                        <list editable="bottom" default_order="kind, sequence" decoration-muted="not active">
+                            <field name="sequence" widget="handle"/>
+                            <field name="kind"/>
+                            <field name="category_id" optional="show"/>
+                            <field name="name2" optional="show"/>
+                            <field name="name"/>
+                            <field name="text" widget="text" optional="show"/>
+                            <field name="text2" widget="text" optional="hide"/>
+                            <field name="code" optional="show"/>
+                            <field name="icon" optional="hide"/>
+                            <field name="color" optional="hide"/>
+                            <field name="color2" optional="hide"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </list>
+                    </field>
+                </page>
+            </page>
+        </field>
+    </record>
+
+    <!-- Lists > Pop-up items -->
+    <record id="view_fix_site_item_list" model="ir.ui.view">
+        <field name="name">fix.site.item.list</field>
+        <field name="model">fix.site.item</field>
+        <field name="arch" type="xml">
+            <list default_order="kind, sequence" decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="kind"/>
+                <field name="category_id" optional="show"/>
+                <field name="name2" optional="show"/>
+                <field name="name"/>
+                <field name="text" optional="show"/>
+                <field name="code" optional="show"/>
+                <field name="icon" optional="hide"/>
+                <field name="color" optional="hide"/>
+                <field name="color2" optional="hide"/>
+                <field name="site_id" optional="hide"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fix_site_item_form" model="ir.ui.view">
+        <field name="name">fix.site.item.form</field>
+        <field name="model">fix.site.item</field>
+        <field name="arch" type="xml">
+            <form string="Pop-up item">
+                <sheet>
+                    <widget name="web_ribbon" title="Hidden" bg_color="text-bg-danger" invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="kind" widget="radio"/>
+                            <field name="site_id"/>
+                            <field name="active" widget="boolean_toggle"/>
+                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="category_id" invisible="kind not in ('slide', 'tile')" required="kind in ('slide', 'tile')"/>
+                            <field name="name2" string="Word above (Free / Priority)" invisible="kind != 'wheel'"/>
+                            <field name="name2" string="Title (green part)" invisible="kind != 'slide'"/>
+                            <field name="name" string="Word on the slice" invisible="kind != 'wheel'" placeholder="Diagnosis"/>
+                            <field name="name" string="Chip" invisible="kind != 'reply'" placeholder="🔧 Book a repair"/>
+                            <field name="name" string="Title" invisible="kind != 'slide'" placeholder="Mobile"/>
+                            <field name="name" string="Label (empty = the device type)" invisible="kind != 'tile'"/>
+                            <field name="text" string="Prize in full" invisible="kind != 'wheel'" placeholder="Free diagnosis"/>
+                            <field name="text" string="Pitch" invisible="kind != 'slide'" placeholder="Screen, battery, charging, camera and more – quick and reliable service."/>
+                            <field name="text2" string="Perks, one per line" invisible="kind != 'slide'"/>
+                            <field name="code" string="Prize code" invisible="kind != 'wheel'" placeholder="SPIN-DIAG"/>
+                            <field name="code" string="What the chip does" invisible="kind != 'reply'" placeholder="book, area, price, time, contact, hours, human, menu"/>
+                            <field name="icon" invisible="kind != 'wheel'"/>
+                            <field name="color" invisible="kind != 'wheel'" placeholder="#f5b400 or var(--violet)"/>
+                            <field name="color2" invisible="kind != 'wheel'" placeholder="#fff"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fix_site_item_search" model="ir.ui.view">
+        <field name="name">fix.site.item.search</field>
+        <field name="model">fix.site.item</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="code"/>
+                <filter name="wheel" string="Spin &amp; Win prizes" domain="[('kind', '=', 'wheel')]"/>
+                <filter name="reply" string="Chat quick replies" domain="[('kind', '=', 'reply')]"/>
+                <filter name="slide" string="Slider slides" domain="[('kind', '=', 'slide')]"/>
+                <filter name="tile" string="Leaving panel tiles" domain="[('kind', '=', 'tile')]"/>
+                <separator/>
+                <filter name="hidden" string="Hidden" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_kind" string="List" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fix_items" model="ir.actions.act_window">
+        <field name="name">Pop-up items</field>
+        <field name="res_model">fix.site.item</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_group_kind': 1, 'active_test': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a prize, a chat reply, a slide or a tile</p>
+            <p>The four lists of the pop-ups: the Spin &amp; Win prizes, the chat assistant's quick replies, the slides of the
+               "Book your slot" slider and the tiles of the "Leaving already?" panel. The texts around them are in
+               Website Details ▸ Pop-ups &amp; chat, or on the Pop-ups &amp; chat screen, which draws all of it.</p>
+        </field>
+    </record>
+</odoo>

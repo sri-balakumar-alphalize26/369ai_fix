@@ -6,102 +6,30 @@
  *
  * A service, so it lives as long as the web client. It asks the server every
  * 20 seconds, and at once when the server pushes "online_service/refresh"
- * (a new order, or one was opened/confirmed). Web Audio, no sound file. Same
- * design as the Store's alarm, kept as this module's own copy so nothing
- * here depends on another module's JavaScript. The tone (two-tone siren) is
- * different from the Store's, so staff can tell them apart.
+ * (a new order, or one was opened/confirmed). The tone (two-tone siren, see
+ * app/desk/desk_alarm.js) is different from the Store's, so staff can tell
+ * them apart. While the Booking Desk is open in this tab, the desk owns the
+ * sound and this service stays quiet.
  */
 
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
+import { AlarmLoop, FixAlarm, ORDER_TONE, deskIsOpen } from "@369ai_fix/app/desk/desk_alarm";
 
 const POLL_MS = 20000;
 const MAX_FAILURES = 3;
 const RING_SECONDS = 6;
 const PAUSE_SECONDS = 8;
 
-class OnlineAlarm {
-    constructor() {
-        this.ctx = null;
-        this.armed = false;
-        this._timer = null;
-    }
-
-    async arm() {
-        if (this.armed) {
-            return true;
-        }
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        if (!Ctx) {
-            return false;
-        }
-        this.ctx = this.ctx || new Ctx();
-        try {
-            await this.ctx.resume();
-        } catch {
-            // the state below tells the truth
-        }
-        this.armed = this.ctx.state === "running";
-        return this.armed;
-    }
-
-    _tone(freq, at, length) {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.0001, at);
-        gain.gain.exponentialRampToValueAtTime(0.8, at + 0.02);
-        gain.gain.setValueAtTime(0.8, at + length - 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(at);
-        osc.stop(at + length + 0.02);
-    }
-
-    /** Two-tone siren for `seconds`, scheduled one second ahead so stop() is instant. */
-    ring(seconds) {
-        this.stop();
-        if (!this.armed || !this.ctx) {
-            return;
-        }
-        const notes = [880, 660];
-        const end = this.ctx.currentTime + seconds;
-        let next = this.ctx.currentTime + 0.05;
-        let i = 0;
-        const schedule = () => {
-            const horizon = this.ctx.currentTime + 1.0;
-            while (next < horizon && next < end) {
-                this._tone(notes[i % 2], next, 0.32);
-                i += 1;
-                next += 0.36;
-            }
-            if (next >= end) {
-                this.stop();
-            }
-        };
-        schedule();
-        this._timer = setInterval(schedule, 400);
-    }
-
-    stop() {
-        if (this._timer) {
-            clearInterval(this._timer);
-            this._timer = null;
-        }
-    }
-}
-
 export const onlineServiceAlarmService = {
     dependencies: ["orm", "bus_service", "notification", "action"],
 
     start(env, { orm, bus_service, notification, action }) {
-        const alarm = new OnlineAlarm();
+        const alarm = new FixAlarm();
+        const loop = new AlarmLoop(alarm, ORDER_TONE);
         let armed = false;
         let failures = 0;
         let state = null;
-        let repeat = null;
         let poller = null;
         let closeNotification = null;
         let shownFor = "";
@@ -121,24 +49,12 @@ export const onlineServiceAlarmService = {
         document.addEventListener("pointerdown", arm, true);
         document.addEventListener("keydown", arm, true);
 
-        function stop() {
-            if (repeat) {
-                clearInterval(repeat);
-                repeat = null;
-            }
-            alarm.stop();
-        }
-
         function sync() {
-            if (!state || !state.count || !armed) {
-                stop();
+            if (!state || !state.count || !armed || deskIsOpen()) {
+                loop.stop();
                 return;
             }
-            if (!repeat) {
-                alarm.ring(RING_SECONDS);
-                repeat = setInterval(() => alarm.ring(RING_SECONDS),
-                                     (RING_SECONDS + PAUSE_SECONDS) * 1000);
-            }
+            loop.start(RING_SECONDS, PAUSE_SECONDS);
         }
 
         async function openOrder(id) {
@@ -158,7 +74,7 @@ export const onlineServiceAlarmService = {
         }
 
         function tellThem() {
-            const key = state && state.count ? state.orders.map((o) => o.id).join(",") : "";
+            const key = state && state.count && !deskIsOpen() ? state.orders.map((o) => o.id).join(",") : "";
             if (key === shownFor) {
                 return;
             }
@@ -200,7 +116,7 @@ export const onlineServiceAlarmService = {
                 // No access, or the server is restarting: not worth a dialog.
                 failures += 1;
                 if (failures >= MAX_FAILURES) {
-                    stop();
+                    loop.stop();
                     clearInterval(poller);
                 }
                 return;
@@ -210,6 +126,11 @@ export const onlineServiceAlarmService = {
         }
 
         bus_service.subscribe("online_service/refresh", () => poll());
+        // the Booking Desk opened or closed in this tab: hand the sound over / take it back
+        document.addEventListener("fix_desk_presence", () => {
+            sync();
+            tellThem();
+        });
         poller = setInterval(poll, POLL_MS);
         poll();
 

@@ -88,10 +88,12 @@ class OnlineServiceSite(models.Model):
         }
 
     def _fix_site_content(self):
-        """The website's name, contact details, header, branches and footer."""
+        """The website's name, contact details, header, branches and footer, plus the pop-ups,
+        wheel, chat assistant and slider (site_popups.py)."""
         self.ensure_one()
         links = self.link_ids.sorted('sequence')
-        return {
+        out = self._fix_popups()
+        out.update({
             'name': self.name, 'tagline': self.tagline or '',
             'phone': self.contact_phone or '', 'whatsapp': self.contact_whatsapp or '',
             'email': self.contact_email or '', 'address': self.contact_address or '',
@@ -110,7 +112,8 @@ class OnlineServiceSite(models.Model):
             'coverage': self._fix_coverage(),
             'faq': [{'q': f.name, 'a': f.answer or ''} for f in self.faq_ids.sorted('sequence') if f.active],
             'pages': [p._serialize() for p in self.page_ids.sorted('sequence') if p.active],
-        }
+        })
+        return out
 
     def _fix_visit_fee(self):
         """The visit fee product's sale price (Repair settings: mobile_repair.inspection_charge_product_id,

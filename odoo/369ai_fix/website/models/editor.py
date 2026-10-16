@@ -6,6 +6,7 @@ create, unlink, web_resequence) from the browser, batched a moment after typing 
 from odoo import api, fields, models
 
 from .home import KINDS
+from .site_popups import POPUP_FIELDS
 
 
 class OnlineServiceSite(models.Model):
@@ -17,7 +18,8 @@ class OnlineServiceSite(models.Model):
         'footer_about', 'footer_copyright', 'footer_credit',
         'svc_eyebrow', 'svc_title', 'svc_title2', 'svc_lead', 'svc_modes_eyebrow', 'svc_modes_title', 'svc_fee_label',
         'cov_eyebrow', 'cov_title', 'cov_trust', 'public_url', 'show_device_photos', 'drawing_style',
-    )
+    ) + POPUP_FIELDS
+    ITEM_FIELDS = ('kind', 'sequence', 'active', 'name', 'name2', 'text', 'text2', 'code', 'icon', 'color', 'color2', 'link', 'category_id')
 
     @api.model
     def fix_editor_pictures(self, what):
@@ -87,6 +89,9 @@ class OnlineServiceSite(models.Model):
             'faqs': [self._fix_row(f, ('name', 'answer', 'active', 'sequence')) for f in site.with_context(active_test=False).faq_ids.sorted('sequence')],
             'pages': [self._fix_row(p, ('name', 'slug', 'column', 'kind', 'active', 'sequence', 'body'))
                       for p in site.with_context(active_test=False).page_ids.sorted('sequence')],
+            # Pop-ups & chat: the four lists (wheel prizes, chat replies, slider slides, leaving tiles)
+            'items': [self._fix_row(i, self.ITEM_FIELDS) for i in site.with_context(active_test=False).item_ids.sorted('sequence')],
+            'hours': site.opening_hours or '',
             'price': price, 'visit_fee': fee, 'price_later': 'Price after check',
             'totals': {'categories': len(cats), 'brands': Brand.search_count([]),
                        'models': self.env['device.model'].search_count([]) if 'device.model' in self.env else 0},

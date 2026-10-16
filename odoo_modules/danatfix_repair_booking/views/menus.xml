@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Inside the "369 ai Fix" app (369ai_fix add-on): the Live Screen at the top,
-         Old Bookings under Bookings, the desk settings under Configuration. -->
+    <!-- Inside the "369 ai Fix" app (369ai_fix add-on): Old Bookings under Bookings,
+         the desk settings under Configuration. -->
     <menuitem id="menu_danatfix_booking_screen"
               name="Live Screen"
               parent="369ai_fix.menu_fix_root"
               action="action_danatfix_booking_screen"
-              sequence="2"/>
+              sequence="3"/>
+
+    <!-- Since 369ai_fix 19.0.2.7.0 the Booking Desk (369ai_fix.menu_fix_desk) does what
+         the Live Screen did, with the rest of the flow. The menu is archived, not removed:
+         the action still exists for whoever bookmarked it. Same pattern as
+         369ai_fix.menu_online_service_root. -->
+    <record id="menu_danatfix_booking_screen" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
 
     <menuitem id="menu_danatfix_booking_list"
               name="Old Bookings"

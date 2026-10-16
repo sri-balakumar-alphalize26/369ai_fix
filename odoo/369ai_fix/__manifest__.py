@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.6.0',
+    'version': '19.0.2.8.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """
@@ -24,12 +24,16 @@ October 2026 these were six add-ons; each is now a folder here):
   customer's words, photos and video). The customer is their 369 Mart account
   and one of their saved addresses. Review, approve / reject, time slots.
 * **website/**: the "Fix Website" app, for whoever looks after the website:
-  device photos or drawings, brand logos, photos for every repair service.
-* **app/**: the "369 ai Fix" home-screen app: dashboard, bookings, service,
-  catalogue and configuration.
+  every text of the site (home page, Services page, info pages, pop-ups and the
+  chat assistant), device photos or drawings, brand logos, photos for every
+  repair service.
+* **app/**: the "369 ai Fix" home-screen app: the Booking Desk (one screen that
+  carries a booking from new -> approve / call / reject -> time booked -> technician
+  assigned -> live visit on a map -> done, with both alarms), dashboard, bookings,
+  service, catalogue and configuration.
 
-The Live Screen, alarms and the staff WhatsApp poll are in
-danatfix_repair_booking, which adds its menus to the 369 ai Fix app.
+The staff WhatsApp poll and the "calling the customer" state are in
+danatfix_repair_booking; the Booking Desk shows them when it is installed.
 
 mobile_repair and 369 Mart's add-ons are extended, never changed.
 """,
@@ -88,20 +92,31 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
         'website/views/home_views.xml',
         'website/views/site_content_views.xml',
         'website/views/site_pages_views.xml',
+        'website/views/site_popups_views.xml',
         'website/views/editor_views.xml',
         'website/views/menus.xml',
         # app
         'app/views/dashboard_action.xml',
+        'app/views/desk_action.xml',
         'app/views/job_card_actions.xml',
         'app/views/menus.xml',
     ],
     'assets': {
         'web.assets_backend': [
+            # Leaflet 1.9.4 (BSD-2, static/lib/leaflet/LICENSE): the live map of the Booking Desk
+            '369ai_fix/static/lib/leaflet/leaflet.css',
+            '369ai_fix/static/lib/leaflet/leaflet.js',
+            # the alarm (shared by the desk and the background service), then the desk
+            '369ai_fix/static/src/app/desk/desk_alarm.js',
+            '369ai_fix/static/src/app/desk/leaflet_map.js',
+            '369ai_fix/static/src/app/desk/fix_desk.scss',
+            '369ai_fix/static/src/app/desk/fix_desk.js',
+            '369ai_fix/static/src/app/desk/fix_desk.xml',
             '369ai_fix/static/src/customer/online_alarm_service.js',
             '369ai_fix/static/src/customer/dashboard_online.xml',
             '369ai_fix/static/src/booking/dashboard_bookings.xml',
             '369ai_fix/static/src/app/dashboard_hide.xml',
-            '369ai_fix/static/src/app/fix_dashboard.css',
+            '369ai_fix/static/src/app/fix_dashboard.scss',
             '369ai_fix/static/src/app/fix_dashboard.js',
             '369ai_fix/static/src/app/fix_dashboard.xml',
             '369ai_fix/static/src/website/device_pictures.css',

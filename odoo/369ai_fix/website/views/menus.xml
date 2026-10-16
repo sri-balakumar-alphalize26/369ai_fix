@@ -14,6 +14,8 @@
               action="action_fix_editor_services" sequence="2"/>
     <menuitem id="menu_fix_pages" name="Info Pages" parent="menu_fix_website_root"
               action="action_fix_editor_pages" sequence="3"/>
+    <menuitem id="menu_fix_popups" name="Pop-ups &amp; chat" parent="menu_fix_website_root"
+              action="action_fix_editor_popups" sequence="4"/>
 
     <menuitem id="menu_fix_website_details" name="Website Details" parent="menu_fix_website_root"
               action="action_website_details" sequence="5"/>
@@ -35,8 +37,10 @@
               action="action_fix_faqs" sequence="3"/>
     <menuitem id="menu_fix_page_list" name="Info page list" parent="menu_fix_website_lists"
               action="action_fix_pages" sequence="4"/>
+    <menuitem id="menu_fix_item_list" name="Pop-up items" parent="menu_fix_website_lists"
+              action="action_fix_items" sequence="5"/>
     <menuitem id="menu_fix_brand_logo_list" name="Brand logo list" parent="menu_fix_website_lists"
-              action="action_brand_logos" sequence="5"/>
+              action="action_brand_logos" sequence="6"/>
     <menuitem id="menu_fix_service_picture_list" name="Service picture list" parent="menu_fix_website_lists"
-              action="action_service_pictures" sequence="6"/>
+              action="action_service_pictures" sequence="7"/>
 </odoo>

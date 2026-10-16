@@ -1,5 +1,0 @@
-/* Taller than the IT dashboard, so it scrolls inside the action area. */
-.o_fix_dashboard {
-    height: 100%;
-    overflow-y: auto;
-}

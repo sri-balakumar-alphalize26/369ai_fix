@@ -23,9 +23,14 @@ MOST_BOOKED = [
 ]
 
 
-def load_starter_content(env, sites=None):
+def starter_content():
+    """The starter texts, as a dict (data/starter_content.json)."""
     with file_open(f'{MODULE}/website/data/starter_content.json') as f:
-        d = json.load(f)
+        return json.load(f)
+
+
+def load_starter_content(env, sites=None):
+    d = starter_content()
     sites = sites if sites is not None else env['online.service.site'].with_context(active_test=False).search([])
     pages = 0
     for site in sites:
@@ -64,6 +69,41 @@ def _fill_site(site, d):
             'phones': b.get('phones', ''), 'map_query': b.get('map', ''),
         } for i, b in enumerate(d['branches'].get('items', []), 1)])
     _fill_services_page(site, d)
+    _fill_popups(site, d)
+
+
+def _fill_popups(site, d):
+    """Pop-ups & chat (19.0.2.8.0): the announcement bar, welcome pop-up, flash offer, cookie
+    notice, Spin & Win, chat assistant, slider and leaving panel. Empty fields are filled; each
+    list (wheel prizes, chat replies, slides, tiles) is made only when the site has none of
+    that kind. Slides and tiles name a device type; unknown names are skipped."""
+    p = d.get('popups') or {}
+    vals = {}
+    for field, value in (p.get('fields') or {}).items():
+        if field in site._fields and value not in (None, '') and not site[field]:
+            vals[field] = value
+    if vals:
+        site.write(vals)
+    Item = site.env['fix.site.item'].with_context(active_test=False)
+    Cat = site.env['device.category'].with_context(active_test=False)
+    for kind, key in (('wheel', 'wheel'), ('reply', 'replies'), ('slide', 'slides'), ('tile', 'tiles')):
+        if Item.search_count([('site_id', '=', site.id), ('kind', '=', kind)]):
+            continue
+        rows = []
+        for x in p.get(key) or []:
+            row = {'site_id': site.id, 'kind': kind, 'sequence': (len(rows) + 1) * 10}
+            if kind in ('slide', 'tile'):
+                cat = Cat.search([('name', '=ilike', x.get('category', ''))], limit=1)
+                if not cat:
+                    _logger.info('%s: no device type %r for the %s, skipped', MODULE, x.get('category'), kind)
+                    continue
+                row['category_id'] = cat.id
+            for col in ('name', 'name2', 'text', 'text2', 'code', 'icon', 'color', 'color2', 'link'):
+                if x.get(col) not in (None, ''):
+                    row[col] = x[col]
+            rows.append(row)
+        if rows:
+            Item.create(rows)
 
 
 def fill_popular_links(env, d):

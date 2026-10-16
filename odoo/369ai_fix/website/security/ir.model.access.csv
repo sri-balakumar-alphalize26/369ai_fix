@@ -23,3 +23,5 @@ access_fix_site_faq_user,fix.site.faq user,model_fix_site_faq,base.group_user,1,
 access_fix_site_faq_editor,fix.site.faq editor,model_fix_site_faq,group_fix_website_editor,1,1,1,1
 access_fix_site_page_user,fix.site.page user,model_fix_site_page,base.group_user,1,0,0,0
 access_fix_site_page_editor,fix.site.page editor,model_fix_site_page,group_fix_website_editor,1,1,1,1
+access_fix_site_item_user,fix.site.item user,model_fix_site_item,base.group_user,1,0,0,0
+access_fix_site_item_editor,fix.site.item editor,model_fix_site_item,group_fix_website_editor,1,1,1,1

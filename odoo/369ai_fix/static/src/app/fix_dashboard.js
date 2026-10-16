@@ -4,8 +4,8 @@ import { registry } from "@web/core/registry";
 import { Component, useState, onWillStart } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 
-// Same look as the IT & Mobile Repair dashboard (it reuses that screen's styles),
-// with the numbers of the 369 ai Fix flow only.
+// The numbers of the 369 ai Fix flow, in the same look as the Booking Desk
+// (fix_dashboard.scss; the tiles open the matching list).
 class FixDashboard extends Component {
     static template = "369ai_fix.Dashboard";
 
@@ -30,6 +30,14 @@ class FixDashboard extends Component {
 
     open(xmlid) {
         this.actionService.doAction(xmlid);
+    }
+
+    /** Bar height in % of the tallest month; a month with repairs is never shorter than 5 %. */
+    barHeight(item) {
+        if (!item.count) {
+            return 2;
+        }
+        return Math.max((item.count / this.state.maxCompleted) * 100, 5);
     }
 
     openJobCards(state) {

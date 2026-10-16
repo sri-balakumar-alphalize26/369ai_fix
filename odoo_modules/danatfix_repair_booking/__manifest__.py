@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Danat Fix Repair Booking',
-    'version': '19.0.3.0.0',
-    'summary': 'Live Screen, alarms and the staff WhatsApp poll for website repair bookings',
+    'version': '19.0.3.1.0',
+    'summary': 'Alarms and the staff WhatsApp poll for website repair bookings',
     'description': """
 Website bookings (IT & Mobile Repair > Online Service, each already a filled job
 card) are handled here.
 
-* Store > Website Bookings > Live Screen: a card per new booking with the device,
-  the faults, the customer's own words and photos, the parts and their stock, and
-  Approve / Call (Main, Alternative) / Reject. Booked visit times show too, with Seen.
+* The Booking Desk of the 369 ai Fix app shows every booking with Approve / Call
+  (Main, Alternative) / Reject, "calling the customer" and the WhatsApp poll state.
+  The old Live Screen is folded into it (its menu is archived; the action stays).
 * Two alarms on every Odoo page: a chime while a booking waits for review, and a
-  second tone when a customer books the visit time.
+  second tone when a customer books the visit time. They stay quiet while the
+  Booking Desk is open, which rings them itself.
 * The staff WhatsApp group gets each booking with a poll:
   Accept / Call customer first / Reject. The first tap decides; the screen follows.
   Reject from WhatsApp asks for the reason on the screen; Accept that needs a price

@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- ================================================================ the screen -->
+    <t t-name="369ai_fix.Desk">
+        <Layout display="{ controlPanel: {} }" className="'o_fxd h-100'">
+            <div class="fxd">
+
+                <header class="fxd-top">
+                    <div class="fxd-brand">
+                        <span class="fxd-logo">369</span>
+                        <div>
+                            <h1>Booking Desk</h1>
+                            <small>Every website booking, from new to done</small>
+                        </div>
+                    </div>
+                    <span class="fxd-pill fxd-pill-new" t-att-class="{ 'fxd-pulse': state.counts.new }" role="status">
+                        <i class="fa fa-bell"/> <t t-esc="state.counts.new || 0"/> new
+                    </span>
+                    <span class="fxd-pill fxd-pill-slot" t-att-class="{ 'fxd-pulse': state.counts.booked }" role="status">
+                        <i class="fa fa-calendar-check-o"/> <t t-esc="state.counts.booked || 0"/> times booked
+                    </span>
+                    <span class="fxd-pill fxd-pill-poll" t-if="state.pollReady" title="New bookings are posted to the staff WhatsApp group with a poll">
+                        <i class="fa fa-whatsapp"/> WhatsApp poll on
+                    </span>
+                    <span class="fxd-gap"/>
+                    <button class="fxd-btn fxd-btn-amber" t-if="!state.soundOn" t-on-click="onEnableSound">
+                        <i class="fa fa-volume-up"/> Turn on the alarm
+                    </button>
+                    <t t-else="">
+                        <span class="fxd-sound"><i class="fa fa-volume-up"/> Alarm on</span>
+                        <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="onTestSound">Test</button>
+                    </t>
+                    <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="openAll"><i class="fa fa-list"/> All orders</button>
+                </header>
+
+                <div class="fxd-warn" t-if="!state.soundOn">
+                    No sound yet: the browser will not play anything until you click. Turn the alarm on, or new bookings arrive silently.
+                </div>
+
+                <div class="fxd-body" t-att-class="{ 'fxd-detail-open': state.showDetail }">
+
+                    <!-- the rail: one stage per booking -->
+                    <nav class="fxd-rail" aria-label="Stages">
+                        <t t-foreach="state.stages" t-as="s" t-key="s.key">
+                            <button t-att-class="railClass(s)" t-on-click="() => this.setStage(s.key)">
+                                <span class="fxd-rail-dot"/>
+                                <span class="fxd-rail-label" t-esc="s.label"/>
+                                <span class="fxd-rail-count" t-esc="state.counts[s.key] || 0"/>
+                            </button>
+                        </t>
+                    </nav>
+
+                    <!-- the cards of the stage -->
+                    <section class="fxd-list">
+                        <div class="fxd-list-head">
+                            <h2 t-esc="stageLabel(state.stage)"/>
+                            <small t-esc="stageHint(state.stage)"/>
+                        </div>
+                        <div class="fxd-empty" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
+                        <div class="fxd-empty" t-elif="!state.rows.length">
+                            <span class="fxd-empty-mark"><i class="fa fa-check"/></span>
+                            <span>Nothing here. New bookings appear on their own.</span>
+                        </div>
+                        <t t-foreach="state.rows" t-as="row" t-key="row.id">
+                            <article t-att-class="cardClass(row)" t-on-click="() => this.select(row)" role="button" tabindex="0">
+                                <div class="fxd-card-top">
+                                    <b class="fxd-ref" t-esc="row.name"/>
+                                    <span class="fxd-mode" t-esc="row.mode_label"/>
+                                    <span class="fxd-age" t-esc="age(row)"/>
+                                </div>
+                                <div class="fxd-card-cust"><t t-esc="row.customer or 'No name given'"/><small t-if="row.area"> · <t t-esc="row.area"/></small></div>
+                                <div class="fxd-card-sum" t-if="row.summary" t-esc="row.summary"/>
+                                <div class="fxd-card-meta">
+                                    <span class="fxd-chip fxd-chip-blue" t-if="row.slot" t-att-class="{ 'fxd-chip-pulse': row.slot_unseen }"><i class="fa fa-calendar"/> <t t-esc="row.slot"/></span>
+                                    <span class="fxd-chip" t-if="row.total"><t t-esc="money(row.total, row.currency)"/></span>
+                                    <span class="fxd-chip fxd-chip-amber" t-if="row.parts_badge" t-esc="row.parts_badge"/>
+                                    <span class="fxd-chip" t-if="row.technician"><i t-if="row.stale" class="fxd-stale" title="Signal lost"/><i t-else="" class="fa fa-user"/> <t t-esc="row.technician"/></span>
+                                    <span class="fxd-chip fxd-chip-blue" t-if="row.eta">ETA <t t-esc="row.eta"/> min</span>
+                                    <span class="fxd-chip fxd-chip-amber" t-if="row.calling_by">Calling: <t t-esc="row.calling_by"/></span>
+                                    <span class="fxd-chip fxd-chip-red" t-if="row.reject_pending">Reject: reason needed</span>
+                                    <span class="fxd-chip fxd-chip-red" t-if="row.needs_screen" t-att-title="row.needs_screen">Finish here</span>
+                                    <span class="fxd-chip" t-if="row.at_office"><i class="fa fa-building"/> At the office</span>
+                                    <span class="fxd-chip" t-if="row.visit_label and row.stage !== 'new'" t-esc="row.visit_label"/>
+                                </div>
+                            </article>
+                        </t>
+                    </section>
+
+                    <!-- the booking -->
+                    <aside class="fxd-pane">
+                        <div class="fxd-empty fxd-pane-empty" t-if="!state.selectedId">
+                            <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-hand-pointer-o"/></span>
+                            <span>Pick a booking on the left.</span>
+                        </div>
+                        <div class="fxd-empty fxd-pane-empty" t-elif="!state.detail"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
+                        <t t-else="" t-call="369ai_fix.DeskDetail"/>
+                    </aside>
+                </div>
+            </div>
+        </Layout>
+    </t>
+
+    <!-- ================================================================ the detail pane -->
+    <t t-name="369ai_fix.DeskDetail">
+        <t t-set="d" t-value="state.detail"/>
+        <div class="fxd-detail">
+
+            <div class="fxd-head">
+                <button class="fxd-back" t-on-click="closeDetail" title="Back to the list"><i class="fa fa-arrow-left"/></button>
+                <div class="fxd-head-main">
+                    <h2><t t-esc="d.name"/><span t-attf-class="fxd-stage-pill fxd-stage-{{ d.stage }}"><t t-esc="d.stage_label or d.state_label"/></span></h2>
+                    <small><t t-esc="d.mode_label"/> · booked <t t-esc="when(d.created)"/><t t-if="d.opened_by"> · opened by <t t-esc="d.opened_by"/></t></small>
+                </div>
+                <div class="fxd-head-links">
+                    <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => this.openForm('online.service.order', d.id)"><i class="fa fa-external-link"/> Open form</button>
+                </div>
+            </div>
+            <div class="fxd-moved" t-if="d.moved">This booking moved to another stage. The list shows it there now.</div>
+
+            <!-- buttons of this stage -->
+            <div class="fxd-actions" t-if="d.actions.length">
+                <t t-foreach="d.actions" t-as="key" t-key="key">
+                    <t t-set="b" t-value="button(key)"/>
+                    <t t-if="key === 'assign'">
+                        <div class="fxd-assign">
+                            <select class="fxd-pick" t-model.number="state.techPick" aria-label="Technician">
+                                <option value="0">Choose the technician…</option>
+                                <t t-foreach="state.technicians" t-as="tech" t-key="tech.id">
+                                    <option t-att-value="tech.id"><t t-esc="tech.name"/><t t-if="tech.phone"> · <t t-esc="tech.phone"/></t></option>
+                                </t>
+                            </select>
+                            <button t-attf-class="fxd-btn fxd-btn-{{ b.kind }}" t-att-disabled="state.busy" t-on-click="() => this.act('assign')">
+                                <i t-attf-class="fa {{ b.icon }}"/> <t t-esc="b.label"/>
+                            </button>
+                        </div>
+                    </t>
+                    <t t-elif="key === 'cancel_visit' and state.askCancel">
+                        <div class="fxd-assign fxd-cancel">
+                            <input class="fxd-in" type="text" placeholder="Why? (optional, kept on the visit)" t-model="state.cancelReason"/>
+                            <button class="fxd-btn fxd-btn-danger" t-att-disabled="state.busy" t-on-click="() => this.act('cancel_visit')"><i class="fa fa-ban"/> Yes, cancel the visit</button>
+                            <button class="fxd-btn fxd-btn-ghost" t-on-click="() => state.askCancel = false">Keep it</button>
+                        </div>
+                    </t>
+                    <button t-else="" t-attf-class="fxd-btn fxd-btn-{{ b.kind }}" t-att-disabled="state.busy" t-on-click="() => this.act(key)">
+                        <i t-attf-class="fa {{ b.icon }}"/> <t t-esc="b.label"/>
+                    </button>
+                </t>
+            </div>
+            <div class="fxd-note fxd-note-red" t-if="d.needs_screen">Accepted on WhatsApp, but <t t-esc="d.needs_screen"/>.</div>
+            <div class="fxd-note fxd-note-amber" t-if="d.calling_by">Calling the customer: <b t-esc="d.calling_by"/></div>
+            <div class="fxd-note fxd-note-red" t-if="d.reject_reason">Rejected by <t t-esc="d.rejected_by"/>: <t t-esc="d.reject_reason"/></div>
+
+            <div class="fxd-grid">
+                <!-- customer -->
+                <section class="fxd-box">
+                    <h3><i class="fa fa-user"/> Customer</h3>
+                    <div class="fxd-cust-name" t-esc="d.customer or 'No name given'"/>
+                    <div class="fxd-numbers">
+                        <t t-foreach="d.numbers" t-as="num" t-key="num.digits">
+                            <a class="fxd-tel" t-attf-href="tel:+#{num.digits}">
+                                <span class="fxd-tel-badge" t-att-class="{ 'fxd-tel-alt': num.label !== 'Main' }" t-esc="num.label"/>
+                                <i class="fa fa-phone"/> <t t-esc="num.number"/>
+                            </a>
+                        </t>
+                        <span class="fxd-muted" t-if="!d.numbers.length">No phone number.</span>
+                    </div>
+                    <div class="fxd-addr" t-if="d.address or d.area">
+                        <i class="fa fa-map-marker"/> <t t-esc="where(d)"/>
+                        <a t-if="d.map_url" t-att-href="d.map_url" target="_blank" rel="noopener"> · map</a>
+                    </div>
+                    <div class="fxd-muted" t-if="d.email" t-esc="d.email"/>
+                    <div class="fxd-slot" t-if="d.slot"><i class="fa fa-calendar"/> <b t-esc="d.slot"/><small t-if="d.slot_seen_by"> · seen by <t t-esc="d.slot_seen_by"/></small><small t-elif="d.slot_booked_on"> · booked <t t-esc="when(d.slot_booked_on)"/></small></div>
+                </section>
+
+                <!-- repairs and estimate -->
+                <section class="fxd-box">
+                    <h3><i class="fa fa-wrench"/> Repairs &amp; estimate</h3>
+                    <ul class="fxd-lines" t-if="d.lines.length">
+                        <t t-foreach="d.lines" t-as="line" t-key="line.id">
+                            <li>
+                                <span class="fxd-qty" t-esc="line.qty"/>
+                                <span t-esc="lineLabel(line)"/>
+                                <span class="fxd-price" t-if="line.price !== null" t-esc="money(line.price, d.currency)"/>
+                            </li>
+                        </t>
+                    </ul>
+                    <div class="fxd-total" t-if="d.total">Estimate <b t-esc="money(d.total, d.currency)"/><small t-if="d.approved_by"> · approved by <t t-esc="d.approved_by"/> <t t-esc="when(d.approved_on)"/></small></div>
+                    <div class="fxd-muted" t-else="">No priced repair on the job card yet.</div>
+                    <ul class="fxd-parts" t-if="d.parts.length">
+                        <t t-foreach="d.parts" t-as="part" t-key="part_index">
+                            <li>
+                                <span><t t-esc="part.name"/> × <t t-esc="part.qty"/></span>
+                                <span t-att-class="part.missing ? 'fxd-stock-no' : 'fxd-stock-ok'">
+                                    <t t-if="!part.missing"><t t-esc="part.on_hand"/> in stock</t>
+                                    <t t-else="">none - order it</t>
+                                </span>
+                            </li>
+                        </t>
+                    </ul>
+                    <div class="fxd-chip fxd-chip-amber" t-if="d.parts_badge"><t t-esc="d.parts_badge"/><t t-if="d.parts_days"> · about <t t-esc="d.parts_days"/> days</t></div>
+                    <div class="fxd-cards" t-if="d.job_cards.length">
+                        <t t-foreach="d.job_cards" t-as="card" t-key="card.id">
+                            <button class="fxd-cardlink" t-on-click="() => this.openForm('job.card', card.id)">
+                                <i class="fa fa-file-text-o"/> <t t-esc="card.name"/> <small t-esc="card.state_label"/>
+                                <small t-if="card.technician"> · <t t-esc="card.technician"/></small>
+                                <small t-if="card.at_office"> · at the office<t t-if="card.return_by">, back by <t t-esc="card.return_by"/></t></small>
+                                <small t-if="card.quote"> · <t t-esc="card.quote"/></small>
+                            </button>
+                        </t>
+                    </div>
+                </section>
+
+                <!-- the customer's words, photos, video -->
+                <section class="fxd-box" t-if="d.problem or d.note or d.photos.length or d.videos">
+                    <h3><i class="fa fa-comment-o"/> Customer says</h3>
+                    <blockquote class="fxd-quote" t-if="d.problem">“<t t-esc="d.problem"/>”</blockquote>
+                    <div class="fxd-muted" t-if="d.note">Note: <t t-esc="d.note"/></div>
+                    <div class="fxd-photos" t-if="d.photos.length or d.videos">
+                        <t t-foreach="d.photos" t-as="pid" t-key="pid">
+                            <a t-attf-href="/web/content/#{pid}" target="_blank" rel="noopener">
+                                <img t-attf-src="/web/image/#{pid}/96x96" alt="Customer photo" loading="lazy"/>
+                            </a>
+                        </t>
+                        <span class="fxd-chip" t-if="d.videos"><i class="fa fa-video-camera"/> <t t-esc="d.videos"/> video</span>
+                    </div>
+                </section>
+
+                <!-- WhatsApp / poll -->
+                <section class="fxd-box fxd-box-slim" t-if="state.pollReady or d.poll_sent or d.poll_error_text">
+                    <h3><i class="fa fa-whatsapp"/> Staff WhatsApp</h3>
+                    <div t-if="d.poll_error_text" class="fxd-note fxd-note-red">Poll not sent: <t t-esc="d.poll_error_text"/></div>
+                    <div t-elif="d.poll_sent" class="fxd-muted">Posted to the staff group with the poll.</div>
+                    <div t-else="" class="fxd-muted">Not posted to the staff group.</div>
+                </section>
+
+                <!-- the visit -->
+                <section class="fxd-box fxd-box-wide" t-if="d.visit">
+                    <h3><i class="fa fa-car"/> Visit <small t-esc="d.visit.name"/> <span class="fxd-chip" t-esc="d.visit.state_label"/>
+                        <button class="fxd-link" t-on-click="() => this.openForm('fix.service.visit', d.visit.id)">open</button></h3>
+                    <div class="fxd-tech" t-if="d.visit.technician">
+                        <i class="fa fa-user-circle"/> <b t-esc="d.visit.technician"/>
+                        <a t-if="d.visit.technician_phone" t-attf-href="tel:#{d.visit.technician_phone}" class="fxd-muted"> <t t-esc="d.visit.technician_phone"/></a>
+                        <small class="fxd-muted" t-if="d.visit.link_sent_on"> · link sent <t t-esc="when(d.visit.link_sent_on)"/></small>
+                    </div>
+                    <div class="fxd-muted" t-if="d.visit.slot_start">Visit window: <t t-esc="when(d.visit.slot_start)"/> – <t t-esc="when(d.visit.slot_end)"/></div>
+                    <div class="fxd-code" t-if="d.visit.arrival_code">
+                        <span>Arrival code</span><b t-esc="d.visit.arrival_code"/>
+                        <small>The customer reads it out at the door.</small>
+                    </div>
+                    <ol class="fxd-timeline" t-if="d.visit.timeline.length">
+                        <t t-foreach="d.visit.timeline" t-as="step" t-key="step.key">
+                            <li t-att-class="{ 'fxd-done': step.done, 'fxd-now': step.current }">
+                                <span class="fxd-tl-dot"/>
+                                <span class="fxd-tl-label" t-esc="step.label"/>
+                                <span class="fxd-tl-at" t-esc="when(step.at)"/>
+                            </li>
+                        </t>
+                    </ol>
+                    <div class="fxd-muted" t-if="d.visit.cancel_reason">Cancelled: <t t-esc="d.visit.cancel_reason"/></div>
+                    <div class="fxd-muted" t-if="d.visit.arrived_distance_m">Arrived <t t-esc="d.visit.arrived_distance_m"/> m from the customer's point.</div>
+
+                    <!-- the live map -->
+                    <t t-if="d.map">
+                        <div class="fxd-map-head">
+                            <span class="fxd-legend"><i class="fxd-leg fxd-leg-cust"/> customer <i class="fxd-leg fxd-leg-tech"/> technician <i class="fxd-leg fxd-leg-trail"/> trail</span>
+                            <span class="fxd-chip fxd-chip-blue" t-if="mapChip" t-esc="mapChip"/>
+                            <span class="fxd-chip fxd-chip-red" t-if="d.map.tech and d.map.tech.stale"><i class="fxd-stale"/> signal lost</span>
+                            <span class="fxd-chip" t-elif="d.map.tech">position <t t-esc="when(d.map.tech.fix_on)"/></span>
+                            <a class="fxd-link" t-if="d.visit.directions_url" t-att-href="d.visit.directions_url" target="_blank" rel="noopener">directions</a>
+                        </div>
+                        <div class="fxd-map" t-if="hasMap and (d.map.customer or d.map.tech)" t-ref="map"/>
+                        <div class="fxd-muted" t-elif="!hasMap">The map library did not load.</div>
+                        <div class="fxd-muted" t-else="">No position yet: the customer's point is unknown and the technician's phone has not reported.</div>
+                    </t>
+                </section>
+                <section class="fxd-box fxd-box-wide fxd-box-slim" t-elif="d.mode === 'doorstep' and d.state === 'confirmed'">
+                    <h3><i class="fa fa-car"/> Visit</h3>
+                    <div class="fxd-muted">No visit yet. Assigning a technician creates it.</div>
+                </section>
+            </div>
+        </div>
+    </t>
+
+</templates>

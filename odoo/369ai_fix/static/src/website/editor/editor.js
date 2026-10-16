@@ -21,10 +21,22 @@ const M = {
     site: SITE, section: "fix.home.section", line: "fix.home.line", page: "fix.home.page",
     link: "fix.site.link", branch: "fix.site.branch", zone: "fix.coverage.zone", area: "fix.coverage.area",
     faq: "fix.site.faq", info: "fix.site.page", cat: "device.category", product: "product.template", brand: "device.brand",
+    item: "fix.site.item",
+};
+// Pop-ups & chat: the welcome pop-up choices, the four item lists, the prize icons and what a chat chip can do
+const WELCOME_TYPES = [["slot", "Book your slot slider", "fa-calendar-check-o"], ["spin", "Spin & Win wheel", "fa-gift"], ["flash", "Flash offer", "fa-bolt"], ["none", "Nothing", "fa-ban"]];
+const ITEM_KINDS = { wheel: "Prize", reply: "Quick reply", slide: "Slide", tile: "Tile" };
+const ICONS = [["diag", "Magnifier (diagnosis)"], ["pick", "Scooter (pickup)"], ["clean", "Sparkle (cleaning)"], ["fast", "Bolt (priority)"], ["data", "Cloud (backup)"], ["guard", "Shield (screen guard)"]];
+const INTENTS = [["book", "Book a repair"], ["area", "Check my area"], ["price", "Prices"], ["time", "How long"], ["contact", "Branches & contact"], ["hours", "Opening hours"], ["human", "Talk to a person"], ["menu", "Back to the menu"]];
+// what the website puts in place of the words in curly brackets (the preview uses the same)
+const LEGEND = {
+    site: "the website name", code: "the offer or prize code", fee: "the visit fee line", hours: "the opening hours", device: "the device type",
+    issue: "the problem chosen", price: "the price line", area: "the area typed", branches: "the branch names", phone: "the phone number",
+    email: "the email", doorstep: "the visit time", pickup: "the lab time", slide: "the slide title", contact: "the number or email typed",
 };
 
 // ------------------------------------------------------------------ what every field is
-// label = where it shows, in plain words · hint = what it does, with an example · type = text | area | number
+// label = where it shows, in plain words · hint = what it does, with an example · type = text | area | number | int | bool | select
 const FIELD_HELP = {
     "site.name": { label: "Website name", hint: "The name in the header, the footer and WhatsApp messages · e.g. Danat Fix" },
     "site.tagline": { label: "Tagline", hint: "Under the name in the browser tab and in the footer · e.g. Electronics repair at your doorstep" },
@@ -116,6 +128,98 @@ const FIELD_HELP = {
     "page.slug": { label: "Web address", hint: "The page opens at /page/<this> · letters, numbers and dashes", now: true },
     "brand.caption": { label: "Caption under the logo", hint: "In the brands strip on the home page · e.g. iPhone · iPad · Mac" },
     "brand.color": { label: "Brand colour", hint: "Behind the name when there is no logo · e.g. #1428A0" },
+    // ---- Pop-ups & chat
+    "site.ann_show": { label: "Announcement bar", hint: "Off = no bar at the top of the site", type: "bool", on: "Shown at the top of every page", off: "Hidden" },
+    "site.ann_text": { label: "Bar text", hint: "Scrolls across the dark bar at the very top · e.g. Doorstep repair across Oman — free diagnosis this week" },
+    "site.ann_button": { label: "Bar button", hint: "The small green pill after the text · e.g. Book now →" },
+    "site.ann_link": { label: "The bar button opens", hint: "A page on the site · e.g. /services#catalog" },
+    "site.ann_speed_s": { label: "Scroll time (seconds)", hint: "One full pass of the text; bigger = slower · e.g. 30", type: "int" },
+    "site.welcome_popup": { label: "Which pop-up opens first", hint: "A moment after a visitor arrives. On the site, ?offer=spin or ?offer=flash forces one", type: "select", options: WELCOME_TYPES },
+    "site.welcome_delay_ms": { label: "Opens after (milliseconds)", hint: "1000 = one second · e.g. 1500", type: "int" },
+    "site.welcome_flash_delay_ms": { label: "Flash offer opens after (milliseconds)", hint: "Only when the flash offer is the welcome pop-up · e.g. 4000", type: "int" },
+    "site.welcome_snooze_days": { label: "Stay away for (days)", hint: "After the visitor closes it with ×, no welcome pop-up on that browser for this long · e.g. 30", type: "int" },
+    "site.flash_badge": { label: "Small red badge", hint: "Top of the card · e.g. Flash offer" },
+    "site.flash_title": { label: "Offer title", hint: "e.g. Free diagnosis this week" },
+    "site.flash_body": { label: "Offer text", hint: "{fee} becomes the visit fee line · e.g. Book a doorstep visit and the check-up is on us. {fee}.", type: "area" },
+    "site.flash_code": { label: "Offer code", hint: "The visitor taps it to copy · e.g. 369FIX" },
+    "site.flash_button": { label: "Green button", hint: "e.g. Book with offer" },
+    "site.flash_button_link": { label: "The green button opens", hint: "e.g. /services#catalog" },
+    "site.flash_wa_button": { label: "WhatsApp button", hint: "e.g. WhatsApp us" },
+    "site.flash_wa_msg": { label: "WhatsApp message", hint: "Pre-written in WhatsApp · e.g. Hello {site} — I'd like to use code {code}" },
+    "site.flash_later": { label: "Close link", hint: "Under the buttons · e.g. No thanks" },
+    "site.cookie_show": { label: "Cookie notice", hint: "Off = no cookie notice", type: "bool", on: "Shown on the first visit", off: "Hidden" },
+    "site.cookie_title": { label: "Title", hint: "e.g. We use cookies" },
+    "site.cookie_text": { label: "Text", hint: "e.g. Only to remember your theme, area and choices on this site. No ads, no tracking.", type: "area" },
+    "site.cookie_decline": { label: "Decline button", hint: "e.g. Decline" },
+    "site.cookie_accept": { label: "Accept button", hint: "e.g. Accept" },
+    "site.cookie_delay_ms": { label: "Slides in after (milliseconds)", hint: "e.g. 1200", type: "int" },
+    "site.wheel_tab": { label: "Side tab", hint: "The gift tab on the left edge of every page · e.g. Spin & Win" },
+    "site.wheel_eyebrow": { label: "Small gold line above the title", hint: "e.g. ✦ {site} rewards ✦" },
+    "site.wheel_title": { label: "Title", hint: "e.g. Spin &" },
+    "site.wheel_title2": { label: "Title (gold part)", hint: "e.g. Win" },
+    "site.wheel_subtitle": { label: "Line under the title", hint: "e.g. Every slice is a free extra on your next repair." },
+    "site.wheel_spin": { label: "Spin button", hint: "e.g. Spin the wheel" },
+    "site.wheel_later": { label: "Close link", hint: "e.g. Maybe later" },
+    "site.wheel_won": { label: "\"You won\" line", hint: "Above the prize after the spin · e.g. 🎉 You won" },
+    "site.wheel_note": { label: "Note under the code", hint: "e.g. Show this code when you book. Valid on your next repair." },
+    "site.wheel_book": { label: "Book button", hint: "e.g. Book now" },
+    "site.wheel_wa": { label: "WhatsApp button", hint: "e.g. WhatsApp us" },
+    "site.wheel_wa_msg": { label: "WhatsApp message", hint: "{code} = the prize code · e.g. Hello {site} — I won on the spin wheel, code: {code}" },
+    "site.bot_name": { label: "Assistant name", hint: "Top of the chat window · e.g. {site} Assistant" },
+    "site.bot_status": { label: "Line under the name", hint: "e.g. Automated help · replies instantly" },
+    "site.bot_greeting": { label: "First message", hint: "e.g. Hi 👋 I'm the {site} assistant. I can help you book a repair, check your area or find a branch.", type: "area" },
+    "site.bot_placeholder": { label: "Typing box hint", hint: "e.g. Ask about a repair, area or price…" },
+    "site.bot_tip": { label: "Chat button tip", hint: "Shows when hovering the round chat button · e.g. Ask us anything" },
+    "site.bot_wa_tip": { label: "WhatsApp button tip", hint: "e.g. WhatsApp us" },
+    "site.bot_wa_msg": { label: "WhatsApp button message", hint: "e.g. Hello {site} — I need help with a repair." },
+    "site.bot_a_book": { label: "\"Book a repair\"", hint: "Then the device types are offered · e.g. Great! Which device needs fixing?", type: "area" },
+    "site.bot_a_dev": { label: "Device chosen", hint: "{device} = the device type · e.g. What's the problem with your {device}?", type: "area" },
+    "site.bot_a_iss": { label: "Problem chosen", hint: "{issue}, {device}, {price} · e.g. Got it — {issue} for {device}. {price} Tap below and your booking message is ready to send.", type: "area" },
+    "site.bot_a_area": { label: "\"Check my area\"", hint: "e.g. Type your area name below (for example Qurum or Sohar) and I'll check.", type: "area" },
+    "site.bot_a_found": { label: "Area found", hint: "{area} = the area typed · e.g. ✅ Yes, we cover {area}. Want to book a repair there?", type: "area" },
+    "site.bot_a_price": { label: "\"Prices\"", hint: "{fee} = the visit fee line", type: "area" },
+    "site.bot_a_time": { label: "\"How long?\"", hint: "{doorstep} = the visit time, {pickup} = the lab time · e.g. Our technician comes to you first: {doorstep}. If it needs a part or more work it goes to our lab: {pickup}.", type: "area" },
+    "site.bot_a_contact": { label: "\"Branches & contact\"", hint: "{branches}, {phone}, {email} · e.g. We have branches in {branches}. 📞 {phone} ✉️ {email}", type: "area" },
+    "site.bot_a_hours": { label: "\"Opening hours\"", hint: "{hours} = the opening hours in the footer · e.g. We're open {hours}.", type: "area" },
+    "site.bot_a_human": { label: "\"Talk to a person\"", hint: "A WhatsApp button follows · e.g. Sure — our team replies on WhatsApp.", type: "area" },
+    "site.bot_a_menu": { label: "Back to the menu", hint: "e.g. How else can I help?", type: "area" },
+    "site.bot_a_fallback": { label: "Not understood", hint: "A WhatsApp button with the question follows · e.g. I'm not sure about that one — our team can help on WhatsApp.", type: "area" },
+    "site.eng_eyebrow": { label: "Small line on every slide", hint: "e.g. Book your slot" },
+    "site.eng_title2": { label: "Generic title (green part)", hint: "For a device type without a slide of its own: its name, then this · e.g. repair at your door" },
+    "site.eng_perks": { label: "Generic perks", hint: "One per line, for a device type without a slide of its own · e.g. Expert technicians", type: "area" },
+    "site.eng_from_label": { label: "Price label", hint: "Before the lowest price of the device type · e.g. Starting from" },
+    "site.eng_slide_ms": { label: "Next slide after (milliseconds)", hint: "e.g. 3500", type: "int" },
+    "site.eng_idle_s": { label: "Opens after idle (seconds)", hint: "No mouse, scroll, key or touch for this long · once per visit · e.g. 35", type: "int" },
+    "site.eng_still_s": { label: "Opens after still (seconds)", hint: "Cursor still for this long, or leaving through the top of the window · once per visit · e.g. 15", type: "int" },
+    "site.eng_wa_msg": { label: "Form WhatsApp message", hint: "{slide} = the slide shown, {contact} = the number or email typed · e.g. Hi {site}, I want to book {slide}. My contact: {contact}" },
+    "site.eng_form_pill": { label: "Green pill", hint: "e.g. Book instantly on WhatsApp" },
+    "site.eng_form_title": { label: "Form title", hint: "e.g. Book your slot" },
+    "site.eng_form_subtitle": { label: "Line under the form title", hint: "e.g. Share your number or email and we'll start the booking on WhatsApp." },
+    "site.eng_form_privacy": { label: "Privacy line", hint: "Under the send button · e.g. No spam. We only use your number to confirm the booking." },
+    "site.eng_form_send": { label: "Send button", hint: "e.g. Send on WhatsApp" },
+    "site.eng_form_all": { label: "\"All services\" link", hint: "e.g. View all services" },
+    "site.eng_form_all_link": { label: "The \"all services\" link opens", hint: "e.g. /services#all" },
+    "site.eng_form_features": { label: "Three features at the bottom", hint: "One per line, title|small line · e.g. Quick Service|In most areas", type: "area" },
+    "site.exit_title": { label: "Title", hint: "e.g. Leaving already? 👋" },
+    "site.exit_status": { label: "Line under the title", hint: "e.g. We reply on WhatsApp" },
+    "site.exit_text": { label: "Text above the tiles", hint: "e.g. What do you need fixed today? Tap one — we'll reply on WhatsApp." },
+    "site.exit_button": { label: "WhatsApp button", hint: "e.g. Chat with us on WhatsApp" },
+    "site.exit_wa_msg": { label: "WhatsApp button message", hint: "e.g. Hi {site}, I need help with a repair." },
+    "site.exit_tile_msg": { label: "Tile message", hint: "{device} = the device type of the tile · e.g. Hi {site}, I need help with my {device}." },
+    "site.exit_link": { label: "The bottom link opens", hint: "e.g. /#book-services" },
+    "site.exit_link_label": { label: "Bottom link", hint: "e.g. See all services →" },
+    "item.wheel.name2": { label: "Word above", hint: "Small capitals · e.g. Free" },
+    "item.wheel.name": { label: "Word on the slice", hint: "Big · e.g. Diagnosis" },
+    "item.wheel.text": { label: "Prize in full", hint: "Shown after the spin · e.g. Free diagnosis" },
+    "item.wheel.code": { label: "Prize code", hint: "The visitor shows it when booking · e.g. SPIN-DIAG" },
+    "item.wheel.color": { label: "Slice colour", hint: "e.g. #f5b400, or var(--violet) for the site's green" },
+    "item.wheel.color2": { label: "Text colour", hint: "e.g. #fff or #10241a" },
+    "item.reply.name": { label: "Chip", hint: "e.g. 🔧 Book a repair" },
+    "item.slide.name": { label: "Title", hint: "e.g. Mobile" },
+    "item.slide.name2": { label: "Title (green part)", hint: "e.g. Repair" },
+    "item.slide.text": { label: "Pitch", hint: "Under the title · e.g. Screen, battery, charging, camera and more – quick and reliable service.", type: "area" },
+    "item.slide.text2": { label: "Perks, one per line", hint: "Four ticks · e.g. Genuine parts", type: "area" },
+    "item.tile.name": { label: "Label", hint: "Empty = the device type's name · e.g. CCTV" },
 };
 const BRAND_FILTERS = [["all", "All"], ["nologo", "Missing logo"], ["strip", "In the strip"], ["nostrip", "Not in the strip"]];
 const PHOTO_FILTERS = [["all", "All"], ["nophoto", "No photo"], ["few", "Fewer than 3 photos"], ["mb", "Most booked"]];
@@ -145,7 +249,31 @@ const SITE_FORM = {
     svc_head: { title: "Page heading", about: "The dark banner at the top of the Services page.", groups: [{ title: "Wording", fields: ["svc_eyebrow", "svc_title", "svc_title2", "svc_lead"] }] },
     flow: { title: "Step 1 · How we fix it", about: "The repair flow card. The card itself is shared with the home page.", groups: [{ title: "Wording", fields: ["svc_modes_eyebrow", "svc_modes_title", "svc_fee_label"] }] },
     coverage: { title: "Step 2 · Coverage areas", about: "The zones and areas the website says you reach, with the map.", groups: [{ title: "Wording", fields: ["cov_eyebrow", "cov_title", "cov_trust"] }] },
+    // Pop-ups & chat. legend = the curly-bracket words the website fills in these texts
+    ann: { title: "Announcement bar", about: "The thin dark bar that scrolls across the very top of every page. The visitor can close it; it is back on the next visit.",
+        groups: [{ title: "The bar", fields: ["ann_show", "ann_text", "ann_button", "ann_link", "ann_speed_s"] }] },
+    welcome: { title: "Welcome pop-up", about: "What opens a moment after a visitor arrives: the Book-your-slot slider, the Spin & Win wheel, the Flash offer, or nothing. Closing it with × keeps every welcome pop-up away for the days below.",
+        groups: [{ title: "Which one, and when", fields: ["welcome_popup", "welcome_delay_ms", "welcome_flash_delay_ms", "welcome_snooze_days"] }] },
+    flash: { title: "Flash offer", about: "The offer card with the countdown to midnight and a code to copy. Opens as the welcome pop-up when chosen, or from ?offer=flash.", legend: ["site", "code", "fee"],
+        groups: [{ title: "Wording", fields: ["flash_badge", "flash_title", "flash_body", "flash_code"] }, { title: "Buttons", fields: ["flash_button", "flash_button_link", "flash_wa_button", "flash_wa_msg", "flash_later"] }] },
+    wheel: { title: "Spin & Win", about: "The prize wheel: every slice wins. Opens from the gift tab on the left edge of every page, as the welcome pop-up when chosen, or from ?offer=spin.", legend: ["site", "code"],
+        groups: [{ title: "Wording", fields: ["wheel_tab", "wheel_eyebrow", "wheel_title", "wheel_title2", "wheel_subtitle", "wheel_spin", "wheel_later"] }, { title: "After the spin", fields: ["wheel_won", "wheel_note", "wheel_book", "wheel_wa", "wheel_wa_msg"] }] },
+    bot: { title: "Chat assistant", about: "The round chat button at the bottom right and its window. It answers from the site's own data (devices, prices, areas, branches); anything else goes to WhatsApp.", legend: ["site", "device", "issue", "price", "fee", "area", "branches", "phone", "email", "doorstep", "pickup", "hours"],
+        groups: [{ title: "Window", fields: ["bot_name", "bot_status", "bot_greeting", "bot_placeholder", "bot_tip", "bot_wa_tip", "bot_wa_msg"] },
+            { title: "Answers", fields: ["bot_a_book", "bot_a_dev", "bot_a_iss", "bot_a_area", "bot_a_found", "bot_a_price", "bot_a_time", "bot_a_contact", "bot_a_hours", "bot_a_human", "bot_a_menu", "bot_a_fallback"] }] },
+    slider: { title: "Book-your-slot slider", about: "The slider with one slide per device type and a quick phone / email form that starts the booking on WhatsApp. Opens as the welcome pop-up when chosen, or after the visitor sits idle.", legend: ["site", "slide", "contact"],
+        groups: [{ title: "Slides", fields: ["eng_eyebrow", "eng_title2", "eng_perks", "eng_from_label", "eng_slide_ms"] },
+            { title: "Form", fields: ["eng_form_pill", "eng_form_title", "eng_form_subtitle", "eng_form_send", "eng_wa_msg", "eng_form_privacy", "eng_form_all", "eng_form_all_link", "eng_form_features"] },
+            { title: "When it opens", fields: ["eng_idle_s"] }] },
+    exit: { title: "Leaving panel", about: "The panel that slides in from the left when the cursor heads for the browser's top bar or sits still: one tile per device type, each opening WhatsApp.", legend: ["site", "device"],
+        groups: [{ title: "Wording", fields: ["exit_title", "exit_status", "exit_text", "exit_button", "exit_wa_msg", "exit_tile_msg", "exit_link_label", "exit_link"] }, { title: "When it opens", fields: ["eng_still_s"] }] },
+    cookie: { title: "Cookie notice", about: "The small card at the bottom left on the first visit. The choice is remembered on that browser.",
+        groups: [{ title: "The notice", fields: ["cookie_show", "cookie_title", "cookie_text", "cookie_decline", "cookie_accept", "cookie_delay_ms"] }] },
 };
+// the eight parts of the Pop-ups & chat page, in the order they appear on the screen
+const POPUP_PARTS = [["ann", "Announcement bar", "fa-bullhorn"], ["welcome", "Welcome pop-up", "fa-hand-o-right"], ["flash", "Flash offer", "fa-bolt"], ["wheel", "Spin & Win", "fa-gift"],
+    ["bot", "Chat assistant", "fa-comments-o"], ["slider", "Book-your-slot slider", "fa-calendar-check-o"], ["exit", "Leaving panel", "fa-sign-out"], ["cookie", "Cookie notice", "fa-circle-o"]];
+const ITEM_LIST_OF = { wheel: "wheel", bot: "reply", slider: "slide", exit: "tile" };   // which item list each part edits
 const LINE_COLS = {
     hero: ["value", "name"], modes: ["name", "extra", "value", "text"], reviews: ["name", "value", "extra", "stars", "text"],
     milestones: ["value", "name", "text"], partners: ["name", "link"], cta: ["name"],
@@ -166,7 +294,8 @@ export class FixSiteEditor extends Component {
         this.dialog = useService("dialog");
         const ctx = this.props.action?.context || {};
         this.page = ctx.fix_editor_page || "home";
-        Object.assign(this, { M, SECTION_FORM, SITE_FORM, LINE_COLS, LINE_TITLE, INFO_COLUMNS, INFO_KINDS, BRAND_FILTERS, PHOTO_FILTERS });
+        Object.assign(this, { M, SECTION_FORM, SITE_FORM, LINE_COLS, LINE_TITLE, INFO_COLUMNS, INFO_KINDS, BRAND_FILTERS, PHOTO_FILTERS,
+            WELCOME_TYPES, ITEM_KINDS, ICONS, INTENTS, POPUP_PARTS, ITEM_LIST_OF, LEGEND });
         this.state = useState({
             loading: true, d: null, siteId: ctx.fix_site_id || false, pageId: ctx.fix_page_id || false,
             sel: null, status: "saved", screen: "desktop", showHidden: false, showPickup: false,
@@ -243,7 +372,7 @@ export class FixSiteEditor extends Component {
         const lists = {
             [M.section]: d.home.sections, [M.line]: d.home.sections.flatMap((s) => s.lines).concat(d.flow ? d.flow.lines : []),
             [M.link]: d.links, [M.branch]: d.branches, [M.zone]: d.zones, [M.area]: d.zones.flatMap((z) => z.areas),
-            [M.faq]: d.faqs, [M.info]: d.pages, [M.page]: d.home.pages, [M.cat]: d.tiles,
+            [M.faq]: d.faqs, [M.info]: d.pages, [M.page]: d.home.pages, [M.cat]: d.tiles, [M.item]: d.items || [],
             [M.product]: this.page === "photos" ? this.state.pics : d.most_booked, [M.brand]: this.state.pics,
         };
         return (lists[model] || []).find((r) => r.id === id) || null;
@@ -338,10 +467,13 @@ export class FixSiteEditor extends Component {
         if (this.page === "photos") {
             return this.picsFiltered.map((s) => ({ v: `service:${s.id}`, name: `${s.name} · ${s.device}` + (s.photos.length ? "" : " (no photo)") }));
         }
+        if (this.page === "popups") {
+            return POPUP_PARTS.map(([v, name]) => ({ v, name }));
+        }
         return [header, ...(this.infoPage ? [{ v: `page:${this.infoPage.id}`, name: "Page · " + this.infoPage.name }] : []), footer];
     }
     get backLabel() {
-        return { pages: "All pages", brands: "All brands", photos: "All services" }[this.page] || "All sections";
+        return { pages: "All pages", brands: "All brands", photos: "All services", popups: "All pop-ups" }[this.page] || "All sections";
     }
     get curPart() {
         const s = this.state.sel;
@@ -407,7 +539,10 @@ export class FixSiteEditor extends Component {
         const parts = hk.split(".");
         const star = parts.length === 3 ? `${parts[0]}.*.${parts[2]}` : hk;
         const h = FIELD_HELP[hk] || FIELD_HELP[star] || {};
-        return { label: h.label || parts[parts.length - 1], hint: h.hint || "", type: h.type || "text", now: !!h.now, example: (h.hint.match(/e\.g\. (.*)$/) || [])[1] || "" };
+        const name = parts[parts.length - 1];
+        const type = h.type || (/_(ms|s|days)$/.test(name) ? "int" : "text");
+        return { label: h.label || name, hint: h.hint || "", type, now: !!h.now, example: ((h.hint || "").match(/e\.g\. (.*)$/) || [])[1] || "",
+            options: h.options || [], on: h.on || "On", off: h.off || "Off" };
     }
     /** A highlight key: K('sec', 12, 'title') -> "sec:12:title" */
     K(...parts) {
@@ -488,6 +623,8 @@ export class FixSiteEditor extends Component {
                 model = M.info; list = this.d.pages;
             } else if (s.kind === "coverage") {
                 model = M.zone; list = this.d.zones;
+            } else if (ITEM_LIST_OF[s.kind]) {
+                model = M.item; list = this.items(ITEM_LIST_OF[s.kind]);
             }
         }
         if (!list) {
@@ -565,6 +702,67 @@ export class FixSiteEditor extends Component {
     get missingKinds() {
         const have = new Set((this.d?.home.sections || []).map((s) => s.kind));
         return (this.d?.home.kinds || []).filter((k) => !have.has(k.key));
+    }
+
+    // ------------------------------------------------------------ pop-ups & chat
+    /** The rows of one list: wheel (prizes), reply (chat chips), slide, tile. In order, hidden ones too. */
+    items(kind) {
+        return (this.d?.items || []).filter((i) => i.kind === kind);
+    }
+    activeItems(kind) {
+        return this.items(kind).filter((i) => i.active);
+    }
+    addItem(kind) {
+        const seq = (this.items(kind).length + 1) * 10;
+        const firstCat = (this.d?.tiles || [])[0];
+        const vals = {
+            wheel: { name2: _t("Free"), name: _t("Prize"), text: _t("A free extra"), code: `SPIN-${Date.now() % 1000}`, icon: "diag", color: "#f5b400", color2: "#10241a" },
+            reply: { name: _t("New chip"), code: "menu" },
+            slide: { name: firstCat ? firstCat.name : _t("Device"), name2: _t("Repair"), text: "", text2: "", category_id: firstCat ? firstCat.id : false },
+            tile: { name: "", category_id: firstCat ? firstCat.id : false },
+        }[kind];
+        return this.add(M.item, { site_id: this.d.site_id, kind, sequence: seq, ...vals });
+    }
+    /** A select or a colour of a list row: saved at once, so the preview follows. */
+    editItem(it, field, value) {
+        this.save.edit(M.item, it, field, value, { now: true });
+    }
+    editItemCategory(it, ev) {
+        this.editItem(it, "category_id", parseInt(ev.target.value, 10) || false);
+    }
+    catName(id) {
+        return ((this.d?.tiles || []).find((c) => c.id === id) || {}).name || "";
+    }
+    tileLabel(it) {
+        return it.name || this.catName(it.category_id);
+    }
+    /** The wheel as the site draws it: one conic-gradient slice per active prize, from 12 o'clock clockwise. */
+    wheelGradient() {
+        const s = this.activeItems("wheel");
+        if (!s.length) {
+            return "conic-gradient(#d6dbd7 0deg 360deg)";
+        }
+        const seg = 360 / s.length;
+        return "conic-gradient(" + s.map((x, i) => `${x.color || "#ccc"} ${(i * seg).toFixed(2)}deg ${((i + 1) * seg).toFixed(2)}deg`).join(", ") + ")";
+    }
+    sliceStyle(i, n, slice) {
+        return `transform: rotate(${((i + 0.5) * 360 / n).toFixed(2)}deg); color: ${slice.color2 || "#fff"}`;
+    }
+    get welcomeChoice() {
+        return WELCOME_TYPES.find((w) => w[0] === (this.site?.welcome_popup || "slot")) || WELCOME_TYPES[0];
+    }
+    /** "Quick Service|In most areas" lines → [{title, small}] */
+    features() {
+        return this.lines(this.site?.eng_form_features).map((x) => {
+            const [title, small] = x.split("|");
+            return { title: (title || "").trim(), small: (small || "").trim() };
+        });
+    }
+    get firstSlide() {
+        return this.activeItems("slide")[0] || null;
+    }
+    legendText(keys) {
+        return (keys || []).map((k) => `{${k}} = ${LEGEND[k] || k}`).join(" · ");
     }
 
     // --------------------------------------------- device tiles & most booked
@@ -675,8 +873,17 @@ export class FixSiteEditor extends Component {
         const [lat, lng] = pin;
         return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.09}%2C${lat - 0.06}%2C${lng + 0.09}%2C${lat + 0.06}&layer=mapnik&marker=${lat}%2C${lng}`;
     }
+    /** What the website puts in place of the words in curly brackets, for the preview. */
     fill(text) {
-        return String(text || "").replaceAll("{price}", this.d?.price || "");
+        const d = this.d || {}, site = this.site || {}, flow = this.flow;
+        const fee = d.visit_fee ? `Visit fee OMR ${d.visit_fee}` : "Visit fee: price after check";
+        const map = {
+            price: d.price || "", site: site.name || "", code: site.flash_code || "", fee, hours: d.hours || "", device: "Laptop",
+            issue: "Screen replacement", area: "Qurum", branches: (d.branches || []).filter((b) => b.active).map((b) => b.name).join(", "),
+            phone: site.contact_phone || "", email: site.contact_email || "", doorstep: flow.eta || "", pickup: flow.lab.eta || "",
+            slide: "Mobile Repair", contact: "+968 9123 4567",
+        };
+        return String(text || "").replace(/\{(\w+)\}/g, (m, k) => (k in map ? map[k] : m));
     }
     stars(n) {
         const k = Math.max(0, Math.min(5, parseInt(n, 10) || 0));
