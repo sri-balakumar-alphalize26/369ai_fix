@@ -1,14 +1,18 @@
 ---
 // Floating WhatsApp button + a simple scripted help bot (no AI, no server).
-// Answers come only from the site's own data; anything else hands off to WhatsApp.
-import { site, money, feeLine, hasPrice } from '../data/site';
-import { staticContent, contactOf, type Coverage, type Contact } from '../lib/content';
+// Its name, greeting, quick replies and every answer are edited in Odoo (Fix Website ▸ Pop-ups &
+// chat ▸ Chat assistant), else the site's own (src/data/popups.ts). Answers come only from the
+// site's own data; anything else hands off to WhatsApp.
+import { site, money, hasPrice } from '../data/site';
+import { staticContent, contactOf, type Coverage, type Contact, type Bot, type SiteContent } from '../lib/content';
 import { staticCatalog, type WzCategory } from '../lib/catalog';
 
-// Coverage areas, the devices and repairs (Odoo's catalogue), the phone / WhatsApp number and
-// the visit fee from Odoo (passed by Base), else the site's own lists.
-const { coverage = staticContent().coverage, categories = staticCatalog().categories, contact = contactOf(), visitFee = 0 } =
-  Astro.props as { coverage?: Coverage; categories?: WzCategory[]; contact?: Contact; visitFee?: number };
+// Coverage areas, the devices and repairs (Odoo's catalogue), the phone / WhatsApp number, the
+// visit fee, the bot's texts and the site's details (branches, email, opening hours) from Odoo
+// (passed by Base), else the site's own lists.
+const { coverage = staticContent().coverage, categories = staticCatalog().categories, contact = contactOf(), visitFee = 0,
+  bot = staticContent().bot, site: C = staticContent().site } =
+  Astro.props as { coverage?: Coverage; categories?: WzCategory[]; contact?: Contact; visitFee?: number; bot?: Bot; site?: SiteContent };
 
 const tel = contact.wa;
 const wa = (m: string) => `https://wa.me/${tel}?text=${encodeURIComponent(m)}`;
@@ -19,28 +23,32 @@ const priceOf = (c: WzCategory, name: string) => {
   const p = (all.find((s) => !s.b && !s.s && !s.m) ?? all[0])?.price;
   return hasPrice(p) ? `from ${money(p)}` : '';
 };
+const branches = C.branches.length ? C.branches.map((b) => b.name) : site.branches;
 const kb = {
+  site: C.name || site.name,
   devices: categories.map((c) => ({ id: c.id, name: c.name, issues: c.issues.length ? c.issues : [...new Set(c.services.map((s) => s.name))],
     prices: Object.fromEntries(c.services.map((s): [string, string] => [s.name, priceOf(c, s.name)]).filter(([, p]) => p)) })),
   areas,
-  branches: site.branches,
+  branches,
   phone: contact.display,
   tel: contact.tel,
-  email: site.email,
-  fee: feeLine(visitFee),
+  email: C.email || site.email,
+  hours: C.hours || C.branches.map((b) => b.hours).find(Boolean) || '',
   doorstepEta: coverage.doorstep.eta,
   pickupEta: coverage.pickup.eta,
+  replies: bot.replies,
+  answers: bot.answers,
 };
 const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.3-.5 0-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9 0-1.4.7-2 1-2.3.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.6-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l1.9.9c.3.1.5.2.5.3.1.2.1.7-.1 1.3z"/></svg>';
 ---
 
 <div class="fab" data-fab data-kb={JSON.stringify(kb)} data-tel={tel}>
-  <a class="fab-wa" href={wa('Hello Danat Fix — I need help with a repair.')} target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
+  <a class="fab-wa" href={wa(bot.wa_msg)} target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
     <Fragment set:html={waIcon} />
-    <span class="fab-tip">WhatsApp us</span>
+    <span class="fab-tip">{bot.wa_tip}</span>
   </a>
 
-  <button type="button" class="fab-bot" data-bot-toggle aria-expanded="false" aria-label="Open help assistant"><span class="fab-tip">Ask us anything</span>
+  <button type="button" class="fab-bot" data-bot-toggle aria-expanded="false" aria-label="Open help assistant"><span class="fab-tip">{bot.tip}</span>
     <span class="bot-face" aria-hidden="true">
       <svg viewBox="0 0 32 32"><path d="M16 5C9.4 5 4 9.6 4 15.3c0 3 1.5 5.7 3.9 7.6L7 27.5l5-2.6c1.2.3 2.6.5 4 .5 6.6 0 12-4.6 12-10.3S22.6 5 16 5z" fill="#fff"/><circle class="d d1" cx="10.8" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d2" cx="16" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d3" cx="21.2" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><path class="spark" d="M26 2l.9 2.1L29 5l-2.1.9L26 8l-.9-2.1L23 5l2.1-.9z" fill="#ffd96a"/></svg>
     </span>
@@ -48,16 +56,16 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <span class="fab-badge" data-bot-badge>1</span>
   </button>
 
-  <section class="bot" data-bot hidden aria-label="Danat Fix assistant">
+  <section class="bot" data-bot hidden aria-label={bot.name} data-greeting={bot.greeting}>
     <header class="bot-head">
       <span class="bot-av"><svg viewBox="0 0 32 32"><path d="M16 5C9.4 5 4 9.6 4 15.3c0 3 1.5 5.7 3.9 7.6L7 27.5l5-2.6c1.2.3 2.6.5 4 .5 6.6 0 12-4.6 12-10.3S22.6 5 16 5z" fill="#fff"/><circle class="d d1" cx="10.8" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d2" cx="16" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><circle class="d d3" cx="21.2" cy="15.4" r="1.8" style="fill:var(--deep,#0f6b37)"/><path class="spark" d="M26 2l.9 2.1L29 5l-2.1.9L26 8l-.9-2.1L23 5l2.1-.9z" fill="#ffd96a"/></svg></span>
-      <div><b>Danat Fix Assistant</b><small>Automated help · replies instantly</small></div>
+      <div><b>{bot.name}</b><small>{bot.status}</small></div>
       <button type="button" class="bot-close" data-bot-toggle aria-label="Close">×</button>
     </header>
     <div class="bot-log" data-bot-log aria-live="polite"></div>
     <div class="bot-chips" data-bot-chips></div>
     <form class="bot-input" data-bot-form>
-      <input name="q" placeholder="Ask about a repair, area or price…" autocomplete="off" aria-label="Your question" />
+      <input name="q" placeholder={bot.placeholder} autocomplete="off" aria-label="Your question" />
       <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
     </form>
   </section>
@@ -93,51 +101,66 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       chips.innerHTML = list.map(([label, act]) => `<button type="button" data-act="${esc(act)}">${esc(label)}</button>`).join('');
     };
     const waBtn = (msg: string, label = 'Continue on WhatsApp') => `<a class="bot-wa" href="${wa(msg)}" target="_blank" rel="noopener">${label} →</a>`;
-    const menu = () => setChips([['🔧 Book a repair', 'book'], ['📍 Do you cover my area?', 'area'], ['💰 Prices', 'price'], ['⏱ How long?', 'time'], ['🏢 Branches & contact', 'contact'], ['👤 Talk to a person', 'human']]);
+    // Quick replies (Odoo rows: label + intent); a reply with an unknown intent goes to WhatsApp
+    const menu = () => setChips(kb.replies.map((r: any) => [r.label, r.intent]));
+    // An answer text from Odoo with its placeholders filled ({device}, {issue}, {area}, …; the
+    // values are already escaped / safe HTML)
+    const tpl = (key: string, v: Record<string, string> = {}) =>
+      String(kb.answers[key] ?? '').replace(/\{(\w+)\}/g, (m, k) => (k in v ? v[k] : m));
+    const bookChip = kb.replies.find((r: any) => r.intent === 'book');
 
     const answer = (act: string, text = '') => {
       if (act === 'book') {
-        say('Great! Which device needs fixing?');
+        say(tpl('book'));
         setChips(kb.devices.map((d: any) => [d.name, `dev:${d.id}`]));
       } else if (act.startsWith('dev:')) {
         const d = kb.devices.find((x: any) => x.id === act.slice(4));
-        say(`What's the problem with your <b>${esc(d.name)}</b>?`);
+        say(tpl('dev', { device: esc(d.name) }));
         setChips(d.issues.slice(0, 8).map((i: string) => [i, `iss:${d.id}:${i}`]));
       } else if (act.startsWith('iss:')) {
         const [, id, iss] = act.split(':');
         const d = kb.devices.find((x: any) => x.id === id);
         const px = d.prices?.[iss];
-        say(`Got it — <b>${esc(iss)}</b> for ${esc(d.name)}. ${px ? `Price: <b>${esc(px)}</b>.` : 'The technician tells you the price after checking it.'} Tap below and your booking message is ready to send.<br>${waBtn(`Hi Danat Fix, I want to book ${iss} for my ${d.name}.`, 'Book on WhatsApp')}`);
+        // {price}: the repair's own price, or the "after checking" line
+        say(`${tpl('iss', { issue: esc(iss), device: esc(d.name), price: px ? `Price: <b>${esc(px)}</b>.` : 'The technician tells you the price after checking it.' })}<br>${waBtn(`Hi ${kb.site}, I want to book ${iss} for my ${d.name}.`, 'Book on WhatsApp')}`);
         menu();
       } else if (act === 'area') {
-        say('Type your area name below (for example <i>Qurum</i> or <i>Sohar</i>) and I\'ll check.');
+        say(tpl('area'));
         setChips([['⬅ Back to menu', 'menu']]);
         (fab.querySelector('[data-bot-form] input') as HTMLInputElement).focus();
       } else if (act === 'price') {
-        say(`Each repair shows its price on the site. Where none is shown, the technician gives you the price after checking the device — always before any work starts.<br>${esc(kb.fee)}.`);
+        say(tpl('price'));
         menu();
       } else if (act === 'time') {
-        say(`<b>Doorstep:</b> ${esc(kb.doorstepEta)}.<br><b>Pickup:</b> ${esc(kb.pickupEta)}.`);
+        say(tpl('time', { doorstep: esc(kb.doorstepEta), pickup: esc(kb.pickupEta) }));
         menu();
       } else if (act === 'contact') {
-        say(`We have branches in <b>${kb.branches.join(', ')}</b>.<br>📞 <a href="tel:${esc(kb.tel)}">${esc(kb.phone)}</a><br>✉️ <a href="mailto:${esc(kb.email)}">${esc(kb.email)}</a>`);
+        say(tpl('contact', { branches: esc(kb.branches.join(', ')), phone: `<a href="tel:${esc(kb.tel)}">${esc(kb.phone)}</a>`, email: `<a href="mailto:${esc(kb.email)}">${esc(kb.email)}</a>`, hours: esc(kb.hours) }));
+        menu();
+      } else if (act === 'hours') {
+        // opening hours from Odoo (Website Details); none set → ask on WhatsApp
+        say(kb.hours ? tpl('hours', { hours: esc(kb.hours) }) : `${tpl('hours', { hours: 'ask us on WhatsApp' })}<br>${waBtn(`Hello ${kb.site}, what are your opening hours today?`)}`);
         menu();
       } else if (act === 'human') {
-        say(`Sure — our team replies on WhatsApp.<br>${waBtn('Hello Danat Fix, I would like to talk to someone about a repair.')}`);
+        say(`${tpl('human')}<br>${waBtn(`Hello ${kb.site}, I would like to talk to someone about a repair.`)}`);
         menu();
       } else if (act === 'menu') {
-        say('How else can I help?'); menu();
+        say(tpl('menu')); menu();
+      } else if (act !== 'text') {
+        // a quick reply with an intent the bot does not know: hand over to WhatsApp
+        say(`${tpl('fallback')}<br>${waBtn(`Hello ${kb.site}, ${act}`)}`); menu();
       } else {
         // free text
         const q = norm(text);
         const area = kb.areas.find((a: string) => q.includes(norm(a)) || norm(a).includes(q) && q.length > 2);
         const dev = kb.devices.find((d: any) => q.includes(norm(d.name).split(/[\s&]/)[0]) || d.issues.some((i: string) => q.includes(norm(i).split(' ')[0]) && q.length > 3));
-        if (area) { say(`✅ Yes, we cover <b>${esc(area)}</b>. Want to book a repair there?`); setChips([['🔧 Book a repair', 'book'], ['⬅ Menu', 'menu']]); }
+        if (area) { say(tpl('found', { area: esc(area) })); setChips([[bookChip?.label || '🔧 Book a repair', 'book'], ['⬅ Menu', 'menu']]); }
         else if (/price|cost|how much|rate|fee/.test(q)) answer('price');
+        else if (/hour|open|close|timing/.test(q)) answer('hours');
         else if (/time|long|when|today|fast/.test(q)) answer('time');
         else if (/branch|address|where|phone|call|contact|email/.test(q)) answer('contact');
         else if (dev) answer(`dev:${dev.id}`);
-        else { say(`I'm not sure about that one — our team can help on WhatsApp.<br>${waBtn(`Hello Danat Fix, ${text}`)}`); menu(); }
+        else { say(`${tpl('fallback')}<br>${waBtn(`Hello ${kb.site}, ${text}`)}`); menu(); }
       }
     };
 
@@ -164,7 +187,7 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       fab.querySelector<HTMLElement>('[data-bot-badge]')!.hidden = true;
       if (open && !started) {
         started = true;
-        typing(() => { say('Hi 👋 I\'m the Danat Fix assistant. I can help you book a repair, check your area or find a branch.'); menu(); });
+        typing(() => { say(esc(bot.dataset.greeting || '')); menu(); });
       }
     };
     fab.querySelectorAll('[data-bot-toggle]').forEach((b) => b.addEventListener('click', toggle));

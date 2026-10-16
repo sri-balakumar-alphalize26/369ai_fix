@@ -1,0 +1,136 @@
+---
+// The header's magnifier: tapping it opens a search box under the top bar that looks up
+// Odoo's catalogue (devices, brands, models and repairs), the same list the home page's
+// hero search uses. A pick opens the Services wizard with that choice; Enter without a
+// pick routes the typed words the same way the hero search does.
+import { staticCatalog, searchIndex, type WzCategory } from '../lib/catalog';
+
+const { categories = staticCatalog().categories } = Astro.props as { categories?: WzCategory[] };
+const { sugg, cats } = searchIndex(categories);
+---
+
+<button type="button" class="nav-search" aria-label="Search devices and models" aria-expanded="false" aria-controls="nsp" data-nsp-btn>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+</button>
+<div class="nsp" id="nsp" data-nsp data-sugg={JSON.stringify(sugg)} data-cats={JSON.stringify(cats)} hidden>
+  <form class="nsp-row" data-nsp-form>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input name="q" placeholder="Search device, brand, model or repair" autocomplete="off" aria-label="Search device, brand, model or repair" aria-autocomplete="list" aria-controls="nsp-list" data-nsp-q />
+    <button type="button" class="nsp-x" aria-label="Close search" data-nsp-x>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </form>
+  <div class="nsp-list" id="nsp-list" role="listbox" aria-label="Suggestions" data-nsp-list></div>
+</div>
+
+<script>
+  const pop = document.querySelector<HTMLElement>('[data-nsp]');
+  const btn = document.querySelector<HTMLButtonElement>('[data-nsp-btn]');
+  if (pop && btn) {
+    const sugg: { t: string; k: string; href: string }[] = JSON.parse(pop.dataset.sugg!);
+    const cats: { id: string; words: string[] }[] = JSON.parse(pop.dataset.cats!);
+    const form = pop.querySelector<HTMLFormElement>('[data-nsp-form]')!;
+    const qIn = pop.querySelector<HTMLInputElement>('[data-nsp-q]')!;
+    const list = pop.querySelector<HTMLElement>('[data-nsp-list]')!;
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    // Carry the visitor's checked area into the Services link (same as the hero search).
+    const withArea = (href: string) => {
+      let area = '';
+      try { area = localStorage.getItem('area') ?? ''; } catch {}
+      if (!area) return href;
+      const u = new URL(href, location.origin);
+      u.searchParams.set('area', area);
+      return u.pathname + u.search + u.hash;
+    };
+    let active = -1;
+
+    const render = () => {
+      const q = norm(qIn.value);
+      const hits = (q.length < 1 ? sugg.filter((s) => s.k === 'Device') : sugg.filter((s) => norm(s.t).includes(q)))
+        .sort((a, b) => (norm(a.t).startsWith(q) ? 0 : 1) - (norm(b.t).startsWith(q) ? 0 : 1))
+        .slice(0, q.length < 1 ? 12 : 8);
+      active = -1;
+      if (!hits.length) { list.innerHTML = `<p class="nsp-none">No match — press Enter to search “${esc(qIn.value.trim())}”</p>`; return; }
+      const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'i');
+      list.innerHTML = hits.map((h, i) => `<a role="option" href="${withArea(h.href)}" data-i="${i}"><span class="nsp-st">${q ? esc(h.t).replace(re, '<mark>$1</mark>') : esc(h.t)}</span><small>${esc(h.k)}</small></a>`).join('');
+    };
+    const open = () => {
+      pop.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      render();
+      qIn.focus();
+    };
+    const close = (back = false) => {
+      if (pop.hidden) return;
+      pop.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+      if (back) btn.focus();
+    };
+
+    btn.addEventListener('click', () => (pop.hidden ? open() : close()));
+    pop.querySelector('[data-nsp-x]')!.addEventListener('click', () => close(true));
+    qIn.addEventListener('input', render);
+    qIn.addEventListener('keydown', (e) => {
+      const items = [...list.querySelectorAll<HTMLAnchorElement>('a')];
+      if (e.key === 'Escape') { e.preventDefault(); close(true); return; }
+      if (!items.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items.forEach((a, i) => a.classList.toggle('on', i === active));
+        items[active].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.href = items[active].href; }
+    });
+    // Enter with nothing picked: a device word opens that device, anything else is searched.
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const raw = qIn.value.trim();
+      const q = norm(raw);
+      const cat = q && cats.find((c) => c.words.some((w) => w === q || (q.length > 3 && w.startsWith(q))));
+      location.href = withArea(!q ? '/services#catalog' : cat ? `/services?cat=${cat.id}#catalog` : `/services?q=${encodeURIComponent(raw)}#catalog`);
+    });
+    document.addEventListener('click', (e) => {
+      const t = e.target as Node;
+      if (!pop.hidden && !pop.contains(t) && !btn.contains(t)) close();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pop.hidden) close(true); });
+  }
+</script>
+
+<style>
+  .nsp {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: calc(100% + 8px);
+    z-index: 80;
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius, 16px);
+    box-shadow: 0 24px 50px -20px rgba(0,0,0,.45);
+    animation: nspIn .2s ease;
+    text-align: left;
+  }
+  .nsp[hidden] { display: none; }
+  @keyframes nspIn { from { opacity: 0; transform: translateY(6px); } }
+  @media (min-width: 721px) { .nsp { left: auto; width: 420px; max-width: calc(100% - 20px); } }
+  .nsp-row { display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); transition: border-color .2s; }
+  .nsp-row:focus-within { border-color: var(--violet); }
+  .nsp-row > svg { width: 18px; height: 18px; color: var(--ink-3); flex: none; }
+  .nsp-row input { flex: 1; min-width: 0; height: 44px; border: 0; background: none; outline: none; font: inherit; font-size: 16px; color: var(--ink); }
+  .nsp-x { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: none; color: var(--ink-3); cursor: pointer; flex: none; }
+  .nsp-x:hover { background: var(--accent-soft); color: var(--violet); }
+  .nsp-x svg { width: 16px; height: 16px; }
+  .nsp-list { display: grid; max-height: min(60vh, 380px); overflow-y: auto; overscroll-behavior: contain; }
+  .nsp-list:empty { display: none; }
+  .nsp-list :global(a) { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 10px; color: var(--ink); }
+  .nsp-list :global(a:hover), .nsp-list :global(a.on) { background: var(--accent-soft); }
+  .nsp-list :global(.nsp-st) { font-weight: 600; font-size: 15px; }
+  .nsp-list :global(mark) { background: none; color: var(--violet); }
+  .nsp-list :global(small) { font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+  .nsp-list :global(.nsp-none) { padding: 10px 12px; font-size: 14px; color: var(--ink-3); }
+</style>

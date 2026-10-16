@@ -135,3 +135,19 @@ export async function getCatalog(host: string): Promise<Catalog> {
     return data;
   }
 }
+
+/** What the search boxes (hero and header) suggest and how a typed word is routed:
+ * `sugg` = every device, brand, model and repair with the Services link it opens;
+ * `cats` = each device category's words, so "laptop" or "cctv" opens that category. */
+export type SearchSuggestion = { t: string; k: string; href: string };
+export type SearchCategory = { id: string; words: string[] };
+export function searchIndex(categories: WzCategory[]): { sugg: SearchSuggestion[]; cats: SearchCategory[] } {
+  const sugg: SearchSuggestion[] = [
+    ...categories.map((c) => ({ t: c.name, k: 'Device', href: `/services?cat=${c.id}#catalog` })),
+    ...categories.flatMap((c) => c.brands.map((b) => ({ t: b.name, k: `Brand · ${c.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(b.name)}#catalog` }))),
+    ...categories.flatMap((c) => c.brands.flatMap((b) => b.models.map((m) => ({ t: m, k: `Model · ${b.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(m)}#catalog` })))),
+    ...categories.flatMap((c) => [...new Set(c.services.map((s) => s.name))].map((r) => ({ t: r, k: `Repair · ${c.name}`, href: `/services?cat=${c.id}#catalog` }))),
+  ];
+  const cats: SearchCategory[] = categories.map((c) => ({ id: c.id, words: [c.name, c.short, ...c.name.split(/[\s&]+/)].map((w) => w.toLowerCase()) }));
+  return { sugg, cats };
+}

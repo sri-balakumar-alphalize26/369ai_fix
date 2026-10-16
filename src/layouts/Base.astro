@@ -9,6 +9,7 @@ import ShadePicker from '../components/ShadePicker.astro';
 import Engage from '../components/Engage.astro';
 import ChatBot from '../components/ChatBot.astro';
 import CartDrawer from '../components/CartDrawer.astro';
+import HeaderSearch from '../components/HeaderSearch.astro';
 import { getContent, contactOf, type Content } from '../lib/content';
 import { getCatalog, type Catalog } from '../lib/catalog';
 import { hostOf } from '../lib/odoo';
@@ -76,10 +77,10 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
     </script>
   </head>
   <body>
-    <Popups contact={contact} visitFee={C.visit_fee} />
+    <Popups contact={contact} visitFee={C.visit_fee} popups={content.popups} wheel={content.wheel} />
     <LocalCurrency />
-    <Engage categories={cats} contact={contact} />
-    <ChatBot coverage={content.coverage} categories={cats} contact={contact} visitFee={C.visit_fee} />
+    <Engage categories={cats} contact={contact} engage={content.engage} />
+    <ChatBot coverage={content.coverage} categories={cats} contact={contact} visitFee={C.visit_fee} bot={content.bot} site={C} />
     <CartDrawer categories={cats} contact={contact} visitFee={C.visit_fee} />
     <div class="aurora" aria-hidden="true">
       <span class="orb o1"></span>
@@ -111,7 +112,7 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
           <span class="loc-tx"><small data-loc-state>Your location</small><b data-loc-name>Select location</b></span>
           <svg class="loc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>        <ShadePicker />
-        <a href="/services#catalog" class="nav-search" aria-label="Search devices and models"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></a>
+        <HeaderSearch categories={cats} />
         <button type="button" class="nav-cart" data-cart-open aria-label="Open cart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 3.5h2.2l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1l1.8-7.3H6"/><circle cx="9.5" cy="19.8" r="1.4"/><circle cx="17" cy="19.8" r="1.4"/></svg><b data-cart-count hidden>0</b></button>
         <a href={C.header.cta_link || '/services#catalog'} class="btn btn-primary nav-cta" aria-label={C.header.cta || 'Book a repair'}>{(C.header.cta || 'Book a repair').split(' ')[0]}<span class="nav-cta-x"> {(C.header.cta || 'Book a repair').split(' ').slice(1).join(' ')}</span></a>
       </div>
@@ -469,9 +470,10 @@ const path = Astro.url.pathname.replace(/\/$/, '') || '/';
   .mega::before { content: ''; position: absolute; left: 0; right: 0; top: -16px; height: 16px; }
   .has-mega.open .mega { opacity: 1; visibility: visible; transform: none; transition: opacity .2s, transform .25s cubic-bezier(.2,.8,.2,1); }
   .has-mega.open .caret { transform: rotate(180deg); }
-  .nav-search { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); color: var(--ink-2); flex: none; transition: color .15s, border-color .15s; }
-  .nav-search:hover { color: var(--violet); border-color: var(--violet); }
-  .nav-search svg { width: 18px; height: 18px; }
+  /* the search button is drawn by HeaderSearch.astro, hence :global */
+  :global(.nav-search) { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--ink-2); flex: none; cursor: pointer; transition: color .15s, border-color .15s; }
+  :global(.nav-search:hover), :global(.nav-search[aria-expanded="true"]) { color: var(--violet); border-color: var(--violet); }
+  :global(.nav-search svg) { width: 18px; height: 18px; }
   .nav-cart { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: none; color: var(--ink-2); flex: none; transition: color .15s, border-color .15s; }
   .nav-cart:hover { color: var(--violet); border-color: var(--violet); }
   .nav-cart svg { width: 19px; height: 19px; }

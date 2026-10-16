@@ -1,18 +1,21 @@
 // The website's own texts, edited in Odoo (Fix Website app, 369ai_fix add-on, website/):
 // the home page sections, the device tiles and "most booked" repairs, the site's name and
 // contact details, the header menu, the branches, the footer, the Services page wording,
-// the coverage areas, the FAQs and the info pages (/page/<slug>). Server-only. Cached per
-// host for 5 minutes like the catalogue; when Odoo cannot be reached the last good copy is
-// used, and failing that the site's own files (src/data/site.ts, home.ts, reviews.ts,
-// coverage.ts, faq.ts), so the pages always render.
+// the coverage areas, the FAQs, the info pages (/page/<slug>) and the pop-ups & chat (announcement
+// bar, welcome pop-up, flash offer, cookie notice, Spin & Win, chat assistant, "Book your slot"
+// slider, "Leaving already?" panel). Server-only. Cached per host for 5 minutes like the
+// catalogue; when Odoo cannot be reached the last good copy is used, and failing that the site's
+// own files (src/data/site.ts, home.ts, reviews.ts, coverage.ts, faq.ts, popups.ts), so the
+// pages always render.
 import { categories as staticCategories } from '../data/devices';
 import { milestones as staticMilestones, homeServices } from '../data/home';
 import { photo } from '../data/photos';
 import { reviews as staticReviews } from '../data/reviews';
-import { nav as staticNav, serviceModes, site, priceWord, PRICE, type ServiceModeId } from '../data/site';
+import { nav as staticNav, serviceModes, site, priceWord, feeLine, PRICE, type ServiceModeId } from '../data/site';
 import { coverage as staticCoverage } from '../data/coverage';
 import { faqs as staticFaqs, infoPages as staticPages } from '../data/faq';
 import { areaGeo as staticGeo } from './areaGeo';
+import { STATIC_POPUPS, STATIC_WHEEL, STATIC_BOT, STATIC_ENGAGE } from '../data/popups';
 import { odooCall } from './odoo';
 
 export type Line = { name: string; value: string; text: string; extra: string; stars: number; link: string; image?: string };
@@ -42,6 +45,36 @@ export type Coverage = {
 };
 export type ServicesPage = { eyebrow: string; title: string; title2: string; lead: string; modes_eyebrow: string; modes_title: string; fee_label: string };
 export type InfoPage = { title: string; slug: string; column: 'company' | 'help' | 'policies' | 'none'; kind: 'text' | 'contact' | 'areas' | 'faq'; body: string };
+// Pop-ups & chat (Fix Website ▸ Pop-ups & chat). Texts may carry placeholders: `{site}`, `{fee}` and
+// `{price}` are filled here (fill()); the rest by the component or in the browser (src/data/popups.ts).
+export type Popups = {
+  ann: { show: boolean; text: string; button: string; link: string; speed_s: number };
+  welcome: { type: 'slot' | 'spin' | 'flash' | 'none'; delay_ms: number; flash_delay_ms: number; snooze_days: number };
+  flash: { badge: string; title: string; body: string; code: string; button: string; button_link: string; wa_button: string; wa_msg: string; later: string };
+  cookie: { show: boolean; title: string; text: string; decline: string; accept: string; delay_ms: number };
+};
+export type WheelIcon = 'diag' | 'pick' | 'clean' | 'fast' | 'data' | 'guard';
+export type WheelSlice = { top: string; label: string; full: string; code: string; icon: WheelIcon; color: string; text_color: string };
+export type Wheel = {
+  tab: string; eyebrow: string; title: string; title2: string; subtitle: string; spin: string; later: string; won: string; note: string;
+  book: string; wa: string; wa_msg: string; slices: WheelSlice[];
+};
+export type BotIntent = 'book' | 'area' | 'price' | 'time' | 'contact' | 'hours' | 'human' | 'menu';
+export type BotAnswer = 'book' | 'dev' | 'iss' | 'area' | 'price' | 'time' | 'contact' | 'hours' | 'human' | 'menu' | 'found' | 'fallback';
+export type Bot = {
+  name: string; status: string; greeting: string; placeholder: string; tip: string; wa_tip: string; wa_msg: string;
+  replies: { label: string; intent: string }[]; answers: Record<BotAnswer, string>;
+};
+// A slide / exit tile belongs to a device category: Odoo rows by `category_id` (the catalogue's
+// odooId), the site's own rows by `cat` (the catalogue's id)
+export type EngageSlide = { category_id: number | null; cat: string; category: string; title: string; title2: string; pitch: string; perks: string[] };
+export type ExitTile = { category_id: number | null; cat: string; category: string; label: string };
+export type Engage = {
+  eyebrow: string; title2_generic: string; perks_generic: string[]; from_label: string; slide_ms: number; idle_s: number; still_s: number; wa_msg: string;
+  form: { pill: string; title: string; subtitle: string; privacy: string; send: string; all: string; all_link: string; features: { title: string; small: string }[] };
+  slides: EngageSlide[];
+  exit: { title: string; status: string; text: string; button: string; wa_msg: string; tile_msg: string; link: string; link_label: string; tiles: ExitTile[] };
+};
 export type Content = {
   odoo: boolean;
   site: SiteContent;
@@ -54,6 +87,10 @@ export type Content = {
   tiles: { id: number | null; name: string }[];
   brands: { id: number | null; name: string; caption: string; color: string; logo: string | false }[];
   mostBooked: { id: number | null; name: string; price: number; categories: string[]; image: string | false }[];
+  popups: Popups;   // announcement bar, welcome pop-up, flash offer, cookie notice
+  wheel: Wheel;     // Spin & Win
+  bot: Bot;         // chat assistant
+  engage: Engage;   // "Book your slot" slider and the "Leaving already?" panel
 };
 
 const TTL_MS = 5 * 60 * 1000;
@@ -63,8 +100,63 @@ const sec = (kind: SectionKind, p: Partial<Section>): Section => ({
   kind, eyebrow: '', title: '', title2: '', subtitle: '', text: '', badge: '', button1: '', button1_link: '', button2: '', button2_link: '', lines: [], ...p,
 });
 const line = (p: Partial<Line>): Line => ({ name: '', value: '', text: '', extra: '', stars: 5, link: '', ...p });
-// {price} in Odoo texts: the visit fee ("OMR 5"), or "price after check" when there is none
-const fill = (t: string, fee: number) => t.replaceAll('{price}', priceWord(fee));
+// Placeholders filled on the server: `{site}` the website's name (the Odoo name, so the brand
+// switch's name swap keeps working), `{fee}` the visit-fee line ("Visit fee OMR 5"), `{price}` the
+// visit fee ("OMR 5"), or "price after check" when there is none
+export type Fill = { site: string; fee: string; price: string };
+const fillOf = (name: string, fee: number): Fill => ({ site: name, fee: feeLine(fee), price: priceWord(fee) });
+const fill = (t: string, v: Partial<Fill>) => Object.entries(v).reduce((out, [k, val]) => out.replaceAll(`{${k}}`, val ?? ''), t);
+/** fill() on every string inside an object or list (lists of rows included). */
+const fillDeep = <T,>(x: T, v: Partial<Fill>): T => {
+  if (typeof x === 'string') return fill(x, v) as T;
+  if (Array.isArray(x)) return x.map((i) => fillDeep(i, v)) as T;
+  if (x && typeof x === 'object') return Object.fromEntries(Object.entries(x).map(([k, i]) => [k, fillDeep(i, v)])) as T;
+  return x;
+};
+// The chat answers keep `{price}` for the browser: there it is the repair's own price
+const fillPopups = (p: { popups: Popups; wheel: Wheel; bot: Bot; engage: Engage }, v: Fill) => ({
+  popups: fillDeep(p.popups, v), wheel: fillDeep(p.wheel, v), engage: fillDeep(p.engage, v),
+  bot: { ...fillDeep({ ...p.bot, answers: undefined }, v), answers: fillDeep(p.bot.answers, { site: v.site, fee: v.fee }) } as Bot,
+});
+/** Odoo's single fields over the site's own: '' / missing = the site's wording, a number must be
+ * above 0, a flag must be a real true/false. Nested objects likewise; lists are merged by the caller. */
+const merge = <T extends Record<string, any>>(o: any, st: T): T => {
+  const out: any = { ...st };
+  for (const [k, v] of Object.entries(st)) {
+    const x = o?.[k];
+    if (typeof v === 'string') out[k] = s(x) || v;
+    else if (typeof v === 'number') out[k] = typeof x === 'number' && x > 0 ? x : v;
+    else if (typeof v === 'boolean') out[k] = typeof x === 'boolean' ? x : v;
+    else if (v && typeof v === 'object' && !Array.isArray(v)) out[k] = merge(x, v);
+  }
+  return out;
+};
+const strList = (x: unknown, st: string[]) => (Array.isArray(x) && x.length ? x.map(s).filter(Boolean) : st);
+const rows = <R,>(x: unknown, st: R[], row: (r: any, i: number) => R): R[] => (Array.isArray(x) && x.length ? x.map((r, i) => row(r, i)) : st);
+const idOf = (x: unknown) => (typeof x === 'number' && x > 0 ? x : Array.isArray(x) && typeof x[0] === 'number' ? x[0] : null);
+const WHEEL_ICONS: WheelIcon[] = ['diag', 'pick', 'clean', 'fast', 'data', 'guard'];
+/** Pop-ups & chat from Odoo's `site` group, every piece falling back to the site's own. */
+function popupsFromOdoo(st: any) {
+  const p = st.popups || {}, w = st.wheel || {}, b = st.bot || {}, e = st.engage || {};
+  const wt = s(p.welcome?.type);
+  const popups: Popups = merge(p, STATIC_POPUPS);
+  popups.welcome.type = wt === 'slot' || wt === 'spin' || wt === 'flash' || wt === 'none' ? wt : STATIC_POPUPS.welcome.type;
+  const wheel: Wheel = { ...merge(w, STATIC_WHEEL), slices: rows(w.slices, STATIC_WHEEL.slices, (r, i) => ({
+    top: s(r.top), label: s(r.label), full: s(r.full) || `${s(r.top)} ${s(r.label)}`.trim(), code: s(r.code),
+    icon: WHEEL_ICONS.includes(r.icon) ? r.icon : WHEEL_ICONS[i % WHEEL_ICONS.length],
+    color: s(r.color) || STATIC_WHEEL.slices[i % STATIC_WHEEL.slices.length].color,
+    text_color: s(r.text_color) || STATIC_WHEEL.slices[i % STATIC_WHEEL.slices.length].text_color })) };
+  const bot: Bot = { ...merge(b, STATIC_BOT), answers: merge(b.answers, STATIC_BOT.answers),
+    replies: rows(b.replies, STATIC_BOT.replies, (r) => ({ label: s(r.label), intent: s(r.intent) })).filter((r) => r.label && r.intent) };
+  const engage: Engage = { ...merge(e, STATIC_ENGAGE),
+    perks_generic: strList(e.perks_generic, STATIC_ENGAGE.perks_generic),
+    form: { ...merge(e.form, STATIC_ENGAGE.form), features: rows(e.form?.features, STATIC_ENGAGE.form.features, (r) => ({ title: s(r.title), small: s(r.small) })) },
+    slides: rows(e.slides, STATIC_ENGAGE.slides, (r) => ({ category_id: idOf(r.category_id), cat: '', category: s(r.category),
+      title: s(r.title), title2: s(r.title2), pitch: s(r.pitch), perks: strList(r.perks, []) })),
+    exit: { ...merge(e.exit, STATIC_ENGAGE.exit), tiles: rows(e.exit?.tiles, STATIC_ENGAGE.exit.tiles, (r) => ({
+      category_id: idOf(r.category_id), cat: '', category: s(r.category), label: s(r.label) })) } };
+  return { popups, wheel, bot, engage };
+}
 const showable = (p: InfoPage) => !!p.slug && (p.kind !== 'text' || !!p.body.replace(/<[^>]*>/g, '').trim());
 // Map centre for each zone, in zone order (Muscat, Sohar/Al Batinah, Salalah/Dhofar)
 const ZONE_PINS: [number, number][] = [[23.593, 58.556], [24.347, 56.709], [17.019, 54.089]];
@@ -155,12 +247,14 @@ export function staticContent(): Content {
     tiles: staticCategories.filter((c) => c.id !== 'printer' && c.id !== 'cctv').map((c) => ({ id: null, name: short(c.name) })),
     brands: [],
     mostBooked: picks,
+    ...fillPopups({ popups: STATIC_POPUPS, wheel: STATIC_WHEEL, bot: STATIC_BOT, engage: STATIC_ENGAGE }, fillOf(site.name, PRICE)),
   };
 }
 
 function fromOdoo(raw: any): Content {
   const st = raw.site || {};
   const fee = Number(st.visit_fee) || 0;
+  const fl = fillOf(s(st.name) || site.name, fee);
   // Empty in Odoo = the site's own wording, so a blank field never leaves a hole
   const sv = st.services || {};
   const services = Object.fromEntries(Object.entries(STATIC_SERVICES).map(([k, v]) => [k, s(sv[k]) || v])) as ServicesPage;
@@ -181,11 +275,11 @@ function fromOdoo(raw: any): Content {
   const odooGeo = Object.fromEntries(Object.entries(cv.geo || {}).map(([n, p]: [string, any]) => [n, [Number(p[0]), Number(p[1])] as [number, number]]));
   const coverage: Coverage = {
     eyebrow: s(cv.eyebrow) || sc.eyebrow, title: s(cv.title) || sc.title,
-    trust: (cv.trust || []).length ? cv.trust.map((t: any) => fill(s(t), fee)) : sc.trust,
+    trust: (cv.trust || []).length ? cv.trust.map((t: any) => fill(s(t), fl)) : sc.trust,
     doorstep: { eta: modes[0].eta, zones: zonesOf('doorstep') }, pickup: { eta: modes[1].eta, zones: zonesOf('pickup') },
     geo: { ...staticGeo, ...odooGeo },
   };
-  const faq = (st.faq || []).map((f: any) => ({ q: s(f.q), a: fill(s(f.a), fee) })).filter((f: { q: string }) => f.q);
+  const faq = (st.faq || []).map((f: any) => ({ q: s(f.q), a: fill(s(f.a), fl) })).filter((f: { q: string }) => f.q);
   const pages: InfoPage[] = (st.pages || []).map((p: any) => ({ title: s(p.title), slug: s(p.slug), column: p.column || 'none', kind: p.kind || 'text', body: s(p.body) }));
   return {
     services, modes, coverage,
@@ -211,6 +305,7 @@ function fromOdoo(raw: any): Content {
     tiles: (raw.tiles || []).map((t: any) => ({ id: t.id, name: s(t.name) })),
     brands: (raw.brands || []).map((b: any) => ({ id: b.id, name: s(b.name), caption: s(b.caption), color: s(b.color), logo: s(b.logo) || false })),
     mostBooked: (raw.most_booked || []).map((p: any) => ({ id: p.id, name: s(p.name), price: Number(p.price) || 0, categories: p.categories || [], image: s(p.image) || false })),
+    ...fillPopups(popupsFromOdoo(st), fl),
   };
 }
 

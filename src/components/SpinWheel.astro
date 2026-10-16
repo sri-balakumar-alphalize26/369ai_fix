@@ -1,12 +1,12 @@
 ---
-// "Spin & Win" offer popup. PLACEHOLDER PRIZES — replace with the client's
-// real offers. Every slice wins; the result is remembered (?offer=spin resets it).
-import { site } from '../data/site';
-import { contactOf, type Contact } from '../lib/content';
-// WhatsApp number from Odoo (passed by Popups), else the site's own.
-const { contact = contactOf() } = Astro.props as { contact?: Contact };
+// "Spin & Win" offer popup. The prizes (slices), their colours and every text come from Odoo
+// (Fix Website ▸ Pop-ups & chat ▸ Spin & Win), else the site's own (src/data/popups.ts).
+// Every slice wins; the result is remembered (?offer=spin resets it).
+import { staticContent, contactOf, type Contact, type Wheel, type WheelIcon } from '../lib/content';
+// WhatsApp number and the wheel from Odoo (passed by Popups), else the site's own.
+const { contact = contactOf(), wheel = staticContent().wheel } = Astro.props as { contact?: Contact; wheel?: Wheel };
 
-const I = {
+const I: Record<WheelIcon, string> = {
   diag: '<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M9 11h4M11 9v4"/>',
   pick: '<circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17h5l3-7h4M14 10l-2-3H9"/>',
   clean: '<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8zM19 15l.8 1.9L22 18l-2.2.9L19 21l-.8-2.1L16 18l2.2-1.1z"/>',
@@ -14,14 +14,7 @@ const I = {
   data: '<path d="M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-1 9zM12 11v6M9.5 14.5L12 17l2.5-2.5"/>',
   guard: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/>',
 };
-const prizes = [
-  { top: 'Free', label: 'Diagnosis', full: 'Free diagnosis', code: 'SPIN-DIAG', icon: I.diag },
-  { top: 'Free', label: 'Pickup', full: 'Free pickup & drop', code: 'SPIN-PICK', icon: I.pick },
-  { top: 'Free', label: 'Cleaning', full: 'Free device cleaning', code: 'SPIN-CLEAN', icon: I.clean },
-  { top: 'Priority', label: 'Slot', full: 'Priority same-day slot', code: 'SPIN-FAST', icon: I.fast },
-  { top: 'Free', label: 'Backup', full: 'Free data backup', code: 'SPIN-DATA', icon: I.data },
-  { top: 'Free', label: 'Guard', full: 'Free screen guard', code: 'SPIN-GUARD', icon: I.guard },
-];
+const prizes = wheel.slices.map((p) => ({ ...p, icon: I[p.icon] ?? I.diag }));
 const n = prizes.length;
 const seg = 360 / n;
 const R = 148;
@@ -38,9 +31,9 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
     <button type="button" class="sw-x" data-sw-x aria-label="Close">×</button>
 
     <header class="sw-head">
-      <span class="sw-kicker">✦ {site.name} rewards ✦</span>
-      <h2 id="sw-title">Spin &amp; <em>Win</em></h2>
-      <p>Every slice is a free extra on your next repair.</p>
+      <span class="sw-kicker">{wheel.eyebrow}</span>
+      <h2 id="sw-title">{wheel.title} <em>{wheel.title2}</em></h2>
+      <p>{wheel.subtitle}</p>
     </header>
 
     <div class="sw-stage">
@@ -55,8 +48,8 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
         {prizes.map((p, i) => {
           const a0 = i * seg, a1 = (i + 1) * seg, mid = a0 + seg / 2;
           return (
-            <g class={`s s${i}`}>
-              <path d={`M160 160 L${pt(a0)} A${R} ${R} 0 0 1 ${pt(a1)} Z`} />
+            <g class="s" style={`color:${p.text_color}`}>
+              <path d={`M160 160 L${pt(a0)} A${R} ${R} 0 0 1 ${pt(a1)} Z`} style={`fill:${p.color}`} />
               <g transform={`rotate(${mid} 160 160)`}>
                 <g transform="translate(148 30) scale(1)" class="ico" set:html={`<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p.icon}</g>`} />
                 <text x="160" y="76" class="t1">{p.top}</text>
@@ -74,23 +67,23 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
     </div>
 
     <div class="sw-foot" data-sw-before>
-      <button type="button" class="btn btn-primary sw-go" data-sw-spin>Spin the wheel</button>
-      <button type="button" class="sw-later" data-sw-x>Maybe later</button>
+      <button type="button" class="btn btn-primary sw-go" data-sw-spin>{wheel.spin}</button>
+      <button type="button" class="sw-later" data-sw-x>{wheel.later}</button>
     </div>
 
     <!-- result sheet -->
     <div class="sw-win" data-sw-after hidden>
       <div class="win-ico" data-sw-wico></div>
-      <span class="win-k">🎉 You won</span>
+      <span class="win-k">{wheel.won}</span>
       <h3 data-sw-prize>—</h3>
       <button type="button" class="ticket" data-sw-code>
         <span class="t-l"><small>Your code</small><b data-sw-codetext>—</b></span>
         <span class="t-r" data-sw-copied>Copy</span>
       </button>
-      <p>Show this code when you book. Valid on your next repair.</p>
+      <p>{wheel.note}</p>
       <div class="sw-btns">
-        <a href="/services#catalog" class="btn btn-primary" data-sw-book>Book now</a>
-        <a href="#" target="_blank" rel="noopener" class="btn" data-sw-wa data-base={wa('Hello Danat Fix — I won on the spin wheel, code: ')}>WhatsApp us</a>
+        <a href="/services#catalog" class="btn btn-primary" data-sw-book>{wheel.book}</a>
+        <a href="#" target="_blank" rel="noopener" class="btn" data-sw-wa data-base={wa(wheel.wa_msg.includes('{code}') ? wheel.wa_msg : `${wheel.wa_msg} {code}`)}>{wheel.wa}</a>
       </div>
     </div>
     <div class="confetti" data-confetti aria-hidden="true"></div>
@@ -123,7 +116,7 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
       sw.querySelector('[data-sw-codetext]')!.textContent = p.code;
       sw.querySelector('[data-sw-wico]')!.replaceChildren(icons[i].cloneNode(true));
       const wa = sw.querySelector<HTMLAnchorElement>('[data-sw-wa]')!;
-      wa.href = wa.dataset.base! + encodeURIComponent(p.code);
+      wa.href = wa.dataset.base!.replace('%7Bcode%7D', encodeURIComponent(p.code));   // the message's {code}
       sw.classList.add('won');
     };
     const confetti = () => {
@@ -221,15 +214,8 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
   .spinning .sw-ring { animation-duration: .9s; }
   .sw-wheel { position: relative; display: block; width: 100%; height: 100%; }
 
-  .s path { stroke: none; }
-  .s0 path { fill: var(--violet); }
-  .s1 path { fill: #f5b400; }
-  .s2 path { fill: #16241d; }
-  .s3 path { fill: #ff7a45; }
-  .s4 path { fill: color-mix(in srgb, var(--violet) 55%, #fff); }
-  .s5 path { fill: #fff; }
+  .s path { stroke: none; }   /* each slice's fill and text colour are inline, from Odoo */
   .s { color: #fff; }
-  .s1, .s4, .s5 { color: #10241a; }
   .ico :global(g) { transform: scale(1); }
   .t1 { font: 700 9.5px var(--body); text-anchor: middle; letter-spacing: .14em; text-transform: uppercase; fill: currentColor; opacity: .75; }
   .t2 { font: 800 15px var(--display); text-anchor: middle; fill: currentColor; letter-spacing: -.01em; }

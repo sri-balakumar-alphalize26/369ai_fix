@@ -4,7 +4,7 @@
 // Track your repair (sends the reference to Danat on WhatsApp — there is no
 // booking system yet, so no status is shown that we cannot know).
 import { staticContent, coverLine, contactOf, type Coverage, type Contact } from '../lib/content';
-import { staticCatalog, type WzCategory } from '../lib/catalog';
+import { staticCatalog, searchIndex, type WzCategory } from '../lib/catalog';
 import { DIAL } from '../lib/phone';
 
 // Coverage areas come from Odoo (Fix Website ▸ Coverage Areas) through the page; the site's own list otherwise.
@@ -19,12 +19,8 @@ const pickup = coverage.pickup.zones.flatMap((z) => z.areas);
 
 import { branchGeo } from '../lib/areaGeo';
 
-const suggIndex = [
-  ...categories.map((c) => ({ t: c.name, k: 'Device', href: `/services?cat=${c.id}#catalog` })),
-  ...categories.flatMap((c) => c.brands.map((b) => ({ t: b.name, k: `Brand · ${c.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(b.name)}#catalog` }))),
-  ...categories.flatMap((c) => c.brands.flatMap((b) => b.models.map((m) => ({ t: m, k: `Model · ${b.name}`, href: `/services?cat=${c.id}&q=${encodeURIComponent(m)}#catalog` })))),
-  ...categories.flatMap((c) => [...new Set(c.services.map((s) => s.name))].map((r) => ({ t: r, k: `Repair · ${c.name}`, href: `/services?cat=${c.id}#catalog` }))),
-];
+// The suggestion list and the category words are shared with the header's search box.
+const { sugg: suggIndex, cats: catIndex } = searchIndex(categories);
 const suggestions = [
   ...categories.map((c) => c.name),
   ...new Set(categories.flatMap((c) => c.brands.map((b) => b.name))),
@@ -39,7 +35,6 @@ const popular = odooPopular ? odooPopular.map((p) => ({ label: p.name, href: p.l
   { label: 'CCTV Installation', href: '/services?cat=cctv#catalog' },
   { label: 'Data Recovery', href: '/services?cat=data#catalog' },
 ];
-const catIndex = categories.map((c) => ({ id: c.id, words: [c.name, c.short, ...c.name.split(/[\s&]+/)].map((w) => w.toLowerCase()) }));
 const tel = contact.wa;   // WhatsApp number: every "Chat" / "Send on WhatsApp" here opens it
 const trackSteps = [
   { t: 'Booked', d: 'We confirm your slot', icon: '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/>' },
