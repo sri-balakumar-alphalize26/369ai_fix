@@ -8,30 +8,65 @@
             <form create="0" delete="0">
                 <sheet>
                     <div class="oe_title"><h1>Website Booking Settings</h1></div>
+                    <notebook>
+                        <!-- Alarm 1 -->
+                        <page string="🔔 New booking" name="alarm_new">
+                            <p class="text-muted">
+                                A chime while a website booking waits in <strong>New</strong>.
+                                It stops when someone presses Call, Approve or Reject.
+                            </p>
+                            <group>
+                                <group>
+                                    <field name="new_alarm_on" widget="boolean_toggle"/>
+                                    <field name="ring_seconds" invisible="not new_alarm_on"/>
+                                    <field name="repeat_seconds" invisible="not new_alarm_on"/>
+                                </group>
+                                <group>
+                                    <field name="alarm_user_ids" widget="many2many_tags" placeholder="Everyone"
+                                           invisible="not new_alarm_on"/>
+                                </group>
+                            </group>
+                        </page>
+                        <!-- Alarm 2 -->
+                        <page string="🔔 Visit time booked" name="alarm_slot">
+                            <p class="text-muted">
+                                A second tone when a customer picks the <strong>visit time</strong> from the
+                                WhatsApp link. It stops when someone presses Seen.
+                            </p>
+                            <group>
+                                <group>
+                                    <field name="slot_alarm_on" widget="boolean_toggle"/>
+                                    <field name="slot_ring_seconds" invisible="not slot_alarm_on"/>
+                                    <field name="slot_repeat_seconds" invisible="not slot_alarm_on"/>
+                                </group>
+                                <group>
+                                    <field name="slot_alarm_user_ids" widget="many2many_tags" placeholder="Everyone"
+                                           invisible="not slot_alarm_on"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="WhatsApp staff group" name="poll">
+                            <group>
+                                <group>
+                                    <field name="poll_enabled"/>
+                                    <field name="staff_group_id" invisible="not poll_enabled"
+                                           options="{'no_create': True}"/>
+                                    <field name="staff_group_jid" invisible="not poll_enabled or staff_group_id"
+                                           placeholder="120363xxxxxxxx@g.us"/>
+                                    <field name="session_id" invisible="not poll_enabled"
+                                           options="{'no_create': True}"/>
+                                    <button name="action_test_group" type="object" class="btn-secondary"
+                                            string="Send a test message" invisible="not poll_enabled" colspan="2"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
                     <group>
-                        <group string="WhatsApp staff group">
-                            <field name="poll_enabled"/>
-                            <field name="staff_group_id" invisible="not poll_enabled"
-                                   options="{'no_create': True}"/>
-                            <field name="staff_group_jid" invisible="not poll_enabled or staff_group_id"
-                                   placeholder="120363xxxxxxxx@g.us"/>
-                            <field name="session_id" invisible="not poll_enabled"
-                                   options="{'no_create': True}"/>
-                            <button name="action_test_group" type="object" class="btn-secondary"
-                                    string="Send a test message" invisible="not poll_enabled" colspan="2"/>
-                        </group>
-                        <group string="Alarm">
-                            <field name="ring_seconds"/>
-                            <field name="repeat_seconds"/>
-                            <field name="alarm_user_ids" widget="many2many_tags"
-                                   placeholder="Everyone"/>
-                            <field name="desk_replaces_online_alarm"/>
-                        </group>
+                        <field name="desk_replaces_online_alarm"/>
                     </group>
                     <div class="text-muted">
-                        Website orders (IT &amp; Mobile Repair &gt; Online Service) show on the Live Screen.
-                        Two alarms: a chime for a new booking, a second tone when a customer books
-                        the visit time.
+                        Both alarms ring on any Odoo page for the people chosen, and on the Booking Desk
+                        for whoever has it open.
                     </div>
                 </sheet>
             </form>

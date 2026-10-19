@@ -35,7 +35,11 @@ class DanatfixBookingSettings(models.Model):
         help="The number that posts the poll. Empty: the staff group's own "
              "session, or the first active one.")
 
-    # ---- Alarm ------------------------------------------------------------
+    # ---- Alarm 1: a new booking (chime) -----------------------------------
+    new_alarm_on = fields.Boolean(
+        'Ring for new bookings', default=True,
+        help="Rings while a website booking waits in New, until someone presses Call, "
+             "Approve or Reject.")
     ring_seconds = fields.Integer(
         'Ring for (seconds)', default=20,
         help="How long each burst of the alarm lasts.")
@@ -43,10 +47,38 @@ class DanatfixBookingSettings(models.Model):
         'Pause between rings (seconds)', default=15)
     alarm_user_ids = fields.Many2many(
         'res.users', 'danatfix_booking_alarm_user_rel', 'settings_id',
-        'user_id', string='Who hears the alarm',
+        'user_id', string='Who hears it',
         domain=[('share', '=', False)],
-        help="Empty: every internal user hears it on any Odoo page. The Live "
-             "Screen always rings for whoever has it open.")
+        help="Empty: every internal user hears it on any Odoo page. The Booking "
+             "Desk always rings for whoever has it open.")
+
+    # ---- Alarm 2: the customer booked the visit time (second tone) --------
+    slot_alarm_on = fields.Boolean(
+        'Ring when a visit time is booked', default=True,
+        help="Rings when a customer picks the visit time from the WhatsApp link, until "
+             "someone presses Seen.")
+    slot_ring_seconds = fields.Integer(
+        'Ring for (seconds)', default=20,
+        help="How long each burst of the alarm lasts.")
+    slot_repeat_seconds = fields.Integer('Pause between rings (seconds)', default=15)
+    slot_alarm_user_ids = fields.Many2many(
+        'res.users', 'danatfix_booking_slot_alarm_user_rel', 'settings_id',
+        'user_id', string='Who hears it ',
+        domain=[('share', '=', False)],
+        help="Empty: every internal user hears it on any Odoo page. The Booking "
+             "Desk always rings for whoever has it open.")
+
+    def _alarm_sound(self):
+        """Both alarms as the pages play them: on/off, ring and pause in seconds."""
+        self.ensure_one()
+        return {
+            'new_on': self.new_alarm_on,
+            'ring': max(3, self.ring_seconds or 20),
+            'repeat': max(3, self.repeat_seconds or 15),
+            'slot_on': self.slot_alarm_on,
+            'slot_ring': max(3, self.slot_ring_seconds or 20),
+            'slot_repeat': max(3, self.slot_repeat_seconds or 15),
+        }
 
     desk_replaces_online_alarm = fields.Boolean(
         'Only the Live Screen alarm rings', default=True,

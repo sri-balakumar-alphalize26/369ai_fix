@@ -89,14 +89,15 @@ export const bookingAlarmService = {
             }
             if (state.slots.length) {
                 if (!slotTimer) {
-                    // Offset by half a cycle so the two alarms never sound together.
-                    const cycle = (state.ring + state.repeat) * 1000;
+                    // Its own ring and pause (Booking Desk Settings); offset by half the new
+                    // booking's cycle so the two alarms never sound together.
+                    const cycle = (state.slot_ring + state.slot_repeat) * 1000;
                     setTimeout(() => {
                         if (state.slots.length && !screenOpen()) {
-                            slotAlarm.ring(state.ring, SLOT_TONE);
+                            slotAlarm.ring(state.slot_ring, SLOT_TONE);
                         }
-                    }, state.new ? cycle / 2 : 0);
-                    slotTimer = setInterval(() => slotAlarm.ring(state.ring, SLOT_TONE), cycle);
+                    }, state.new ? ((state.ring + state.repeat) * 1000) / 2 : 0);
+                    slotTimer = setInterval(() => slotAlarm.ring(state.slot_ring, SLOT_TONE), cycle);
                 }
             } else {
                 stopSlot();

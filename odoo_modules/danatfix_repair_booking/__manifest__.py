@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Danat Fix Repair Booking',
-    'version': '19.0.3.1.0',
+    'version': '19.0.3.3.0',
     'summary': 'Alarms and the staff WhatsApp poll for website repair bookings',
     'description': """
 Website bookings (IT & Mobile Repair > Online Service, each already a filled job

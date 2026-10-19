@@ -12,6 +12,7 @@ import re
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+from odoo.addons.web.controllers.utils import clean_action
 
 from .booking import OPT_ACCEPT, OPT_CALL, OPT_REJECT, POLL_OPTIONS  # noqa: F401  (same poll words)
 
@@ -72,19 +73,22 @@ class OnlineServiceOrder(models.Model):
     def desk_alarm_state(self):
         """Both alarms, small enough to poll from every Odoo page."""
         settings = self.env['danatfix.booking.settings'].get_settings()
-        hears = not settings.alarm_user_ids or self.env.user in settings.alarm_user_ids
+        user = self.env.user
+        # each alarm has its own switch and its own listeners (Booking Desk Settings)
+        hears_new = settings.new_alarm_on and (not settings.alarm_user_ids or user in settings.alarm_user_ids)
+        hears_slot = settings.slot_alarm_on and (not settings.slot_alarm_user_ids
+                                                 or user in settings.slot_alarm_user_ids)
         Order = self.sudo()
         new = Order.search([('state', '=', 'new'), ('desk_calling', '=', False),
-                            ('company_id', 'in', self.env.companies.ids)])
+                            ('company_id', 'in', self.env.companies.ids)]) if hears_new else Order
         slots = Order.search([('slot_booked_on', '!=', False), ('slot_seen_by_id', '=', False),
-                              ('state', '!=', 'cancelled'), ('company_id', 'in', self.env.companies.ids)])
-        return {
-            'new': len(new) if hears else 0,
+                              ('state', '!=', 'cancelled'),
+                              ('company_id', 'in', self.env.companies.ids)]) if hears_slot else Order
+        return dict(settings._alarm_sound(), **{
+            'new': len(new),
             'slots': [{'id': o.id, 'name': o.name, 'customer': o.customer_name or o.phone or '',
-                       'slot': o.slot_label or ''} for o in slots[:10]] if hears else [],
-            'ring': max(3, settings.ring_seconds or 20),
-            'repeat': max(3, settings.repeat_seconds or 15),
-        }
+                       'slot': o.slot_label or ''} for o in slots[:10]],
+        })
 
     @api.model
     def alarm_state(self):
@@ -160,12 +164,14 @@ class OnlineServiceOrder(models.Model):
     def desk_act(self, action):
         """A button on the Live Screen. Approve and Reject open their dialogs."""
         self.ensure_one()
+        # A dialog goes to the web client as it is, so it needs the clean-up a form button
+        # gets from the server (its 'views' list above all), as on 369ai_fix's Booking Desk.
         if action == 'approve':
             self.action_mark_opened()
-            return {'action': self.action_wb_approve()}
+            return {'action': clean_action(self.action_wb_approve(), self.env)}
         if action == 'reject':
             self.action_mark_opened()
-            return {'action': self.action_wb_reject()}
+            return {'action': clean_action(self.action_wb_reject(), self.env)}
         if action == 'call':
             ok, warning = self._desk_set_calling(self.env.user.name)
         elif action == 'seen':
