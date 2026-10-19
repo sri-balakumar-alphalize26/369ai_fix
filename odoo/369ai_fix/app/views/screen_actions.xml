@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The green screens (static/src/app/screen): one client action per menu, the screen's
+         key in the context; what each shows is in app/models/fix_screen_configs.py. -->
+    <record id="action_screen_bookings" model="ir.actions.client">
+        <field name="name">Bookings</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-bookings</field>
+        <field name="context" eval="{'fix_screen': 'bookings'}"/>
+    </record>
+    <record id="action_screen_job_cards" model="ir.actions.client">
+        <field name="name">Job Cards</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-job-cards</field>
+        <field name="context" eval="{'fix_screen': 'job_cards'}"/>
+    </record>
+    <record id="action_screen_visits" model="ir.actions.client">
+        <field name="name">Doorstep Visits</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-visits</field>
+        <field name="context" eval="{'fix_screen': 'visits'}"/>
+    </record>
+    <record id="action_screen_spare_requests" model="ir.actions.client">
+        <field name="name">Spare Requests</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-spare-requests</field>
+        <field name="context" eval="{'fix_screen': 'spare_requests'}"/>
+    </record>
+    <record id="action_screen_services" model="ir.actions.client">
+        <field name="name">Repair Services</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-repair-services</field>
+        <field name="context" eval="{'fix_screen': 'services'}"/>
+    </record>
+    <record id="action_screen_spare_parts" model="ir.actions.client">
+        <field name="name">Spare Parts</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-spare-parts</field>
+        <field name="context" eval="{'fix_screen': 'spare_parts'}"/>
+    </record>
+    <record id="action_screen_categories" model="ir.actions.client">
+        <field name="name">Device Categories</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-categories</field>
+        <field name="context" eval="{'fix_screen': 'categories'}"/>
+    </record>
+    <record id="action_screen_brands" model="ir.actions.client">
+        <field name="name">Brands</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-brand-list</field>
+        <field name="context" eval="{'fix_screen': 'brands'}"/>
+    </record>
+    <record id="action_screen_series" model="ir.actions.client">
+        <field name="name">Series</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-series</field>
+        <field name="context" eval="{'fix_screen': 'series'}"/>
+    </record>
+    <record id="action_screen_models" model="ir.actions.client">
+        <field name="name">Models</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-models</field>
+        <field name="context" eval="{'fix_screen': 'models'}"/>
+    </record>
+    <record id="action_screen_slots" model="ir.actions.client">
+        <field name="name">Time Slots</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-time-slots</field>
+        <field name="context" eval="{'fix_screen': 'slots'}"/>
+    </record>
+    <record id="action_screen_messages" model="ir.actions.client">
+        <field name="name">Status Messages</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-messages</field>
+        <field name="context" eval="{'fix_screen': 'messages'}"/>
+    </record>
+    <record id="action_screen_issue_types" model="ir.actions.client">
+        <field name="name">Issue Types</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-issue-types</field>
+        <field name="context" eval="{'fix_screen': 'issue_types'}"/>
+    </record>
+    <record id="action_screen_accessories" model="ir.actions.client">
+        <field name="name">Accessories</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-accessories</field>
+        <field name="context" eval="{'fix_screen': 'accessories'}"/>
+    </record>
+    <record id="action_screen_safety_items" model="ir.actions.client">
+        <field name="name">Safety Checklist</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-safety-checklist</field>
+        <field name="context" eval="{'fix_screen': 'safety_items'}"/>
+    </record>
+    <record id="action_screen_device_angles" model="ir.actions.client">
+        <field name="name">Device Photos</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-device-photos</field>
+        <field name="context" eval="{'fix_screen': 'device_angles'}"/>
+    </record>
+    <record id="action_screen_repair_settings" model="ir.actions.client">
+        <field name="name">Repair Settings</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-repair-settings</field>
+        <field name="context" eval="{'fix_screen': 'repair_settings'}"/>
+    </record>
+    <record id="action_screen_desk_settings" model="ir.actions.client">
+        <field name="name">Booking Desk Settings</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-desk-settings</field>
+        <field name="context" eval="{'fix_screen': 'desk_settings'}"/>
+    </record>
+    <record id="action_screen_sites" model="ir.actions.client">
+        <field name="name">Website Details</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-websites</field>
+        <field name="context" eval="{'fix_screen': 'sites'}"/>
+    </record>
+    <!-- the same Bookings screen, opened on "Waiting for parts" -->
+    <record id="action_screen_bookings_parts" model="ir.actions.client">
+        <field name="name">Waiting for Parts</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-waiting-parts</field>
+        <field name="context" eval="{'fix_screen': 'bookings', 'fix_screen_filter': 'parts'}"/>
+    </record>
+</odoo>

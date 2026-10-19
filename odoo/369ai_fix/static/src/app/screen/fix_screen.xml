@@ -1,0 +1,714 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- ================================================================ a field -->
+    <t t-name="369ai_fix.Field">
+        <!-- read only: words (pictures still show) -->
+        <t t-if="props.readonly and type !== 'image' and type !== 'html'">
+            <span class="fxf-ro" t-att-class="{ 'fxf-empty': !display }"><t t-esc="display or '—'"/></span>
+        </t>
+        <t t-elif="type === 'boolean'">
+            <label class="fxf-switch">
+                <input type="checkbox" t-att-checked="props.value" t-on-change="onToggle"/>
+                <span class="fxf-slider"/>
+            </label>
+        </t>
+        <t t-elif="type === 'selection' and (props.widget === 'radio' or (!props.compact and selection.length &lt;= 4))">
+            <div class="fxf-chips">
+                <t t-foreach="selection" t-as="opt" t-key="opt[0]">
+                    <button type="button" class="fxf-chip" t-att-class="{ 'fxf-chip-on': props.value === opt[0] }"
+                            t-on-click="() => this.onChip(opt[0])"><t t-esc="opt[1]"/></button>
+                </t>
+            </div>
+        </t>
+        <t t-elif="type === 'selection'">
+            <select class="fxf-in fxf-select" t-on-change="onSelect">
+                <option value="" t-att-selected="!props.value">—</option>
+                <t t-foreach="selection" t-as="opt" t-key="opt[0]">
+                    <option t-att-value="opt[0]" t-att-selected="props.value === opt[0]"><t t-esc="opt[1]"/></option>
+                </t>
+            </select>
+        </t>
+        <t t-elif="type === 'text'">
+            <textarea class="fxf-in fxf-text" t-att-rows="props.compact ? 2 : 3" t-att-value="state.text"
+                      t-att-placeholder="props.placeholder or ''" t-on-input="onText" t-on-blur="onBlur"/>
+        </t>
+        <t t-elif="type === 'html' and props.readonly">
+            <div class="fxf-html" t-out="html"/>
+        </t>
+        <t t-elif="type === 'html'">
+            <div class="fxf-editor">
+                <div class="fxf-tools">
+                    <button type="button" t-on-mousedown.prevent="() => this.exec('formatBlock', 'h2')" title="Heading">H</button>
+                    <button type="button" t-on-mousedown.prevent="() => this.exec('formatBlock', 'p')" title="Paragraph">¶</button>
+                    <button type="button" t-on-mousedown.prevent="() => this.exec('bold')" title="Bold"><b>B</b></button>
+                    <button type="button" t-on-mousedown.prevent="() => this.exec('italic')" title="Italic"><i>I</i></button>
+                    <button type="button" t-on-mousedown.prevent="() => this.exec('insertUnorderedList')" title="List"><i class="fa fa-list-ul"/></button>
+                    <button type="button" t-on-mousedown.prevent="addLink" title="Link"><i class="fa fa-link"/></button>
+                </div>
+                <div class="fxf-rich" contenteditable="true" t-ref="editor" t-on-input="onEditor" t-on-blur="onBlur"/>
+            </div>
+        </t>
+        <t t-elif="type === 'integer' or type === 'float' or type === 'monetary'">
+            <input class="fxf-in fxf-num" type="number" step="any" t-att-value="state.text" t-on-input="onText" t-on-blur="onBlur"/>
+        </t>
+        <t t-elif="type === 'float_time'">
+            <input class="fxf-in fxf-num" type="text" inputmode="numeric" placeholder="09:30" t-att-value="state.text"
+                   t-on-input="onText" t-on-blur="onBlur"/>
+        </t>
+        <t t-elif="type === 'date'">
+            <input class="fxf-in" type="date" t-att-value="dateInput" t-on-change="onDate"/>
+        </t>
+        <t t-elif="type === 'datetime'">
+            <input class="fxf-in" type="datetime-local" t-att-value="dateInput" t-on-change="onDate"/>
+        </t>
+        <t t-elif="type === 'many2one'">
+            <div class="fxf-pick">
+                <div class="fxf-pick-box">
+                    <input class="fxf-in" type="text" t-att-value="state.open ? state.query : (props.value ? props.value[1] : '')"
+                           t-att-placeholder="props.placeholder or 'Search…'"
+                           t-on-focus="openPicker" t-on-input="onQuery" t-on-blur="closePicker"/>
+                    <button type="button" class="fxf-clear" t-if="props.value" t-on-click="clearOne" title="Clear"><i class="fa fa-times"/></button>
+                </div>
+                <div class="fxf-drop" t-if="state.open and state.results.length">
+                    <t t-foreach="state.results" t-as="r" t-key="r.id">
+                        <button type="button" class="fxf-opt" t-on-mousedown.prevent="() => this.choose(r)"><t t-esc="r.name"/></button>
+                    </t>
+                </div>
+            </div>
+        </t>
+        <t t-elif="type === 'many2many' and props.options">
+            <div class="fxf-ticks">
+                <t t-foreach="props.options" t-as="opt" t-key="opt.id">
+                    <label class="fxf-tick">
+                        <input type="checkbox" t-att-checked="isTicked(opt)" t-on-change="(ev) => this.toggleTick(opt, ev)"/>
+                        <span t-esc="opt.name"/>
+                    </label>
+                </t>
+            </div>
+        </t>
+        <t t-elif="type === 'many2many'">
+            <div class="fxf-pick">
+                <div class="fxf-tags">
+                    <t t-foreach="tags" t-as="tag" t-key="tag.id">
+                        <span class="fxf-tag"><t t-esc="tag.name"/>
+                            <button type="button" t-on-click="() => this.removeTag(tag)" title="Remove"><i class="fa fa-times"/></button></span>
+                    </t>
+                    <input class="fxf-tag-in" type="text" t-att-value="state.query" placeholder="Add…"
+                           t-on-focus="openPicker" t-on-input="onQuery" t-on-blur="closePicker"/>
+                </div>
+                <div class="fxf-drop" t-if="state.open and state.results.length">
+                    <t t-foreach="state.results" t-as="r" t-key="r.id">
+                        <button type="button" class="fxf-opt" t-on-mousedown.prevent="() => this.choose(r)"><t t-esc="r.name"/></button>
+                    </t>
+                </div>
+            </div>
+        </t>
+        <t t-elif="type === 'image' or type === 'binary'">
+            <div class="fxf-image" t-att-class="{ 'fxf-image-sm': props.compact }">
+                <img t-if="props.value and props.imageUrl and props.value === true" t-att-src="props.imageUrl" alt=""/>
+                <img t-elif="props.value and props.value !== true" t-attf-src="data:image/png;base64,{{ props.value }}" alt=""/>
+                <span class="fxf-noimg" t-else=""><i class="fa fa-picture-o"/></span>
+                <t t-if="!props.readonly">
+                    <label class="fxf-up" title="Upload a picture"><i class="fa fa-upload"/>
+                        <input type="file" accept="image/*" t-on-change="onFile"/></label>
+                    <button type="button" class="fxf-up" t-if="props.value" t-on-click="() => this.change(false)" title="Remove"><i class="fa fa-trash"/></button>
+                </t>
+            </div>
+        </t>
+        <t t-elif="props.widget === 'code'">
+            <input class="fxf-in fxf-code" type="text" inputmode="numeric" maxlength="4" autocomplete="off"
+                   t-att-value="state.text" t-on-input="onText" t-on-blur="onBlur"/>
+        </t>
+        <t t-else="">
+            <input class="fxf-in" type="text" t-att-value="state.text" t-att-placeholder="props.placeholder or ''"
+                   t-on-input="onText" t-on-blur="onBlur"/>
+        </t>
+    </t>
+
+    <!-- ================================================================ one record -->
+    <t t-name="369ai_fix.Record">
+        <div class="fxs-record" t-att-class="{ 'fxs-embedded': props.embedded }">
+            <div class="fxd-empty" t-if="!state.meta or !state.rec">
+                <t t-if="state.error"><span class="fxd-note fxd-note-red" t-esc="state.error"/></t>
+                <t t-else=""><i class="fa fa-circle-o-notch fa-spin"/> Loading…</t>
+            </div>
+            <t t-else="">
+                <div class="fxs-rhead">
+                    <button class="fxs-back" t-if="props.onClose" t-on-click="props.onClose" title="Back to the list"><i class="fa fa-arrow-left"/></button>
+                    <div class="fxs-rtitle">
+                        <h2><t t-esc="title"/><span t-if="badge" t-att-class="badgeClass" t-esc="badge"/></h2>
+                        <small t-if="subtitle" t-esc="subtitle"/>
+                    </div>
+                    <span class="fxs-status" t-att-class="'fxs-status-' + state.status">
+                        <t t-if="state.status === 'saving'"><i class="fa fa-circle-o-notch fa-spin"/> Saving…</t>
+                        <t t-elif="state.status === 'saved'"><i class="fa fa-check"/> Saved</t>
+                        <t t-elif="state.status === 'error'"><i class="fa fa-exclamation-triangle"/> Not saved</t>
+                    </span>
+                </div>
+                <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+                <div class="fxd-note fxd-note-amber" t-if="state.rec.locked">This record is closed: it can be read, not changed.</div>
+
+                <div class="fxd-actions" t-if="buttons.length">
+                    <t t-foreach="buttons" t-as="b" t-key="b.name">
+                        <button t-attf-class="fxd-btn fxd-btn-{{ b.kind or 'ghost' }}" t-att-disabled="state.busy"
+                                t-on-click="() => this.press(b)">
+                            <i t-attf-class="fa {{ state.busy === b.name ? 'fa-circle-o-notch fa-spin' : (b.icon or 'fa-circle') }}"/>
+                            <t t-esc="b.label"/>
+                            <small class="fxs-odoo" t-if="b.odoo">opens in Odoo</small>
+                        </button>
+                    </t>
+                </div>
+
+                <div class="fxs-tabs" t-if="meta.tabs.length">
+                    <t t-foreach="meta.tabs" t-as="tab" t-key="tab">
+                        <button class="fxs-tab" t-att-class="{ 'fxs-tab-on': state.tab === tab }" t-on-click="() => state.tab = tab" t-esc="tab"/>
+                    </t>
+                </div>
+
+                <div class="fxd-grid">
+                    <t t-foreach="sections" t-as="section" t-key="section_index">
+                        <section t-if="sectionShown(section)" class="fxd-box" t-att-class="{ 'fxd-box-wide': section.wide or section.lines or section.kind === 'map' }">
+                            <h3><i t-attf-class="fa {{ section.icon or 'fa-circle-o' }}"/> <t t-esc="section.title"/></h3>
+
+                            <!-- the live map -->
+                            <t t-if="section.kind === 'map'">
+                                <div class="fxd-map" t-if="hasMap" t-ref="map"/>
+                                <div class="fxd-muted" t-else="">The map library did not load.</div>
+                            </t>
+
+                            <!-- a line table -->
+                            <t t-elif="section.lines">
+                                <t t-set="cols" t-value="lineColumns(section)"/>
+                                <t t-set="lmeta" t-value="lineMeta(section)"/>
+                                <div class="fxs-lines-wrap">
+                                    <table class="fxs-lines">
+                                        <thead><tr>
+                                            <th t-if="lineCanEdit(section) and lmeta.sequence !== undefined" class="fxs-narrow"/>
+                                            <t t-foreach="cols" t-as="c" t-key="c"><th t-esc="lmeta[c].string"/></t>
+                                            <th t-if="lineCanEdit(section)" class="fxs-narrow"/>
+                                        </tr></thead>
+                                        <tbody>
+                                            <t t-foreach="lines(section)" t-as="line" t-key="line.id">
+                                                <tr t-att-class="{ 'fxs-click': section.open }" t-on-click="() => this.openLine(section, line)">
+                                                    <td t-if="lineCanEdit(section) and lmeta.sequence !== undefined" class="fxs-narrow">
+                                                        <button class="fxs-mini" t-on-click.stop="() => this.moveLine(section, line, -1)"><i class="fa fa-chevron-up"/></button>
+                                                        <button class="fxs-mini" t-on-click.stop="() => this.moveLine(section, line, 1)"><i class="fa fa-chevron-down"/></button>
+                                                    </td>
+                                                    <t t-foreach="cols" t-as="c" t-key="c">
+                                                        <td t-att-data-label="lmeta[c].string">
+                                                            <FixField name="c" meta="lmeta[c]" value="line[c]" compact="true"
+                                                                      readonly="lineReadonly(section, c)"
+                                                                      imageUrl="lineImage(section, line, c)"
+                                                                      pick="linePick(section, c)"
+                                                                      onChange="(v) => this.onLineField(section, line, c, v)"/>
+                                                        </td>
+                                                    </t>
+                                                    <td t-if="lineCanEdit(section)" class="fxs-narrow">
+                                                        <button class="fxs-mini fxs-mini-red" t-if="section.remove !== false"
+                                                                t-on-click.stop="() => this.removeLine(section, line)" title="Remove"><i class="fa fa-trash"/></button>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                            <tr t-if="!lines(section).length"><td t-att-colspan="cols.length + 2" class="fxd-muted">Nothing yet.</td></tr>
+                                        </tbody>
+                                        <tfoot t-if="cols.some((c) => lineTotal(section, c))">
+                                            <tr>
+                                                <td t-if="lineCanEdit(section) and lmeta.sequence !== undefined"/>
+                                                <t t-foreach="cols" t-as="c" t-key="c"><td class="fxs-total" t-esc="lineTotal(section, c)"/></t>
+                                                <td t-if="lineCanEdit(section)"/>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                <t t-if="lineCanEdit(section)">
+                                    <div class="fxs-newline" t-if="state.adding === section.lines">
+                                        <t t-foreach="cols" t-as="c" t-key="c">
+                                            <label class="fxs-field" t-if="!lineReadonly(section, c)">
+                                                <span class="fxs-label" t-esc="lmeta[c].string"/>
+                                                <FixField name="c" meta="lmeta[c]" value="state.newLine[c]" compact="true"
+                                                          pick="linePick(section, c)" onChange="(v) => state.newLine[c] = v"/>
+                                            </label>
+                                        </t>
+                                        <div class="fxs-newline-btns">
+                                            <button class="fxd-btn fxd-btn-primary fxd-btn-sm" t-on-click="() => this.saveNewLine(section)"><i class="fa fa-check"/> Add</button>
+                                            <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => state.adding = ''">Cancel</button>
+                                        </div>
+                                    </div>
+                                    <button t-else="" class="fxd-link fxs-addline" t-on-click="() => this.startAdd(section)"><i class="fa fa-plus"/> Add a line</button>
+                                </t>
+                            </t>
+
+                            <!-- fields -->
+                            <t t-else="">
+                                <div class="fxs-fields">
+                                    <t t-foreach="sectionFields(section)" t-as="name" t-key="name">
+                                        <label class="fxs-field" t-att-class="{ 'fxs-field-wide': ['text', 'html', 'many2many'].includes(meta.fields[name].type) }">
+                                            <span class="fxs-label" t-att-title="help(name)"><t t-esc="label(name)"/><i t-if="help(name)" class="fa fa-question-circle-o fxs-help"/></span>
+                                            <FixField name="name" meta="meta.fields[name]" value="state.values[name]"
+                                                      readonly="readonly(name)" widget="(meta.widgets or {})[name]"
+                                                      options="(section.ticks or []).includes(name) ? state.options[name] : undefined"
+                                                      imageUrl="imageUrl(name)" pick="pickFor(name)"
+                                                      onChange="(v) => this.onField(name, v)"/>
+                                        </label>
+                                    </t>
+                                </div>
+                                <dl class="fxs-info" t-if="sectionInfo(section).length">
+                                    <t t-foreach="sectionInfo(section)" t-as="name" t-key="name">
+                                        <dt t-esc="label(name)"/>
+                                        <dd t-if="infoHtml(name)"><t t-out="state.values[name]"/></dd>
+                                        <dd t-else="" t-esc="info(name)"/>
+                                    </t>
+                                </dl>
+                            </t>
+                        </section>
+                    </t>
+
+                    <!-- notes -->
+                    <section class="fxd-box fxd-box-wide" t-if="meta.notes">
+                        <h3><i class="fa fa-comments-o"/> Notes</h3>
+                        <div class="fxs-noteform">
+                            <textarea class="fxf-in fxf-text" rows="2" placeholder="Add a note for the team…" t-model="state.note"/>
+                            <button class="fxd-btn fxd-btn-primary fxd-btn-sm" t-on-click="addNote" t-att-disabled="!state.note.trim()"><i class="fa fa-plus"/> Add note</button>
+                        </div>
+                        <ul class="fxs-notes">
+                            <t t-foreach="state.rec.notes" t-as="note" t-key="note.id">
+                                <li t-att-class="{ 'fxs-note-mine': note.note }">
+                                    <div class="fxs-note-head"><b t-esc="note.author"/><small t-esc="noteWhen(note)"/></div>
+                                    <div t-if="noteBody(note)" class="fxs-note-body" t-esc="noteBody(note)"/>
+                                    <t t-foreach="note.changes" t-as="ch" t-key="ch_index">
+                                        <div class="fxs-note-change"><t t-esc="ch.field"/>: <t t-esc="ch.old or '—'"/> → <b t-esc="ch.new or '—'"/></div>
+                                    </t>
+                                </li>
+                            </t>
+                            <li class="fxd-muted" t-if="!state.rec.notes.length">No notes yet.</li>
+                        </ul>
+                    </section>
+                </div>
+            </t>
+        </div>
+    </t>
+
+    <!-- ================================================================ the screen -->
+    <t t-name="369ai_fix.Screen">
+        <Layout display="{ controlPanel: {} }" className="'o_fxs h-100'">
+            <div class="fxs">
+                <header class="fxd-top">
+                    <div class="fxd-brand">
+                        <span class="fxd-logo">369</span>
+                        <div>
+                            <h1><i t-if="meta" t-attf-class="fa {{ meta.icon }} fxs-h1-icon"/> <t t-esc="meta ? meta.title : 'Loading…'"/></h1>
+                            <small t-if="meta" t-esc="meta.hint"/>
+                        </div>
+                    </div>
+                    <span class="fxd-gap"/>
+                    <t t-if="meta and (kind === 'records' or kind === 'table')">
+                        <div class="fxs-search">
+                            <i class="fa fa-search"/>
+                            <input type="search" placeholder="Search…" t-att-value="state.query" t-on-input="onQuery"/>
+                        </div>
+                        <div class="fxs-modes" t-if="meta.modes.length > 1">
+                            <t t-foreach="meta.modes" t-as="mode" t-key="mode">
+                                <button class="fxs-mode" t-att-class="{ 'fxs-mode-on': state.mode === mode }" t-on-click="() => this.setMode(mode)">
+                                    <i t-attf-class="fa {{ modeIcon(mode) }}"/> <t t-esc="modeLabel(mode)"/>
+                                </button>
+                            </t>
+                        </div>
+                        <button class="fxd-btn fxd-btn-primary" t-if="meta.can_create" t-on-click="() => this.create()"><i class="fa fa-plus"/> New</button>
+                    </t>
+                </header>
+
+                <div class="fxs-chips" t-if="meta and meta.filters.length > 1 and (kind === 'records' or kind === 'table')">
+                    <t t-foreach="meta.filters" t-as="f" t-key="f.key">
+                        <button class="fxs-chip" t-att-class="{ 'fxs-chip-on': state.filter === f.key }" t-on-click="() => this.setFilter(f.key)">
+                            <t t-esc="f.label"/><span class="fxs-chip-n" t-if="count(f)" t-esc="count(f)"/>
+                        </button>
+                    </t>
+                </div>
+
+                <div class="fxd-warn fxs-err" t-if="state.error" t-esc="state.error"/>
+
+                <div class="fxd-empty" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
+
+                <!-- settings / one record: the record is the page -->
+                <div class="fxs-page" t-elif="kind === 'settings' or kind === 'single'">
+                    <FixRecord t-if="kind === 'settings' or state.singleId" screen="key" recordId="state.singleId or 0" meta="meta"/>
+                </div>
+
+                <!-- edited in the rows -->
+                <div class="fxs-page" t-elif="kind === 'table'">
+                    <div class="fxs-tablewrap">
+                        <table class="fxs-table fxs-edit">
+                            <thead><tr>
+                                <th t-if="meta.sequence" class="fxs-narrow"/>
+                                <t t-foreach="meta.columns" t-as="c" t-key="c"><th t-esc="label(c)"/></t>
+                                <th class="fxs-narrow"/>
+                            </tr></thead>
+                            <t t-foreach="groups" t-as="group" t-key="group.key">
+                                <tbody>
+                                    <tr t-if="group.label" class="fxs-group"><td t-att-colspan="meta.columns.length + 2"><t t-esc="group.label"/> <small t-esc="group.rows.length"/></td></tr>
+                                    <t t-foreach="group.rows" t-as="row" t-key="row.id">
+                                        <tr t-att-class="rowClass(row)">
+                                            <td t-if="meta.sequence" class="fxs-narrow">
+                                                <button class="fxs-mini" t-on-click="() => this.move(row, -1)"><i class="fa fa-chevron-up"/></button>
+                                                <button class="fxs-mini" t-on-click="() => this.move(row, 1)"><i class="fa fa-chevron-down"/></button>
+                                            </td>
+                                            <t t-foreach="meta.columns" t-as="c" t-key="c">
+                                                <td t-att-data-label="label(c)">
+                                                    <FixField name="c" meta="meta.fields[c]" value="row[c]" compact="true"
+                                                              readonly="cellReadonly(c)" widget="(meta.widgets or {})[c]"
+                                                              imageUrl="cellImage(row, c)" pick="pickFor(c, row)"
+                                                              onChange="(v) => this.onCell(row, c, v)"/>
+                                                </td>
+                                            </t>
+                                            <td class="fxs-narrow">
+                                                <span class="fxs-dot" t-att-class="'fxs-dot-' + (state.saving[row.id] or '')"/>
+                                                <button class="fxs-mini fxs-mini-red" t-if="meta.can_delete" t-on-click="() => this.remove(row)" title="Delete"><i class="fa fa-trash"/></button>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </t>
+                        </table>
+                        <div class="fxd-empty" t-if="!state.rows.length">
+                            <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-inbox"/></span>
+                            <span>Nothing here yet.</span>
+                        </div>
+                        <button class="fxd-btn fxd-btn-ghost fxs-more" t-if="hasMore" t-on-click="loadMore">Show more (<t t-esc="state.total - state.rows.length"/>)</button>
+                    </div>
+                </div>
+
+                <!-- list + record -->
+                <div class="fxs-body" t-else="" t-att-class="{ 'fxs-open': state.selectedId }">
+                    <section class="fxs-list">
+                        <div class="fxs-count"><t t-esc="state.total"/> found</div>
+
+                        <!-- table -->
+                        <t t-if="state.mode === 'table'">
+                            <div class="fxs-tablewrap">
+                                <table class="fxs-table">
+                                    <thead><tr>
+                                        <th t-if="meta.image" class="fxs-narrow"/>
+                                        <t t-foreach="columns()" t-as="c" t-key="c"><th t-esc="label(c)"/></t>
+                                    </tr></thead>
+                                    <tbody>
+                                        <t t-foreach="state.rows" t-as="row" t-key="row.id">
+                                            <tr t-att-class="rowClass(row)" t-on-click="() => this.select(row)">
+                                                <td t-if="meta.image" class="fxs-narrow"><img class="fxs-thumb" t-att-src="thumb(row)" alt="" loading="lazy"/></td>
+                                                <t t-foreach="columns()" t-as="c" t-key="c">
+                                                    <td t-att-data-label="label(c)">
+                                                        <span t-if="isBadge(c)" t-att-class="badgeClass(row)" t-esc="cell(row, c)"/>
+                                                        <t t-else="" t-esc="cell(row, c)"/>
+                                                    </td>
+                                                </t>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </t>
+
+                        <!-- board -->
+                        <div class="fxs-board" t-elif="state.mode === 'board'">
+                            <t t-foreach="boardColumns" t-as="col" t-key="col.key">
+                                <div class="fxs-col">
+                                    <div class="fxs-col-head"><span t-attf-class="fxs-badge fxs-badge-{{ col.key }}" t-esc="col.label"/><small t-esc="col.rows.length"/></div>
+                                    <t t-foreach="col.rows" t-as="row" t-key="row.id">
+                                        <article class="fxs-card" t-att-class="{ 'fxs-on': row.id === state.selectedId }" t-on-click="() => this.select(row)">
+                                            <b t-esc="rowTitle(row)"/>
+                                            <small t-if="meta.subtitle" t-esc="cell(row, meta.subtitle)"/>
+                                            <small t-if="meta.week and row[meta.week]" class="fxd-muted"><i class="fa fa-clock-o"/> <t t-esc="cell(row, meta.week)"/></small>
+                                        </article>
+                                    </t>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- week -->
+                        <div class="fxs-weekwrap" t-elif="state.mode === 'week'">
+                            <div class="fxs-weeknav">
+                                <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => this.shiftWeek(-1)"><i class="fa fa-chevron-left"/></button>
+                                <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => this.shiftWeek(0)">This week</button>
+                                <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => this.shiftWeek(1)"><i class="fa fa-chevron-right"/></button>
+                            </div>
+                            <div class="fxs-week">
+                                <t t-foreach="weekDays" t-as="day" t-key="day.key">
+                                    <div class="fxs-day" t-att-class="{ 'fxs-today': day.today }">
+                                        <div class="fxs-day-head" t-esc="day.label"/>
+                                        <t t-foreach="day.rows" t-as="item" t-key="item.row.id">
+                                            <article class="fxs-card" t-att-class="{ 'fxs-on': item.row.id === state.selectedId }" t-on-click="() => this.select(item.row)">
+                                                <small class="fxs-time" t-esc="item.time"/>
+                                                <b t-esc="rowTitle(item.row)"/>
+                                                <small t-if="meta.subtitle" t-esc="cell(item.row, meta.subtitle)"/>
+                                                <span t-if="meta.badge" t-att-class="badgeClass(item.row)" t-esc="cell(item.row, meta.badge)"/>
+                                            </article>
+                                        </t>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+
+                        <div class="fxd-empty" t-if="!state.rows.length and state.mode !== 'week'">
+                            <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-inbox"/></span>
+                            <span>Nothing here. Try another filter or search.</span>
+                        </div>
+                        <button class="fxd-btn fxd-btn-ghost fxs-more" t-if="hasMore" t-on-click="loadMore">Show more (<t t-esc="state.total - state.rows.length"/>)</button>
+                    </section>
+
+                    <aside class="fxs-pane">
+                        <div class="fxd-empty fxd-pane-empty" t-if="!state.selectedId">
+                            <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-hand-pointer-o"/></span>
+                            <span>Pick one on the left to see it here.</span>
+                        </div>
+                        <FixRecord t-else="" screen="key" recordId="state.selectedId" meta="meta"
+                                   onChanged="() => this.onRecordChanged()" onClose="() => this.closeRecord()"/>
+                    </aside>
+                </div>
+            </div>
+        </Layout>
+    </t>
+
+    <!-- ================================================================ pop-ups -->
+    <t t-name="369ai_fix.PopupFrame">
+        <div class="fxp-layer" t-on-mousedown="onBackdrop">
+            <div class="fxp-card" t-att-class="{ 'fxp-wide': wide, 'fxp-confirm': popup.kind === 'confirm' }" role="dialog" aria-modal="true">
+                <t t-if="popup.kind === 'confirm'">
+                    <PopupConfirm popup="popup" finish="props.finish"/>
+                </t>
+                <t t-else="">
+                    <div class="fxp-head">
+                        <span class="fxd-logo fxp-logo">369</span>
+                        <h2 t-esc="popup.title"/>
+                        <button class="fxp-x" t-on-click="props.cancel" title="Close"><i class="fa fa-times"/></button>
+                    </div>
+                    <div class="fxp-body">
+                        <ChecksPopup t-if="popup.kind === 'checks'" t-key="popup.visit_id" popup="popup" outcome="props.outcome"/>
+                        <ResultPopup t-elif="popup.kind === 'result'" t-key="popup.visit_id" popup="popup" outcome="props.outcome"/>
+                        <PopupForm t-else="" t-key="props.entry.version"
+                                   popup="popup" outcome="props.outcome" finish="props.finish" cancel="props.cancel"/>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.PopupConfirm">
+        <div class="fxp-body fxp-confirm-body">
+            <span class="fxd-empty-mark" t-att-class="{ 'fxp-mark-red': props.popup.danger }"><i class="fa fa-question"/></span>
+            <p t-esc="props.popup.text"/>
+            <div class="fxp-btns">
+                <button class="fxd-btn" t-att-class="props.popup.danger ? 'fxd-btn-danger' : 'fxd-btn-primary'" t-on-click="() => props.finish(true)"><t t-esc="props.popup.ok"/></button>
+                <button class="fxd-btn fxd-btn-ghost" t-on-click="() => props.finish(false)"><t t-esc="props.popup.cancelLabel"/></button>
+            </div>
+        </div>
+    </t>
+
+    <t t-name="369ai_fix.PopupForm">
+        <div class="fxp-form">
+            <p class="fxp-intro" t-if="p.intro" t-esc="p.intro"/>
+            <t t-foreach="p.info" t-as="name" t-key="name">
+                <t t-if="p.meta[name] and (state.values[name] or state.values[name] === 0)">
+                    <div t-if="isHtml(name)" class="fxp-info fxp-info-html"><t t-out="state.values[name]"/></div>
+                    <div t-elif="name === 'message'" class="fxd-note fxd-note-red" t-esc="state.values[name]"/>
+                    <div t-else="" class="fxp-info"><span t-esc="p.meta[name].string"/><b t-esc="infoText(name)"/></div>
+                </t>
+            </t>
+            <t t-foreach="p.fields" t-as="name" t-key="name">
+                <label class="fxs-field fxp-field" t-if="p.meta[name] and shown(name)">
+                    <span class="fxs-label"><t t-esc="p.meta[name].string"/><b t-if="isRequired(name)" class="fxp-req">*</b></span>
+                    <FixField name="name" meta="p.meta[name]" value="state.values[name]" widget="(p.widgets or {})[name]"
+                              options="(p.options or {})[name]" pick="pickFor(name)"
+                              onChange="(v) => this.set(name, v)"/>
+                    <small class="fxd-muted" t-if="p.meta[name].help" t-esc="p.meta[name].help"/>
+                </label>
+            </t>
+            <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+            <div class="fxp-btns">
+                <t t-foreach="p.buttons" t-as="b" t-key="b.name">
+                    <button t-if="buttonShown(b)" t-attf-class="fxd-btn fxd-btn-{{ b.kind or 'ghost' }}" t-att-disabled="state.busy" t-on-click="() => this.press(b)">
+                        <i t-attf-class="fa {{ state.busy ? 'fa-circle-o-notch fa-spin' : (b.icon or 'fa-check') }}"/> <t t-esc="b.label"/>
+                    </button>
+                </t>
+                <button class="fxd-btn fxd-btn-ghost" t-on-click="props.cancel">Cancel</button>
+            </div>
+        </div>
+    </t>
+
+    <!-- Before you start: the same checks as the technician's page -->
+    <t t-name="369ai_fix.ChecksPopup">
+        <div class="fxp-form">
+            <div class="fxd-empty" t-if="!state.data"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
+            <t t-elif="!v">
+                <div class="fxd-note fxd-note-amber">The checks are done after arriving and before starting work.</div>
+            </t>
+            <t t-else="">
+                <p class="fxp-intro">Safety first, then photos of the device and a short video, before anyone touches it.</p>
+                <h4 class="fxp-h4"><i class="fa fa-shield"/> Safety</h4>
+                <div class="fxf-ticks">
+                    <t t-foreach="v.safety" t-as="item" t-key="item.id">
+                        <label class="fxf-tick" t-att-class="{ 'fxf-tick-on': item.done }">
+                            <input type="checkbox" t-att-checked="item.done" t-on-change="(ev) => this.tick(item, ev)"/>
+                            <span><t t-esc="item.name"/><b t-if="item.required" class="fxp-req">*</b></span>
+                        </label>
+                    </t>
+                </div>
+                <div class="fxp-photorow">
+                    <span>Safety photo (<t t-esc="v.safety_photos"/> of <t t-esc="v.safety_photos_min"/>–<t t-esc="v.safety_photos_max"/>)</span>
+                    <t t-foreach="state.data.photos.safety" t-as="pid" t-key="pid"><img class="fxp-shot" t-att-src="photoUrl(pid)" alt=""/></t>
+                    <label class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-if="v.safety_photos &lt; v.safety_photos_max"><i class="fa fa-camera"/> Add photo
+                        <input type="file" accept="image/*" capture="environment" class="fxp-file" t-on-change="onSafetyPhoto"/></label>
+                    <button class="fxd-link" t-if="v.safety_photos" t-on-click="clearSafety">Clear</button>
+                </div>
+
+                <h4 class="fxp-h4"><i class="fa fa-camera"/> The device, every side</h4>
+                <div class="fxp-sides">
+                    <t t-foreach="v.sides" t-as="side" t-key="side.id">
+                        <label class="fxp-side" t-att-class="{ 'fxp-side-done': side.done }">
+                            <img t-if="side.done" t-att-src="photoUrl(side.id)" alt=""/>
+                            <i t-else="" class="fa fa-camera"/>
+                            <span><t t-esc="side.name"/><b t-if="side.required" class="fxp-req">*</b></span>
+                            <input type="file" accept="image/*" capture="environment" class="fxp-file" t-on-change="(ev) => this.onSidePhoto(side, ev)"/>
+                        </label>
+                    </t>
+                </div>
+
+                <h4 class="fxp-h4"><i class="fa fa-video-camera"/> Short video</h4>
+                <div class="fxp-photorow">
+                    <span t-if="v.video" class="fxd-stock-ok"><i class="fa fa-check"/> Video saved</span>
+                    <span t-else="" class="fxd-muted">Under a minute, around the device.</span>
+                    <label class="fxd-btn fxd-btn-ghost fxd-btn-sm"><i class="fa fa-video-camera"/> <t t-esc="v.video ? 'Replace' : 'Add video'"/>
+                        <input type="file" accept="video/*" capture="environment" class="fxp-file" t-on-change="onVideo"/></label>
+                </div>
+
+                <div class="fxd-note fxd-note-amber" t-if="v.missing.length">
+                    Still to do: <t t-esc="v.missing.join(', ')"/>
+                </div>
+                <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+                <div class="fxp-btns">
+                    <button class="fxd-btn fxd-btn-primary" t-att-disabled="state.busy or v.missing.length" t-on-click="start">
+                        <i t-attf-class="fa {{ state.busy ? 'fa-circle-o-notch fa-spin' : 'fa-wrench' }}"/> Start work</button>
+                </div>
+                <div class="fxp-override" t-if="state.data.is_manager and v.missing.length">
+                    <span class="fxs-label">Manager: start without the checks</span>
+                    <input class="fxf-in" type="text" placeholder="Why? (kept on the visit)" t-model="state.reason"/>
+                    <button class="fxd-btn fxd-btn-danger-ghost fxd-btn-sm" t-on-click="override">Start anyway</button>
+                </div>
+            </t>
+        </div>
+    </t>
+
+    <!-- What did you find? -> the quotation first -> the customer's OK -> the plan -->
+    <t t-name="369ai_fix.ResultPopup">
+        <div class="fxp-form">
+            <div class="fxd-empty" t-if="!state.data"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
+            <div class="fxd-note fxd-note-amber" t-elif="!v">This is done while the work is in progress.</div>
+            <t t-else="">
+                <!-- what was found -->
+                <t t-if="v.stage === 'find'">
+                    <label class="fxs-field fxp-field">
+                        <span class="fxs-label">What did you find?</span>
+                        <textarea class="fxf-in fxf-text" rows="2" maxlength="2000" placeholder="e.g. Screen cracked, battery swollen"
+                                  t-model="state.note" t-on-blur="saveNote"/>
+                    </label>
+                    <label class="fxs-field fxp-field" t-if="v.need_device">
+                        <span class="fxs-label">Device brand (no job card yet)</span>
+                        <select class="fxf-in fxf-select" t-model="state.brand">
+                            <option value="">Choose…</option>
+                            <t t-foreach="v.brands or []" t-as="b" t-key="b.id"><option t-att-value="b.id" t-esc="b.name"/></t>
+                        </select>
+                    </label>
+
+                    <h4 class="fxp-h4"><i class="fa fa-cogs"/> Parts needed <small>(skip when none is needed)</small></h4>
+                    <ul class="fxp-parts">
+                        <t t-foreach="v.lines" t-as="line" t-key="line.line_id">
+                            <li>
+                                <span><t t-esc="line.name"/><t t-if="line.qty > 1"> × <t t-esc="line.qty"/></t>
+                                    <small t-att-class="line.status === 'in_stock' ? 'fxd-stock-ok' : (line.status === 'order' ? 'fxd-stock-no' : 'fxp-warn')" t-esc="whereText(line)"/></span>
+                                <button class="fxd-link" t-on-click="() => this.remove(line)">Remove</button>
+                            </li>
+                        </t>
+                        <li class="fxd-muted" t-if="!v.lines.length">No parts added.</li>
+                    </ul>
+                    <form class="fxp-search" t-on-submit="search">
+                        <input class="fxf-in" type="search" placeholder="Search a part, e.g. iPhone 13 screen" t-model="state.query"/>
+                        <button type="submit" class="fxd-btn fxd-btn-ghost fxd-btn-sm"><i class="fa fa-search"/> Search</button>
+                    </form>
+                    <ul class="fxp-parts" t-if="state.searched">
+                        <t t-foreach="state.parts" t-as="part" t-key="part.product_id">
+                            <li>
+                                <span><t t-esc="part.name"/>
+                                    <small t-att-class="part.status === 'in_stock' ? 'fxd-stock-ok' : (part.status === 'order' ? 'fxd-stock-no' : 'fxp-warn')" t-esc="whereText(part)"/></span>
+                                <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => this.add(part)"><i class="fa fa-plus"/> Add</button>
+                            </li>
+                        </t>
+                        <li class="fxd-muted" t-if="!state.parts.length">No part found. Try another word.</li>
+                    </ul>
+
+                    <t t-if="v.lines.length">
+                        <div class="fxp-total" t-if="v.total">Quotation <b t-esc="money(v.total)"/></div>
+                        <h4 class="fxp-h4"><i class="fa fa-random"/> After the customer approves</h4>
+                        <div class="fxf-chips fxp-plans">
+                            <t t-foreach="plans" t-as="pl" t-key="pl[0]">
+                                <button type="button" class="fxf-chip" t-att-class="{ 'fxf-chip-on': currentPlan === pl[0] }" t-on-click="() => state.plan = pl[0]" t-esc="pl[1]"/>
+                            </t>
+                        </div>
+                        <label class="fxs-field fxp-field" t-if="v.to_order">
+                            <span class="fxs-label">When does the part arrive? (days)</span>
+                            <input class="fxf-in fxf-num" type="number" min="1" max="120" t-model.number="state.partDays"/>
+                        </label>
+                        <div class="fxs-field fxp-field" t-if="needsDays">
+                            <span class="fxs-label" t-esc="currentPlan === 'order_take' ? 'Repair after the part arrives' : 'Fixed within'"/>
+                            <div class="fxp-span">
+                                <input class="fxf-in fxf-num" type="number" min="1" max="60" t-model.number="state.days"/>
+                                <select class="fxf-in fxf-select" t-model="state.unit"><option value="days">days</option><option value="weeks">weeks</option></select>
+                            </div>
+                        </div>
+                        <p class="fxp-intro">The customer gets the parts and the price to approve first. Nothing is repaired, taken or ordered before.</p>
+                    </t>
+                    <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+                    <div class="fxp-btns">
+                        <button class="fxd-btn fxd-btn-primary" t-if="v.lines.length" t-att-disabled="state.busy" t-on-click="quote"><i class="fa fa-whatsapp"/> Send the quotation</button>
+                        <button class="fxd-btn fxd-btn-primary" t-else="" t-att-disabled="state.busy" t-on-click="fixed"><i class="fa fa-check-circle"/> Fixed on the spot</button>
+                    </div>
+                </t>
+
+                <!-- the quotation is with the customer -->
+                <t t-elif="v.stage === 'waiting'">
+                    <p class="fxp-intro">The quotation is on the customer's WhatsApp. If they tell you, press their answer.</p>
+                    <p class="fxp-info" t-if="v.plan_label"><span>Proposed</span><b t-esc="v.plan_label"/></p>
+                    <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+                    <div class="fxp-btns">
+                        <button class="fxd-btn fxd-btn-primary" t-on-click="() => this.answer('result_approved_here', 'The customer approved the price?')"><i class="fa fa-thumbs-up"/> Customer approved</button>
+                        <button class="fxd-btn fxd-btn-danger-ghost" t-on-click="() => this.answer('result_declined_here', 'The customer declined? Nothing is repaired or ordered.')"><i class="fa fa-thumbs-down"/> Customer declined</button>
+                        <button class="fxd-btn fxd-btn-ghost" t-on-click="() => this.answer('result_later', 'Close the visit? The customer answers the quotation later.')"><i class="fa fa-clock-o"/> Decides later</button>
+                    </div>
+                </t>
+
+                <!-- approved: repair now -->
+                <t t-elif="v.stage === 'repairing'">
+                    <p class="fxp-intro">Approved: repair it now.</p>
+                    <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+                    <div class="fxp-btns">
+                        <button class="fxd-btn fxd-btn-primary" t-on-click="() => this.answer('result_fixed', 'Repair done? The visit will be closed.')"><i class="fa fa-check-circle"/> Repair done</button>
+                    </div>
+                </t>
+
+                <!-- approved: take the device -->
+                <t t-elif="v.stage === 'to_take'">
+                    <p class="fxp-intro">Approved: take the device to the office.<t t-if="v.timeline_date"> Back by <b t-esc="v.timeline_date"/>.</t></p>
+                    <label class="fxf-tick"><input type="checkbox" t-model="state.noAcc"/><span>Device only (nothing else taken)</span></label>
+                    <div class="fxf-ticks" t-if="!state.noAcc">
+                        <t t-foreach="v.accessories" t-as="a" t-key="a.id">
+                            <label class="fxf-tick"><input type="checkbox" t-model="state.acc[a.id]"/><span t-esc="a.name"/></label>
+                        </t>
+                    </div>
+                    <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+                    <div class="fxp-btns">
+                        <button class="fxd-btn fxd-btn-primary" t-att-disabled="state.busy" t-on-click="take"><i class="fa fa-building"/> Take the device</button>
+                    </div>
+                </t>
+            </t>
+        </div>
+    </t>
+
+</templates>
