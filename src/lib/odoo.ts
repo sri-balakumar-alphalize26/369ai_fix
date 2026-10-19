@@ -51,8 +51,9 @@ export function targetFor(host: string): { db: string; key: string } | null {
   return db && key ? { db, key } : null;
 }
 
-/** POST /json/2/<model>/<method>. Throws on HTTP or Odoo errors; 8 s timeout. */
-export async function odooCall<T = any>(host: string, model: string, method: string, args: Record<string, unknown>): Promise<T> {
+/** POST /json/2/<model>/<method>. Throws on HTTP or Odoo errors; 8 s timeout unless given. */
+export async function odooCall<T = any>(host: string, model: string, method: string, args: Record<string, unknown>,
+  timeoutMs = 8000): Promise<T> {
   const t = targetFor(host);
   if (!t) throw new Error('odoo not configured for ' + host);
   const base = (env('ODOO_URL') || 'http://127.0.0.1:8069').replace(/\/$/, '');
@@ -60,7 +61,7 @@ export async function odooCall<T = any>(host: string, model: string, method: str
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `bearer ${t.key}`, 'x-odoo-database': t.db },
     body: JSON.stringify(args),
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await r.text();
   if (!r.ok) throw new Error(`odoo ${r.status}: ${text.slice(0, 300)}`);

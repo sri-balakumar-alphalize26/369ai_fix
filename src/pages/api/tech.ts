@@ -2,6 +2,11 @@
 //   GET  ?v=&t=                                          what the page shows
 //   POST {v, t, action: 'ping', lat, lng, accuracy, heading, speed, battery}   the phone's position
 //   POST {v, t, action: 'on_the_way' | 'arrive' | 'start' | 'done', lat?, lng?, code?}   one step
+//   POST {v, t, action: 'check_tick', item_id, done}                       a safety tick (after arriving)
+//   POST {v, t, action: 'check_safety_photo' | 'check_side_photo' | 'check_video', photo_id?, data, name?}
+//   POST {v, t, action: 'check_clear_safety'}                              take the safety photos again
+//   POST {v, t, action: 'result_parts', query}  /  'result_add_part' {product_id, brand_id?}  /  'result_remove_part' {line_id}
+//   POST {v, t, action: 'result_fixed' | 'result_in_stock' {days, take, accessory_ids, no_accessories} | 'result_quote', note?}
 import type { APIRoute } from 'astro';
 import { hostOf, json, odooCall, originOk } from '../../lib/odoo';
 
@@ -9,7 +14,13 @@ export const prerender = false;
 
 const s = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n);
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
-const ACTIONS = new Set(['ping', 'on_the_way', 'arrive', 'start', 'done']);
+const ACTIONS = new Set(['ping', 'on_the_way', 'arrive', 'start', 'done',
+  // before work: the safety check, the photos and the video (Odoo checks the files' content)
+  'check_tick', 'check_safety_photo', 'check_side_photo', 'check_video', 'check_clear_safety',
+  // while working: what was found, the parts, and the result
+  'result_parts', 'result_note', 'result_add_part', 'result_remove_part',
+  'result_fixed', 'result_in_stock', 'result_quote']);
+const MAX_B64 = 42 * 1024 * 1024;   // a 30 MB video, base64
 
 export const GET: APIRoute = async ({ request }) => {
   const q = new URL(request.url).searchParams;
@@ -28,12 +39,23 @@ export const POST: APIRoute = async ({ request }) => {
   const action = s(b.action, 20);
   if (!ACTIONS.has(action)) return json({ ok: false, error: 'unknown action' }, 400);
   const host = hostOf(request);
+  const data = typeof b.data === 'string' ? b.data : '';
+  if (data.length > MAX_B64) return json({ ok: false, error: 'check', message: 'The file is too large.' }, 413);
+  const check = action.startsWith('check_') ? {
+    item_id: num(b.item_id), photo_id: num(b.photo_id), done: !!b.done, name: s(b.name, 80), data,
+  } : action.startsWith('result_') ? {
+    query: s(b.query, 80), product_id: num(b.product_id), brand_id: num(b.brand_id), line_id: num(b.line_id),
+    qty: num(b.qty), days: num(b.days), part_days: num(b.part_days), unit: b.unit === 'weeks' ? 'weeks' : 'days',
+    take: !!b.take, no_accessories: !!b.no_accessories,
+    note: b.note === undefined ? null : s(b.note, 2000),
+    accessory_ids: Array.isArray(b.accessory_ids) ? b.accessory_ids.filter((x: unknown) => Number.isInteger(x)).slice(0, 50) : [],
+  } : {};
   try {
     return json(await odooCall(host, 'fix.service.visit', 'tech_page', {
       host, ref: s(b.v, 30), token: s(b.t, 100), action, code: s(b.code, 8),
       lat: num(b.lat), lng: num(b.lng), accuracy: num(b.accuracy),
-      heading: num(b.heading), speed: num(b.speed), battery: num(b.battery),
-    }));
+      heading: num(b.heading), speed: num(b.speed), battery: num(b.battery), ...check,
+    }, data ? 60000 : 8000));
   } catch (e) {
     console.error('[tech] Odoo:', (e as Error).message);
     return json({ ok: false, error: 'unavailable' }, 503);

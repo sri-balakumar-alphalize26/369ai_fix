@@ -29,6 +29,91 @@ export const prerender = false;
           </div>
         </div>
 
+        <!-- after arriving: the safety check and the device photos; Start work waits for them -->
+        <div class="tv-card tv-ck" data-vc hidden>
+          <h3>Before you start</h3>
+          <p class="tv-hint">Do these at the door, before you touch the device.</p>
+
+          <h4>1. Safety check</h4>
+          <div class="vc-list" data-vc-safety></div>
+
+          <h4>2. Photo of you ready to work <small>(1 to 3)</small></h4>
+          <div class="vc-row">
+            <span class="vc-st" data-vc-sp></span>
+            <label class="tv-btn ghost sm">Take photo<input type="file" accept="image/*" capture="user" data-vc-spin hidden /></label>
+            <button type="button" class="vc-link" data-vc-spclear hidden>Take again</button>
+          </div>
+
+          <h4>3. Device photos</h4>
+          <div class="vc-list" data-vc-sides></div>
+
+          <h4>4. Short video of the device <small>(under a minute)</small></h4>
+          <div class="vc-row">
+            <span class="vc-st" data-vc-vid></span>
+            <label class="tv-btn ghost sm">Record video<input type="file" accept="video/*" capture="environment" data-vc-vin hidden /></label>
+          </div>
+          <p class="vc-busy" data-vc-busy hidden>Sending…</p>
+        </div>
+
+        <!-- while working: what was found -> the quotation first -> the customer's OK -> the plan -->
+        <div class="tv-card tv-ck" data-vr hidden>
+          <div data-vr-find>
+            <h3>What did you find?</h3>
+            <textarea class="vr-note" data-vr-note rows="2" maxlength="2000" placeholder="e.g. Screen cracked, battery swollen"></textarea>
+            <label class="vr-field" data-vr-device hidden>Device brand (no job card yet)
+              <select data-vr-brand><option value="">Choose…</option></select>
+            </label>
+
+            <h4>Parts needed <small>(skip when no part is needed)</small></h4>
+            <div class="vc-list" data-vr-lines></div>
+            <form class="vr-search" data-vr-search>
+              <input data-vr-q type="search" placeholder="Search a part, e.g. iPhone 13 screen" />
+              <button type="submit" class="tv-btn ghost sm">Search</button>
+            </form>
+            <div class="vc-list" data-vr-found></div>
+
+            <div data-vr-plan hidden>
+              <h4>After the customer approves</h4>
+              <div class="vr-choice" data-vr-plans></div>
+              <label class="vr-field" data-vr-partbox>When does the part arrive? (days)
+                <input data-vr-partdays type="number" inputmode="numeric" min="1" max="120" value="7" />
+              </label>
+              <div class="vr-field" data-vr-daysbox>
+                <span data-vr-dayslabel>Fixed within</span>
+                <div class="vr-span">
+                  <input data-vr-days type="number" inputmode="numeric" min="1" max="60" value="3" />
+                  <select data-vr-unit><option value="days">days</option><option value="weeks">weeks</option></select>
+                </div>
+              </div>
+              <p class="tv-hint">The customer gets the parts and the price to approve first. Nothing is repaired, taken or ordered before.</p>
+              <button type="button" class="tv-btn big" data-vr-quote>Send the quotation</button>
+            </div>
+            <button type="button" class="tv-btn big" data-vr-fixed>Fixed on the spot</button>
+          </div>
+
+          <div data-vr-waiting hidden>
+            <h3>Waiting for the customer's OK</h3>
+            <p class="tv-hint">The quotation is on their WhatsApp. If they tell you, tap their answer.</p>
+            <p class="vr-plan" data-vr-planlabel></p>
+            <button type="button" class="tv-btn big" data-vr-yes>Customer approved</button>
+            <button type="button" class="tv-btn big ghost" data-vr-no>Customer declined</button>
+            <button type="button" class="vc-link" data-vr-later>Customer decides later (close the visit)</button>
+          </div>
+
+          <div data-vr-repairing hidden>
+            <h3>Approved: repair it now</h3>
+            <button type="button" class="tv-btn big" data-vr-done>Repair done</button>
+          </div>
+
+          <div data-vr-totake hidden>
+            <h3>Approved: take the device to the office</h3>
+            <p class="tv-hint" data-vr-backby></p>
+            <p class="tv-hint">Tick what you take with the device:</p>
+            <label class="vc-item"><input type="checkbox" data-vr-noacc /> <span>Device only (no accessories)</span></label>
+            <div class="vr-acc" data-vr-acc></div>
+            <button type="button" class="tv-btn big" data-vr-take>Take the device</button>
+          </div>
+        </div>
         <div class="tv-card" data-tv-step hidden>
           <div class="tv-code" data-tv-codebox hidden>
             <label for="tv-code">Ask the customer for their 4-digit arrival code</label>
@@ -65,7 +150,6 @@ export const prerender = false;
     assigned: ['Start trip', 'on_the_way', 'Tap when you leave. The customer is told you are on the way.'],
     on_the_way: ['I have arrived', 'arrive', 'Tap at the door.'],
     arrived: ['Start work', 'start', 'Tap when you start checking the device.'],
-    in_progress: ['Repair done', 'done', 'Tap when the visit is finished.'],
   };
 
   let view: any = null;
@@ -102,18 +186,207 @@ export const prerender = false;
 
     const step = STEP[d.state];
     $('[data-tv-step]').hidden = !step;
+    renderChecks(d.checks);
     if (step) {
+      const waiting = step[1] === 'start' && d.checks?.missing?.length;
       $('[data-tv-go]').textContent = step[0];
-      $('[data-tv-hint]').textContent = step[2];
+      $<HTMLButtonElement>('[data-tv-go]').disabled = !!waiting;
+      $('[data-tv-hint]').textContent = waiting ? `Still to do: ${d.checks.missing.join(', ')}.` : step[2];
       $('[data-tv-codebox]').hidden = !(step[1] === 'arrive' && d.need_code);
     }
+    renderResult(d.result);
     const end = $('[data-tv-end]');
-    end.hidden = !!step;
-    if (!step) end.textContent = d.state === 'done' ? 'Visit completed. Thank you! You can close this page.'
+    end.hidden = !!step || !!d.result;
+    if (!step) end.textContent = d.state === 'done' ? `Visit completed${d.result_label ? ' · ' + d.result_label : ''}. Thank you! You can close this page.`
       : d.state === 'cancelled' ? 'This visit was cancelled. Ask the office if you have questions.'
       : 'The office has not assigned this visit yet.';
     if (d.share) startGps(); else stopGps();
   }
+
+  // ---- before work: safety ticks, photos and the video ----
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  const OK = '<b class="vc-ok">✓</b>';
+  function renderChecks(c: any) {
+    const box = $('[data-vc]');
+    box.hidden = !c;
+    if (!c) return;
+    $('[data-vc-safety]').innerHTML = c.safety.map((i: any) => `<label class="vc-item">
+      <input type="checkbox" data-vc-tick="${i.id}" ${i.done ? 'checked' : ''} />
+      <span>${esc(i.name)}${i.required ? '' : ' <small>(optional)</small>'}</span></label>`).join('');
+    const n = c.safety_photos;
+    $('[data-vc-sp]').innerHTML = n ? `${OK} ${n} photo${n > 1 ? 's' : ''}` : '<span class="vc-no">No photo yet</span>';
+    $('[data-vc-spin]').closest('label')!.hidden = n >= c.safety_photos_max;
+    $('[data-vc-spclear]').hidden = !n;
+    $('[data-vc-sides]').innerHTML = c.sides.map((s: any) => `<div class="vc-row">
+      <span class="vc-st">${s.done ? OK : '<span class="vc-no">●</span>'} ${esc(s.name)}</span>
+      <label class="tv-btn ghost sm">${s.done ? 'Retake' : 'Take photo'}<input type="file" accept="image/*" capture="environment" data-vc-side="${s.id}" hidden /></label></div>`).join('');
+    $('[data-vc-vid]').innerHTML = c.video ? `${OK} Video saved` : '<span class="vc-no">No video yet</span>';
+  }
+
+  // A phone photo is shrunk to 1600 px JPEG before it is sent (quicker on mobile data).
+  async function photoData(file: File): Promise<string> {
+    try {
+      const img = await createImageBitmap(file);
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d')!.drawImage(img, 0, 0, cv.width, cv.height);
+      return cv.toDataURL('image/jpeg', 0.82).split(',')[1];
+    } catch {
+      return fileData(file);
+    }
+  }
+  const fileData = (file: File) => new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result).split(',')[1] || '');
+    r.onerror = () => rej(r.error);
+    r.readAsDataURL(file);
+  });
+
+  async function check(body: Record<string, unknown>) {
+    $('[data-vc-busy]').hidden = false; msg('');
+    const d = await api(body);
+    $('[data-vc-busy]').hidden = true;
+    if (d.ref) render(d);
+    if (!d.ok) msg(d.message || ERR[d.error] || 'That did not work. Try again.');
+  }
+
+  $('[data-vc]').addEventListener('change', async (e) => {
+    const el = e.target as HTMLInputElement;
+    if (el.dataset.vcTick) return check({ action: 'check_tick', item_id: Number(el.dataset.vcTick), done: el.checked });
+    const file = el.files?.[0];
+    el.value = '';
+    if (!file) return;
+    if (el.hasAttribute('data-vc-spin')) return check({ action: 'check_safety_photo', data: await photoData(file) });
+    if (el.dataset.vcSide) return check({ action: 'check_side_photo', photo_id: Number(el.dataset.vcSide), data: await photoData(file) });
+    if (el.hasAttribute('data-vc-vin')) {
+      if (file.size > 30 * 1024 * 1024) { msg('The video is too large. Record a shorter one (under a minute).'); return; }
+      return check({ action: 'check_video', name: file.name, data: await fileData(file) });
+    }
+  });
+  $('[data-vc-spclear]').addEventListener('click', () => check({ action: 'check_clear_safety' }));
+
+  // ---- while working: what was found -> the quotation first -> the customer's OK -> the plan ----
+  const WHERE: Record<string, (p: any) => string> = {
+    in_stock: (p) => `<span class="vc-ok">✓ In the office (${p.office})</span>`,
+    other_branch: (p) => `<span class="vr-warn">At ${esc((p.branches || []).map((b: any) => `${b.name} (${b.qty})`).join(', '))}</span>`,
+    order: () => '<span class="vc-no">Must be ordered</span>',
+  };
+  const PLANS_HERE: [string, string][] = [['now', 'Fix now (I have the part)'], ['take', 'Take the device to the office'], ['come_back', 'Customer keeps it, we come back']];
+  const PLANS_ORDER: [string, string][] = [['keep', 'Customer keeps it until the part arrives'], ['order_take', 'Take the device to the office until the part arrives']];
+  let brandsDrawn = false, plansFor = '';
+  const show = (sel: string, on: boolean) => { $(sel).hidden = !on; };
+  const plan = () => document.querySelector<HTMLInputElement>('input[name="vr-plan"]:checked')?.value || '';
+
+  function renderResult(r: any) {
+    show('[data-vr]', !!r);
+    if (!r) return;
+    show('[data-vr-find]', r.stage === 'find');
+    show('[data-vr-waiting]', r.stage === 'waiting');
+    show('[data-vr-repairing]', r.stage === 'repairing');
+    show('[data-vr-totake]', r.stage === 'to_take');
+    $('[data-vr-planlabel]').textContent = r.plan_label ? `Proposed: ${r.plan_label}` : '';
+    $('[data-vr-backby]').textContent = r.timeline_date ? `Back by ${r.timeline_date}.` : '';
+    const note = $<HTMLTextAreaElement>('[data-vr-note]');
+    if (document.activeElement !== note) note.value = r.found || '';
+    show('[data-vr-device]', !!r.need_device);
+    if (r.need_device && !brandsDrawn && r.brands) {
+      $('[data-vr-brand]').innerHTML = '<option value="">Choose…</option>' + r.brands.map((b: any) => `<option value="${b.id}">${esc(b.name)}</option>`).join('');
+      brandsDrawn = true;
+    }
+    $('[data-vr-lines]').innerHTML = r.lines.map((l: any) => `<div class="vc-row">
+      <span class="vc-st">${esc(l.name)}${l.qty > 1 ? ` ×${l.qty}` : ''}<br /><small>${WHERE[l.status](l)}</small></span>
+      <button type="button" class="vc-link" data-vr-del="${l.line_id}">Remove</button></div>`).join('')
+      || '<p class="tv-hint">No parts added.</p>';
+    const hasParts = r.lines.length > 0;
+    show('[data-vr-plan]', hasParts);
+    show('[data-vr-fixed]', !hasParts);
+    const kind = r.to_order ? 'order' : 'here';
+    if (hasParts && plansFor !== kind) {
+      const list = r.to_order ? PLANS_ORDER : PLANS_HERE;
+      $('[data-vr-plans]').innerHTML = list.map(([k, label], i) => `<label><input type="radio" name="vr-plan" value="${k}" ${i === 0 ? 'checked' : ''} /> ${esc(label)}</label>`).join('');
+      plansFor = kind;
+    }
+    const partDays = $<HTMLInputElement>('[data-vr-partdays]');
+    if (r.to_order && document.activeElement !== partDays && !partDays.dataset.set) partDays.value = String(r.part_days || 7);
+    const ticked = new Set([...document.querySelectorAll<HTMLInputElement>('[data-vr-accid]:checked')].map((x) => x.value));
+    $('[data-vr-acc]').innerHTML = r.accessories.map((a: any) => `<label class="vc-item"><input type="checkbox" value="${a.id}" data-vr-accid ${ticked.has(String(a.id)) ? 'checked' : ''} /> <span>${esc(a.name)}</span></label>`).join('');
+    syncPlan();
+  }
+  // the days: "fixed within" for take / come back, "repair after the part arrives" for an
+  // ordered part going to the office; the part's days only when it must be ordered
+  function syncPlan() {
+    const r = view?.result || {};
+    const p = plan();
+    show('[data-vr-partbox]', !!r.to_order);
+    show('[data-vr-daysbox]', ['take', 'come_back', 'order_take'].includes(p));
+    $('[data-vr-dayslabel]').textContent = p === 'order_take' ? 'Repair after the part arrives' : 'Fixed within';
+    $('[data-vr-acc]').hidden = $<HTMLInputElement>('[data-vr-noacc]').checked;
+  }
+  const noteArg = () => ({ note: $<HTMLTextAreaElement>('[data-vr-note]').value });
+
+  async function result(body: Record<string, unknown>) {
+    $('[data-vc-busy]').hidden = false; msg('');
+    const d = await api(body);
+    $('[data-vc-busy]').hidden = true;
+    if (d.ref) render(d);
+    if (!d.ok) msg(d.message || ERR[d.error] || 'That did not work. Try again.');
+    return d;
+  }
+
+  $('[data-vr-search]').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const d = await result({ action: 'result_parts', query: $<HTMLInputElement>('[data-vr-q]').value });
+    $('[data-vr-found]').innerHTML = (d.parts || []).map((p: any) => `<div class="vc-row">
+      <span class="vc-st">${esc(p.name)}<br /><small>${WHERE[p.status](p)}</small></span>
+      <button type="button" class="tv-btn ghost sm" data-vr-add="${p.product_id}">Add</button></div>`).join('')
+      || (d.ok ? '<p class="tv-hint">No part found. Try another word.</p>' : '');
+  });
+  $('[data-vr]').addEventListener('click', async (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vr-add],[data-vr-del]');
+    if (!el) return;
+    if (el.dataset.vrAdd) {
+      const brand = Number($<HTMLSelectElement>('[data-vr-brand]').value) || null;
+      if (view?.result?.need_device && !brand) { msg('Choose the device brand first.'); return; }
+      const d = await result({ action: 'result_add_part', product_id: Number(el.dataset.vrAdd), brand_id: brand });
+      if (d.ok) { $('[data-vr-found]').innerHTML = ''; $<HTMLInputElement>('[data-vr-q]').value = ''; }
+    } else {
+      await result({ action: 'result_remove_part', line_id: Number(el.dataset.vrDel) });
+    }
+  });
+  $('[data-vr]').addEventListener('change', (e) => {
+    const el = e.target as HTMLInputElement;
+    if (el.name === 'vr-plan' || el.hasAttribute('data-vr-noacc')) syncPlan();
+    if (el.hasAttribute('data-vr-partdays')) el.dataset.set = '1';
+  });
+  $('[data-vr-note]').addEventListener('blur', () => { if (view?.result?.stage === 'find') result({ action: 'result_note', ...noteArg() }); });
+  $('[data-vr-fixed]').addEventListener('click', () => {
+    if (confirm('Fixed on the spot? The visit will be closed.')) result({ action: 'result_fixed', ...noteArg() });
+  });
+  $('[data-vr-quote]').addEventListener('click', () => {
+    const p = plan();
+    if (!p) { msg('Choose what happens after the customer approves.'); return; }
+    const days = Number($<HTMLInputElement>('[data-vr-days]').value);
+    const unit = $<HTMLSelectElement>('[data-vr-unit]').value;
+    const partDays = Number($<HTMLInputElement>('[data-vr-partdays]').value);
+    if (['take', 'come_back', 'order_take'].includes(p) && !(unit === 'weeks' ? days >= 1 && days <= 8 : days >= 1 && days <= 60)) {
+      msg('How long to fix? 1 to 60 days, or 1 to 8 weeks.'); return;
+    }
+    if (view?.result?.to_order && !(partDays >= 1 && partDays <= 120)) { msg('When does the part arrive? Give the days (1 to 120).'); return; }
+    if (confirm('Send the quotation to the customer?')) {
+      result({ action: 'result_quote', plan: p, days, unit, part_days: partDays, ...noteArg() });
+    }
+  });
+  $('[data-vr-yes]').addEventListener('click', () => { if (confirm('The customer approved the price?')) result({ action: 'result_approved_here' }); });
+  $('[data-vr-no]').addEventListener('click', () => { if (confirm('The customer declined? Nothing is repaired or ordered.')) result({ action: 'result_declined_here' }); });
+  $('[data-vr-later]').addEventListener('click', () => { if (confirm('Close the visit? The customer answers the quotation later.')) result({ action: 'result_later' }); });
+  $('[data-vr-done]').addEventListener('click', () => { if (confirm('Repair done? The visit will be closed.')) result({ action: 'result_fixed' }); });
+  $('[data-vr-take]').addEventListener('click', () => {
+    const only = $<HTMLInputElement>('[data-vr-noacc]').checked;
+    const ids = [...document.querySelectorAll<HTMLInputElement>('[data-vr-accid]:checked')].map((x) => Number(x.value));
+    if (!only && !ids.length) { msg('Tick what you take with the device, or "Device only".'); return; }
+    result({ action: 'result_take', no_accessories: only, accessory_ids: only ? [] : ids });
+  });
 
   async function load() {
     const d = await api();
@@ -218,4 +491,42 @@ export const prerender = false;
   @keyframes tvp { 50% { opacity: .3; } }
   @media (prefers-reduced-motion: reduce) { .tv-gps i.ok { animation: none; } }
   .tv-msg { margin: 12px 0 0; color: #d63a3a; font-weight: 600; }
+  .tv-ck h4 { margin: 18px 0 8px; font-size: 15px; }
+  .tv-ck h4 small { font-weight: 500; color: var(--ink-3); }
+  /* the rows below are drawn by the script, so they need :global */
+  .tv-ck :global(.vc-list) { display: grid; gap: 6px; }
+  .tv-ck :global(.vc-item) { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; font-weight: 600; color: var(--ink); }
+  .tv-ck :global(.vc-item input) { width: 22px; height: 22px; accent-color: var(--violet); }
+  .tv-ck :global(.vc-item small) { font-weight: 500; color: var(--ink-3); }
+  .tv-ck :global(.vc-row) { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; }
+  .tv-ck :global(.vc-st) { font-weight: 600; color: var(--ink); }
+  .tv-ck :global(.vc-ok) { color: #1a9a52; }
+  .tv-ck :global(.vc-no) { color: #d63a3a; font-weight: 600; }
+  .tv-ck :global(.tv-btn) { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 12px; background: var(--tint); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+  .tv-ck :global(.tv-btn.sm) { height: 38px; padding: 0 14px; font-size: 14px; flex: none; }
+  .tv-ck :global(.tv-btn[hidden]) { display: none; }
+  .tv-ck :global(input[type="file"]) { display: none; }
+  .vc-link { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; }
+  .vr-note { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; resize: vertical; }
+  .vr-field { display: grid; gap: 6px; margin-top: 12px; font-weight: 600; color: var(--ink); }
+  .vr-field[hidden] { display: none; }
+  .vr-field select, .vr-field input, .vr-search input { height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
+  .vr-field[hidden] { display: none; }
+  .vr-span { display: flex; gap: 8px; }
+  .vr-span input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
+  .vr-span select { height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
+  .vr-search { display: flex; gap: 8px; margin: 10px 0 6px; }
+  .vr-search input { flex: 1; min-width: 0; }
+  .vr-choice { display: grid; gap: 8px; margin: 12px 0; font-weight: 600; color: var(--ink); }
+  .vr-choice input { accent-color: var(--violet); margin-right: 6px; }
+  .vr-acc[hidden] { display: none; }
+  .vr-plan { font-weight: 600; color: var(--ink); }
+  [data-vr] [hidden] { display: none !important; }
+  .vr-acc { display: grid; gap: 6px; max-height: 260px; overflow: auto; margin-top: 6px; }
+  .tv-ck :global(.vr-warn) { color: #b26b00; font-weight: 600; }
+  .tv-ck :global(.vc-link) { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; flex: none; }
+  .tv-ck :global(.vc-st small) { font-weight: 500; }
+  .tv-ck :global(.tv-btn.big) { width: 100%; height: 54px; margin-top: 10px; font-size: 17px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); }
+  .tv-ck :global(.tv-btn.big.ghost) { background: var(--tint); color: var(--ink); }
+  .vc-busy { margin: 12px 0 0; color: var(--ink-2); font-weight: 600; }
 </style>
