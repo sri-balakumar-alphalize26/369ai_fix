@@ -63,13 +63,8 @@ export const onlineServiceAlarmService = {
             } catch {
                 // opening still works below
             }
-            await action.doAction({
-                type: "ir.actions.act_window",
-                res_model: "online.service.order",
-                res_id: id,
-                views: [[false, "form"]],
-                target: "current",
-            });
+            // the booking on the Booking Desk (the green screen), not Odoo's form
+            await action.doAction("369ai_fix.action_fix_desk", { additionalContext: { fix_desk_order_id: id } });
             poll();
         }
 

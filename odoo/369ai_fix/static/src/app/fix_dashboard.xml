@@ -19,22 +19,22 @@
                 <!-- Website bookings that need staff -->
                 <h2 class="fxdash-h2">Website bookings</h2>
                 <div class="fxdash-tiles">
-                    <button class="fxdash-tile fxdash-red" t-on-click="() => this.open('369ai_fix.action_wb_waiting')">
+                    <button class="fxdash-tile fxdash-red" t-on-click="() => this.open('bookings', 'new')">
                         <span class="fxdash-tile-icon">🔔</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_waiting || 0"/>
                         <span class="fxdash-tile-label">Waiting for approval</span>
                     </button>
-                    <button class="fxdash-tile fxdash-blue" t-on-click="() => this.open('369ai_fix.action_wb_slot_unseen')">
+                    <button class="fxdash-tile fxdash-blue" t-on-click="() => this.open('bookings', 'slot_unseen')">
                         <span class="fxdash-tile-icon">📅</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_slot_unseen || 0"/>
                         <span class="fxdash-tile-label">Visit time booked</span>
                     </button>
-                    <button class="fxdash-tile fxdash-amber" t-on-click="() => this.open('369ai_fix.action_wb_parts')">
+                    <button class="fxdash-tile fxdash-amber" t-on-click="() => this.open('bookings', 'parts')">
                         <span class="fxdash-tile-icon">📦</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_parts || 0"/>
                         <span class="fxdash-tile-label">Waiting for parts</span>
                     </button>
-                    <button class="fxdash-tile fxdash-grey" t-on-click="() => this.open('369ai_fix.action_wb_rejected')">
+                    <button class="fxdash-tile fxdash-grey" t-on-click="() => this.open('bookings', 'rejected_today')">
                         <span class="fxdash-tile-icon">🚫</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_rejected_today || 0"/>
                         <span class="fxdash-tile-label">Rejected today</span>
@@ -94,16 +94,16 @@
                     <div class="fxdash-box">
                         <h3>Online orders</h3>
                         <div class="fxdash-lines">
-                            <button class="fxdash-line" t-on-click="() => this.open('369ai_fix.action_online_order_doorstep')">
+                            <button class="fxdash-line" t-on-click="() => this.open('bookings', 'new_doorstep')">
                                 <span class="fxdash-dot fxdash-blue"/><span>New doorstep</span><b t-out="state.data.online_new_doorstep || 0"/>
                             </button>
-                            <button class="fxdash-line" t-on-click="() => this.open('369ai_fix.action_online_order_pickup')">
+                            <button class="fxdash-line" t-on-click="() => this.open('bookings', 'new_pickup')">
                                 <span class="fxdash-dot fxdash-amber"/><span>New pickup</span><b t-out="state.data.online_new_pickup || 0"/>
                             </button>
-                            <button class="fxdash-line" t-on-click="() => this.open('369ai_fix.action_online_order_all')">
+                            <button class="fxdash-line" t-on-click="() => this.open('bookings', 'to_confirm')">
                                 <span class="fxdash-dot fxdash-grey"/><span>To confirm</span><b t-out="state.data.online_new_other || 0"/>
                             </button>
-                            <button class="fxdash-line" t-on-click="() => this.open('369ai_fix.action_online_order_all')">
+                            <button class="fxdash-line" t-on-click="() => this.open('bookings', 'confirmed')">
                                 <span class="fxdash-dot fxdash-green"/><span>Confirmed, in progress</span><b t-out="state.data.online_open || 0"/>
                             </button>
                         </div>
@@ -112,19 +112,19 @@
                     <div class="fxdash-box">
                         <h3>Doorstep visits</h3>
                         <div class="fxdash-lines">
-                            <button class="fxdash-line" t-on-click="() => this.openVisits(['draft'])">
+                            <button class="fxdash-line" t-on-click="() => this.openVisits('draft')">
                                 <span class="fxdash-dot fxdash-grey"/><span>To assign</span><b t-out="state.data.visits.draft || 0"/>
                             </button>
-                            <button class="fxdash-line" t-on-click="() => this.openVisits(['assigned'])">
+                            <button class="fxdash-line" t-on-click="() => this.openVisits('assigned')">
                                 <span class="fxdash-dot fxdash-blue"/><span>Assigned</span><b t-out="state.data.visits.assigned || 0"/>
                             </button>
-                            <button class="fxdash-line" t-on-click="() => this.openVisits(['on_the_way'])">
+                            <button class="fxdash-line" t-on-click="() => this.openVisits('on_the_way')">
                                 <span class="fxdash-dot fxdash-amber"/><span>On the way</span><b t-out="state.data.visits.on_the_way || 0"/>
                             </button>
-                            <button class="fxdash-line" t-on-click="() => this.openVisits(['arrived', 'in_progress'])">
+                            <button class="fxdash-line" t-on-click="() => this.openVisits('at_customer')">
                                 <span class="fxdash-dot fxdash-green"/><span>At the customer</span><b t-out="state.data.visits.at_customer || 0"/>
                             </button>
-                            <button class="fxdash-line" t-on-click="() => this.openVisits(['done'])">
+                            <button class="fxdash-line" t-on-click="() => this.openVisits('done_today')">
                                 <span class="fxdash-dot fxdash-green"/><span>Done today</span><b t-out="state.data.visits.done_today || 0"/>
                             </button>
                         </div>

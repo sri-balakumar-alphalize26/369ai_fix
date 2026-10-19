@@ -41,6 +41,9 @@ STAGES = [
 WORKING_CARD_STATES = ('inspection', 'quotation', 'repair')
 PARTS_BADGES = {'ask': 'Parts: customer asked', 'ordering': 'Parts on order'}
 MAX_ORDERS = 500
+# The two alarms (new booking, visit time booked): on/off, ring and pause in seconds.
+DEFAULT_SOUND = {'new_on': True, 'ring': 20, 'repeat': 15,
+                 'slot_on': True, 'slot_ring': 20, 'slot_repeat': 15}
 MAX_TRAIL = 400
 
 
@@ -82,12 +85,11 @@ class OnlineServiceOrder(models.Model):
     def _fix_desk_settings(self):
         if 'danatfix.booking.settings' in self.env:
             settings = self.env['danatfix.booking.settings'].get_settings()
-            return {
-                'ring': max(3, settings.ring_seconds or 20),
-                'repeat': max(3, settings.repeat_seconds or 15),
-                'poll_ready': bool(settings.poll_enabled and settings._group_jid()),
-            }
-        return {'ring': 20, 'repeat': 15, 'poll_ready': False}
+            sound = settings._alarm_sound() if hasattr(settings, '_alarm_sound') else {
+                'ring': max(3, settings.ring_seconds or 20), 'repeat': max(3, settings.repeat_seconds or 15)}
+            return dict(DEFAULT_SOUND, **sound,
+                        poll_ready=bool(settings.poll_enabled and settings._group_jid()))
+        return dict(DEFAULT_SOUND, poll_ready=False)
 
     @api.model
     def _fix_desk_technicians(self):
@@ -281,7 +283,14 @@ class OnlineServiceOrder(models.Model):
         if stage == 'working':
             acts = []
             if visit and visit.state == 'in_progress':
-                acts.append('done')
+                # what the technician found -> the quotation first -> the customer's OK (visits/visit_result.py)
+                acts += {
+                    'waiting': ['approved_here', 'declined_here', 'later'],
+                    'repairing': ['repair_done'],
+                    'to_take': ['take'],
+                }.get(visit.check_result, ['check_result', 'fixed'])
+                if visit.check_result in ('waiting', 'repairing', 'to_take'):
+                    return acts + ['call']
             if cards.filtered(lambda c: c.state in ('inspection', 'quotation') and not c.wb_at_office):
                 acts.append('office')
             return acts + ['call']
@@ -331,7 +340,7 @@ class OnlineServiceOrder(models.Model):
         holders = [('res_model', '=', 'job.card'), ('res_id', 'in', cards.ids)] if cards else [
             ('res_model', '=', 'online.service.order'), ('res_id', '=', order.id)]
         photos = Attachment.search(holders + [('mimetype', 'like', 'image/')], limit=8)
-        videos = Attachment.search_count(holders + [('mimetype', 'like', 'video/')])
+        video_ids = Attachment.search(holders + [('mimetype', 'like', 'video/')], limit=3).ids
         receptionist = self.env.user.has_group('mobile_repair.group_mobile_repair_receptionist')
         card_states = dict(self.env['job.card']._fields['state'].selection)
         quote_states = dict(self.env['job.card']._fields['quote_state'].selection) \
@@ -358,7 +367,8 @@ class OnlineServiceOrder(models.Model):
             'parts_state_label': dict(order._fields['parts_state'].selection).get(order.parts_state, ''),
             'parts_days': order.parts_days,
             'photos': photos.ids,
-            'videos': videos,
+            'videos': len(video_ids),
+            'video_ids': video_ids,       # played in the desk (a preview that opens the video)
             'job_cards': [{'id': c.id, 'name': c.name, 'state': c.state, 'state_label': card_states.get(c.state, c.state),
                            'quote': (quote_states.get(c.quote_state, '')
                                      if getattr(c, 'quote_state', 'none') not in ('none', False) else ''),
@@ -386,6 +396,8 @@ class OnlineServiceOrder(models.Model):
                 'name': visit.name,
                 'state': visit.state,
                 'state_label': dict(VISIT_STATES).get(visit.state, visit.state),
+                'result_label': (dict(visit._fields['check_result'].selection).get(visit.check_result, '')
+                                 if 'check_result' in visit._fields and visit.check_result else ''),
                 'technician_id': tech.id or False,
                 'technician': tech.name or '',
                 'technician_phone': visit.technician_phone or '',
@@ -496,9 +508,24 @@ class OnlineServiceOrder(models.Model):
             if not result.get('ok'):
                 raise UserError(result.get('message') or _("Could not mark the visit as arrived."))
         elif action == 'start':
-            self._fix_desk_require_visit().action_start()
+            # opens "Before you start" while the safety check / device photos are not done
+            result = self._fix_desk_require_visit().action_start()
+            if isinstance(result, dict):
+                return wizard(result)
         elif action == 'done':
             self._fix_desk_require_visit().action_done()
+        elif action == 'check_result':
+            return wizard(self._fix_desk_require_visit().action_open_result())
+        elif action in ('fixed', 'repair_done'):
+            self._fix_desk_require_visit()._vr_fixed()
+        elif action == 'approved_here':
+            self._fix_desk_require_visit()._vr_approved_here()
+        elif action == 'declined_here':
+            self._fix_desk_require_visit()._vr_declined_here()
+        elif action == 'later':
+            self._fix_desk_require_visit()._vr_decide_later()
+        elif action == 'take':
+            return wizard(self._fix_desk_require_visit().action_open_take())
         elif action == 'cancel_visit':
             visit = self._fix_desk_require_visit()
             if reason:

@@ -4,6 +4,6 @@
     <menuitem id="menu_service_visit"
               name="Doorstep Visits"
               parent="369ai_fix.menu_online_service_root"
-              action="action_service_visit"
+              action="369ai_fix.action_screen_visits"
               sequence="4"/>
 </odoo>

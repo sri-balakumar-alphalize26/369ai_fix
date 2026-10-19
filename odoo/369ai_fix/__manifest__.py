@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.8.0',
+    'version': '19.0.2.14.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """
@@ -51,6 +51,8 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
     ],
     # Same order as when these were separate add-ons: customer, repair, visits, booking, website, app.
     'data': [
+        # the green screens' client actions first: the menus of every part open them
+        'app/views/screen_actions.xml',
         # customer
         'customer/security/ir.model.access.csv',
         'customer/data/ir_sequence.xml',
@@ -71,7 +73,10 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
         'visits/data/ir_sequence.xml',
         'visits/data/online_message_data.xml',
         'visits/wizard/arrival_code_wizard_views.xml',
+        'visits/data/visit_checks_data.xml',
         'visits/views/service_visit_views.xml',
+        'visits/views/visit_checks_views.xml',
+        'visits/wizard/visit_result_wizard_views.xml',
         'visits/views/online_order_views.xml',
         'visits/views/job_card_views.xml',
         'visits/views/res_config_settings_views.xml',
@@ -109,6 +114,13 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
             # the alarm (shared by the desk and the background service), then the desk
             '369ai_fix/static/src/app/desk/desk_alarm.js',
             '369ai_fix/static/src/app/desk/leaflet_map.js',
+            # the green screens and pop-ups every menu uses (the desk shows records with them too)
+            '369ai_fix/static/src/app/screen/fix_screen.scss',
+            '369ai_fix/static/src/app/screen/fix_field.js',
+            '369ai_fix/static/src/app/screen/fix_popup.js',
+            '369ai_fix/static/src/app/screen/fix_record.js',
+            '369ai_fix/static/src/app/screen/fix_screen.js',
+            '369ai_fix/static/src/app/screen/fix_screen.xml',
             '369ai_fix/static/src/app/desk/fix_desk.scss',
             '369ai_fix/static/src/app/desk/fix_desk.js',
             '369ai_fix/static/src/app/desk/fix_desk.xml',

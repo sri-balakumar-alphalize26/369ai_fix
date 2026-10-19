@@ -31,7 +31,7 @@
                         <span class="fxd-sound"><i class="fa fa-volume-up"/> Alarm on</span>
                         <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="onTestSound">Test</button>
                     </t>
-                    <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="openAll"><i class="fa fa-list"/> All orders</button>
+                    <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="openAll"><i class="fa fa-list"/> All bookings</button>
                 </header>
 
                 <div class="fxd-warn" t-if="!state.soundOn">
@@ -97,6 +97,14 @@
                         <t t-else="" t-call="369ai_fix.DeskDetail"/>
                     </aside>
                 </div>
+
+                <!-- the customer's photo / video, on this page -->
+                <div class="fxd-media" t-if="state.media" t-on-click.self="closeMedia" role="dialog" aria-modal="true">
+                    <button type="button" class="fxd-media-x" t-on-click="closeMedia" aria-label="Close"><i class="fa fa-times"/></button>
+                    <video t-if="state.media.type === 'video'" t-att-src="state.media.src" controls="controls" autoplay="autoplay" playsinline="playsinline"/>
+                    <img t-else="" t-att-src="state.media.src" alt="Customer photo"/>
+                    <a class="fxd-media-open" t-att-href="state.media.src" target="_blank" rel="noopener"><i class="fa fa-external-link"/> Open in a new tab</a>
+                </div>
             </div>
         </Layout>
     </t>
@@ -112,12 +120,57 @@
                     <h2><t t-esc="d.name"/><span t-attf-class="fxd-stage-pill fxd-stage-{{ d.stage }}"><t t-esc="d.stage_label or d.state_label"/></span></h2>
                     <small><t t-esc="d.mode_label"/> · booked <t t-esc="when(d.created)"/><t t-if="d.opened_by"> · opened by <t t-esc="d.opened_by"/></t></small>
                 </div>
-                <div class="fxd-head-links">
-                    <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => this.openForm('online.service.order', d.id)"><i class="fa fa-external-link"/> Open form</button>
-                </div>
             </div>
             <div class="fxd-moved" t-if="d.moved">This booking moved to another stage. The list shows it there now.</div>
 
+            <!-- the pane's tabs: everything about the booking without leaving the desk -->
+            <nav class="fxd-tabs" aria-label="Booking parts">
+                <t t-foreach="paneTabs" t-as="tab" t-key="tab.key">
+                    <button class="fxd-tab" t-att-class="{ 'fxd-tab-on': state.paneTab === tab.key }" t-on-click="() => this.setTab(tab.key)">
+                        <i t-attf-class="fa {{ tab.icon }}"/> <t t-esc="tab.label"/>
+                    </button>
+                </t>
+            </nav>
+
+            <t t-if="state.paneTab === 'booking'">
+                <FixRecord screen="'bookings'" recordId="d.id" embedded="true" onChanged="() => this.onPaneChanged()"/>
+            </t>
+            <t t-elif="state.paneTab === 'card' and cardId">
+                <div class="fxd-cards" t-if="d.job_cards.length > 1">
+                    <t t-foreach="d.job_cards" t-as="card" t-key="card.id">
+                        <button class="fxd-cardlink" t-att-class="{ 'fxd-cardlink-on': card.id === cardId }" t-on-click="() => state.paneCard = card.id">
+                            <i class="fa fa-file-text-o"/> <t t-esc="card.name"/> <small t-esc="card.state_label"/>
+                        </button>
+                    </t>
+                </div>
+                <FixRecord screen="'job_cards'" recordId="cardId" embedded="true" onChanged="() => this.onPaneChanged()"/>
+            </t>
+            <t t-elif="state.paneTab === 'visit' and d.visit">
+                <FixRecord screen="'visits'" recordId="d.visit.id" embedded="true" onChanged="() => this.onPaneChanged()"/>
+            </t>
+            <t t-elif="state.paneTab === 'notes'">
+                <section class="fxd-box">
+                    <h3><i class="fa fa-comments-o"/> Notes on the booking, its job cards and its visit</h3>
+                    <div class="fxd-assign">
+                        <textarea class="fxd-in" rows="2" placeholder="Add a note for the team (kept on the booking)…" t-model="state.noteText"/>
+                        <button class="fxd-btn fxd-btn-primary fxd-btn-sm" t-att-disabled="!state.noteText.trim()" t-on-click="addNote"><i class="fa fa-plus"/> Add note</button>
+                    </div>
+                    <ul class="fxd-notes">
+                        <t t-foreach="state.notes" t-as="note" t-key="note.screen + note.id">
+                            <li>
+                                <div><b t-esc="note.author"/> <small class="fxd-muted"><t t-esc="noteWhen(note)"/> · <t t-esc="note.where"/></small></div>
+                                <div t-if="noteText(note)" class="fxd-note-body" t-esc="noteText(note)"/>
+                                <t t-foreach="note.changes" t-as="ch" t-key="ch_index">
+                                    <div class="fxd-muted"><t t-esc="ch.field"/>: <t t-esc="ch.old or '—'"/> → <b t-esc="ch.new or '—'"/></div>
+                                </t>
+                            </li>
+                        </t>
+                        <li class="fxd-muted" t-if="!state.notes.length">No notes yet.</li>
+                    </ul>
+                </section>
+            </t>
+
+            <t t-else="">
             <!-- buttons of this stage -->
             <div class="fxd-actions" t-if="d.actions.length">
                 <t t-foreach="d.actions" t-as="key" t-key="key">
@@ -218,11 +271,16 @@
                     <div class="fxd-muted" t-if="d.note">Note: <t t-esc="d.note"/></div>
                     <div class="fxd-photos" t-if="d.photos.length or d.videos">
                         <t t-foreach="d.photos" t-as="pid" t-key="pid">
-                            <a t-attf-href="/web/content/#{pid}" target="_blank" rel="noopener">
+                            <a t-attf-href="/web/content/#{pid}" t-on-click.prevent="() => this.openMedia('image', pid)" title="View the photo">
                                 <img t-attf-src="/web/image/#{pid}/96x96" alt="Customer photo" loading="lazy"/>
                             </a>
                         </t>
-                        <span class="fxd-chip" t-if="d.videos"><i class="fa fa-video-camera"/> <t t-esc="d.videos"/> video</span>
+                        <t t-foreach="d.video_ids or []" t-as="vid" t-key="vid">
+                            <a class="fxd-vid" t-attf-href="/web/content/#{vid}" t-on-click.prevent="() => this.openMedia('video', vid)" title="Play the customer's video">
+                                <video t-attf-src="/web/content/#{vid}#t=0.1" preload="metadata" muted="muted" playsinline="playsinline"/>
+                                <i class="fa fa-play"/>
+                            </a>
+                        </t>
                     </div>
                 </section>
 
@@ -237,6 +295,7 @@
                 <!-- the visit -->
                 <section class="fxd-box fxd-box-wide" t-if="d.visit">
                     <h3><i class="fa fa-car"/> Visit <small t-esc="d.visit.name"/> <span class="fxd-chip" t-esc="d.visit.state_label"/>
+                        <span class="fxd-chip" t-if="d.visit.result_label" t-esc="d.visit.result_label"/>
                         <button class="fxd-link" t-on-click="() => this.openForm('fix.service.visit', d.visit.id)">open</button></h3>
                     <div class="fxd-tech" t-if="d.visit.technician">
                         <i class="fa fa-user-circle"/> <b t-esc="d.visit.technician"/>
@@ -279,6 +338,7 @@
                     <div class="fxd-muted">No visit yet. Assigning a technician creates it.</div>
                 </section>
             </div>
+            </t>
         </div>
     </t>
 

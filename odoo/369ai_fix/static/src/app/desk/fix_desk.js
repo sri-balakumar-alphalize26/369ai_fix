@@ -22,6 +22,8 @@ import { _t } from "@web/core/l10n/translation";
 import { Layout } from "@web/search/layout";
 import { AlarmLoop, FixAlarm, NEW_TONE, SLOT_TONE, setDeskOpen } from "./desk_alarm";
 import { destroyMap, hasLeaflet, mountMap, updateMap } from "./leaflet_map";
+import { FixRecord } from "../screen/fix_record";
+import { errorText } from "../screen/fix_popup";
 
 const MODEL = "online.service.order";
 const POLL_MS = 20000;
@@ -53,13 +55,20 @@ const BUTTONS = {
     arrived_skip: { label: "Arrived, no code", kind: "ghost", icon: "fa-map-marker" },
     start: { label: "Start work", kind: "primary", icon: "fa-wrench" },
     done: { label: "Done", kind: "primary", icon: "fa-check-circle" },
-    office: { label: "Take to the office", kind: "ghost", icon: "fa-building" },
+    check_result: { label: "What did you find?", kind: "primary", icon: "fa-search" },
+    fixed: { label: "Fixed on the spot", kind: "ghost", icon: "fa-check-circle" },
+    approved_here: { label: "Customer approved", kind: "primary", icon: "fa-thumbs-up" },
+    declined_here: { label: "Customer declined", kind: "danger-ghost", icon: "fa-thumbs-down" },
+    later: { label: "Decides later", kind: "ghost", icon: "fa-clock-o" },
+    repair_done: { label: "Repair done", kind: "primary", icon: "fa-check-circle" },
+    take: { label: "Take the device", kind: "primary", icon: "fa-building" },
+    office: { label: "Repair at office", kind: "ghost", icon: "fa-building" },
     cancel_visit: { label: "Cancel visit", kind: "danger-ghost", icon: "fa-ban" },
 };
 
 export class FixDesk extends Component {
     static template = "369ai_fix.Desk";
-    static components = { Layout };
+    static components = { Layout, FixRecord };
     static props = ["*"];
 
     setup() {
@@ -67,6 +76,8 @@ export class FixDesk extends Component {
         this.action = useService("action");
         this.bus = useService("bus_service");
         this.notification = useService("notification");
+        // every pop-up of the desk is a green one (static/src/app/screen/fix_popup.js)
+        this.popup = useService("fix_popup");
         this.mapRef = useRef("map");
         this.state = useState({
             loading: true,
@@ -78,6 +89,10 @@ export class FixDesk extends Component {
             technicians: [],
             ring: 20,
             repeat: 15,
+            newOn: true,
+            slotOn: true,
+            slotRing: 20,
+            slotRepeat: 15,
             pollReady: false,
             hasCalling: false,
             soundOn: false,
@@ -90,6 +105,13 @@ export class FixDesk extends Component {
             techPick: 0,
             askCancel: false,
             cancelReason: "",
+            media: null,      // the customer's photo / video open in the viewer
+            // the pane's tabs: the overview, or the booking / a job card / the visit drawn by
+            // the green record screen, or the notes of all three
+            paneTab: "overview",
+            paneCard: 0,
+            notes: [],
+            noteText: "",
         });
         this.newAlarm = new FixAlarm();
         this.slotAlarm = new FixAlarm();
@@ -104,6 +126,11 @@ export class FixDesk extends Component {
             document.dispatchEvent(new CustomEvent(PRESENCE_EVENT));
             this.state.soundOn = (await this.newAlarm.arm()) && (await this.slotAlarm.arm());
             await this.load({ force: true });
+            // opened from a booking's "Open on the Booking Desk" or the alarm: show that booking
+            const ctx = (this.props.action && this.props.action.context) || {};
+            if (ctx.fix_desk_order_id) {
+                this.select({ id: ctx.fix_desk_order_id });
+            }
         });
         onMounted(() => {
             this.bus.addChannel("fix_desk");
@@ -175,9 +202,14 @@ export class FixDesk extends Component {
         s.technicians = data.technicians;
         s.pollReady = data.poll_ready;
         s.hasCalling = data.has_calling;
-        if (data.ring !== s.ring || data.repeat !== s.repeat) {
-            s.ring = data.ring;
-            s.repeat = data.repeat;
+        // each alarm has its own switch, ring and pause (Booking Desk Settings)
+        const sound = {
+            ring: data.ring, repeat: data.repeat, newOn: data.new_on !== false,
+            slotRing: data.slot_ring || data.ring, slotRepeat: data.slot_repeat || data.repeat,
+            slotOn: data.slot_on !== false,
+        };
+        if (Object.keys(sound).some((k) => sound[k] !== s[k])) {
+            Object.assign(s, sound);
             this.newLoop.stop();
             this.slotLoop.stop();
         }
@@ -251,6 +283,8 @@ export class FixDesk extends Component {
         this.state.showDetail = true;
         this.state.askCancel = false;
         this.state.detail = null;
+        this.state.paneTab = "overview";
+        this.state.paneCard = 0;
         this.loadDetail();
     }
 
@@ -259,6 +293,7 @@ export class FixDesk extends Component {
         this.state.detail = null;
         this.state.showDetail = false;
         this.state.askCancel = false;
+        this.state.paneTab = "overview";
     }
 
     // ------------------------------------------------------------------ buttons
@@ -284,13 +319,18 @@ export class FixDesk extends Component {
             if (what === "cancel_visit") {
                 kwargs.reason = this.state.cancelReason;
             }
-            const res = await this.orm.call(MODEL, "fix_desk_act", [[id], what], kwargs);
+            let res;
+            try {
+                res = await this.orm.silent.call(MODEL, "fix_desk_act", [[id], what], kwargs);
+            } catch (err) {
+                // said on the desk, not in an Odoo window
+                this.notification.add(errorText(err), { type: "danger" });
+                return;
+            }
             this.state.askCancel = false;
             if (res && res.action) {
-                await this.action.doAction(res.action, { onClose: () => this.load({ force: true }) });
-                if (res.action.type === "ir.actions.act_url") {
-                    this.load({ force: true });
-                }
+                // a wizard: drawn as a green pop-up (only what stays in Odoo goes to Odoo)
+                await this.popup.doAction(res.action, { onClose: () => this.load({ force: true }) });
             } else {
                 this._apply(res);
                 if (res.detail) {
@@ -346,35 +386,134 @@ export class FixDesk extends Component {
             this.slotLoop.stop();
             return;
         }
-        if (s.counts.new > 0) {
+        const newRings = s.newOn && s.counts.new > 0;
+        if (newRings) {
             this.newLoop.start(s.ring, s.repeat);
         } else {
             this.newLoop.stop();
         }
-        if (s.counts.booked > 0) {
+        if (s.slotOn && s.counts.booked > 0) {
             // half a cycle later, so the two tones never sound together
-            this.slotLoop.start(s.ring, s.repeat, s.counts.new > 0 ? ((s.ring + s.repeat) * 1000) / 2 : 0);
+            this.slotLoop.start(s.slotRing, s.slotRepeat, newRings ? ((s.ring + s.repeat) * 1000) / 2 : 0);
         } else {
             this.slotLoop.stop();
         }
     }
 
     // ------------------------------------------------------------------ open things
+    /** The customer's photo or video in a viewer on this page (Esc or a click outside closes it). */
+    openMedia(type, id) {
+        this.state.media = { type, src: `/web/content/${id}` };
+        this._mediaKey = (ev) => ev.key === "Escape" && this.closeMedia();
+        document.addEventListener("keydown", this._mediaKey);
+    }
+
+    closeMedia() {
+        this.state.media = null;
+        if (this._mediaKey) {
+            document.removeEventListener("keydown", this._mediaKey);
+            this._mediaKey = null;
+        }
+    }
+
+    /** "Open form" and the job card / visit links: the record opens in a tab of this pane. */
     openForm(model, id) {
         if (!id) {
             return;
         }
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            res_model: model,
-            res_id: id,
-            views: [[false, "form"]],
-            target: "current",
-        });
+        if (model === "job.card") {
+            this.state.paneCard = id;
+            this.setTab("card");
+        } else if (model === "fix.service.visit") {
+            this.setTab("visit");
+        } else {
+            this.setTab("booking");
+        }
     }
 
     openAll() {
-        this.action.doAction("369ai_fix.action_online_order_all");
+        this.popup.openScreen({ screen: "bookings" });
+    }
+
+    // ------------------------------------------------------------------ the pane's tabs
+    get paneTabs() {
+        const d = this.state.detail;
+        if (!d) {
+            return [];
+        }
+        const tabs = [{ key: "overview", label: _t("Overview"), icon: "fa-dashboard" },
+                      { key: "booking", label: _t("Booking"), icon: "fa-calendar-check-o" }];
+        if (d.job_cards && d.job_cards.length) {
+            tabs.push({ key: "card", label: _t("Job card"), icon: "fa-file-text-o" });
+        }
+        if (d.visit) {
+            tabs.push({ key: "visit", label: _t("Visit"), icon: "fa-car" });
+        }
+        tabs.push({ key: "notes", label: _t("Notes"), icon: "fa-comments-o" });
+        return tabs;
+    }
+
+    get cardId() {
+        const cards = (this.state.detail && this.state.detail.job_cards) || [];
+        return cards.some((c) => c.id === this.state.paneCard) ? this.state.paneCard : (cards[0] && cards[0].id) || 0;
+    }
+
+    setTab(key) {
+        this.state.paneTab = key;
+        if (key === "notes") {
+            this.loadNotes();
+        }
+    }
+
+    /** A change made in a tab: the cards and the overview follow. */
+    onPaneChanged() {
+        this.load({ force: true });
+    }
+
+    noteTargets() {
+        const d = this.state.detail;
+        const targets = [["bookings", d.id]];
+        for (const card of d.job_cards || []) {
+            targets.push(["job_cards", card.id]);
+        }
+        if (d.visit) {
+            targets.push(["visits", d.visit.id]);
+        }
+        return targets;
+    }
+
+    async loadNotes() {
+        if (!this.state.detail) {
+            return;
+        }
+        try {
+            this.state.notes = await this.orm.silent.call("fix.screen", "screen_notes", [this.noteTargets()]);
+        } catch (err) {
+            this.notification.add(errorText(err), { type: "danger" });
+        }
+    }
+
+    async addNote() {
+        const body = this.state.noteText.trim();
+        if (!body || !this.state.detail) {
+            return;
+        }
+        try {
+            await this.orm.silent.call("fix.screen", "screen_note", ["bookings", this.state.detail.id, body]);
+            this.state.noteText = "";
+            await this.loadNotes();
+        } catch (err) {
+            this.notification.add(errorText(err), { type: "danger" });
+        }
+    }
+
+    noteWhen(note) {
+        return this.when(note.date);
+    }
+
+    noteText(note) {
+        // parsed, never run: DOMParser does not load images or start scripts
+        return new DOMParser().parseFromString(note.body || "", "text/html").body.textContent.trim();
     }
 
     // ------------------------------------------------------------------ words

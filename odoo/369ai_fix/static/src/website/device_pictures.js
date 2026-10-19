@@ -14,6 +14,7 @@ class FixDevicePictures extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.popup = useService("fix_popup");
         this.notification = useService("notification");
         this.state = useState({
             loading: true, sites: [], siteId: false, mode: "drawing", style: "3d",
@@ -69,15 +70,9 @@ class FixDevicePictures extends Component {
         this.load(parseInt(ev.target.value, 10));
     }
 
+    /** The device type's drawings and photos, on the green Device Categories screen. */
     editDevice(device) {
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: device.name,
-            res_model: "device.category",
-            res_id: device.id,
-            views: [[this.state.viewId, "form"]],
-            target: "current",
-        });
+        this.popup.openScreen({ screen: "categories", id: device.id });
     }
 }
 

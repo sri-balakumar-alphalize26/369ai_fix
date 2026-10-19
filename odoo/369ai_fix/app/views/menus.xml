@@ -23,62 +23,61 @@
     <!-- Old Bookings and Booking Desk Settings come from danatfix_repair_booking,
          which hangs its menus here. -->
 
-    <!-- Bookings -->
+    <!-- Since 19.0.2.14.0 every menu opens a green screen (app/views/screen_actions.xml),
+         not Odoo's list and form; the old window actions stay for anyone who bookmarked them.
+
+         Bookings. Since 19.0.2.9.0 only the full list and the parts list: every booking is
+         Doorstep (one repair flow), and new / time booked / rejected are columns on the
+         Booking Desk. Their actions stay for the Dashboard tiles. -->
     <menuitem id="menu_fix_bookings" name="Bookings" parent="menu_fix_root" sequence="10"/>
-    <menuitem id="menu_fix_doorstep" name="Doorstep Service" parent="menu_fix_bookings"
-              action="369ai_fix.action_online_order_doorstep" sequence="1"/>
-    <menuitem id="menu_fix_pickup" name="Pickup &amp; Service" parent="menu_fix_bookings"
-              action="369ai_fix.action_online_order_pickup" sequence="2"/>
-    <menuitem id="menu_fix_all_orders" name="All Orders" parent="menu_fix_bookings"
-              action="369ai_fix.action_online_order_all" sequence="3"/>
-    <menuitem id="menu_fix_waiting" name="Waiting for Approval" parent="menu_fix_bookings"
-              action="369ai_fix.action_wb_waiting" sequence="10"/>
-    <menuitem id="menu_fix_slot_unseen" name="Visit Time Booked" parent="menu_fix_bookings"
-              action="369ai_fix.action_wb_slot_unseen" sequence="11"/>
+    <menuitem id="menu_fix_all_orders" name="All Bookings" parent="menu_fix_bookings"
+              action="action_screen_bookings" sequence="3"/>
     <menuitem id="menu_fix_parts" name="Waiting for Parts" parent="menu_fix_bookings"
-              action="369ai_fix.action_wb_parts" sequence="12"/>
-    <menuitem id="menu_fix_rejected" name="Rejected" parent="menu_fix_bookings"
-              action="369ai_fix.action_wb_rejected" sequence="13"/>
+              action="action_screen_bookings_parts" sequence="12"/>
 
     <!-- Service -->
     <menuitem id="menu_fix_service" name="Service" parent="menu_fix_root" sequence="20"/>
     <menuitem id="menu_fix_job_cards" name="Job Cards" parent="menu_fix_service"
-              action="action_fix_job_cards" sequence="1"/>
+              action="action_screen_job_cards" sequence="1"/>
     <menuitem id="menu_fix_visits" name="Doorstep Visits" parent="menu_fix_service"
-              action="369ai_fix.action_service_visit" sequence="2"/>
+              action="action_screen_visits" sequence="2"/>
     <menuitem id="menu_fix_spare_requests" name="Spare Requests" parent="menu_fix_service"
-              action="mobile_repair.action_spare_part_request" sequence="3"/>
+              action="action_screen_spare_requests" sequence="3"/>
 
     <!-- Catalogue -->
     <menuitem id="menu_fix_catalogue" name="Catalogue" parent="menu_fix_root" sequence="30"/>
     <menuitem id="menu_fix_services" name="Repair Services" parent="menu_fix_catalogue"
-              action="mobile_repair.action_service_product" sequence="1"/>
+              action="action_screen_services" sequence="1"/>
     <menuitem id="menu_fix_spare_parts" name="Spare Parts" parent="menu_fix_catalogue"
-              action="mobile_repair.action_spare_part_product" sequence="2"/>
+              action="action_screen_spare_parts" sequence="2"/>
     <menuitem id="menu_fix_categories" name="Device Categories" parent="menu_fix_catalogue"
-              action="mobile_repair.action_device_category" sequence="10"/>
+              action="action_screen_categories" sequence="10"/>
     <menuitem id="menu_fix_brands" name="Brands" parent="menu_fix_catalogue"
-              action="mobile_repair.action_device_brand" sequence="11"/>
+              action="action_screen_brands" sequence="11"/>
     <menuitem id="menu_fix_series" name="Series" parent="menu_fix_catalogue"
-              action="mobile_repair.action_device_series" sequence="12"/>
+              action="action_screen_series" sequence="12"/>
     <menuitem id="menu_fix_models" name="Models" parent="menu_fix_catalogue"
-              action="mobile_repair.action_device_model" sequence="13"/>
-    <menuitem id="menu_fix_issue_types" name="Issue Types" parent="menu_fix_catalogue"
-              action="mobile_repair.action_job_card_issue_type" sequence="20"/>
-    <menuitem id="menu_fix_accessories" name="Accessories" parent="menu_fix_catalogue"
-              action="mobile_repair.action_device_accessory" sequence="21"/>
+              action="action_screen_models" sequence="13"/>
 
     <!-- Configuration -->
     <menuitem id="menu_fix_config" name="Configuration" parent="menu_fix_root"
               groups="mobile_repair.group_mobile_repair_manager" sequence="90"/>
     <menuitem id="menu_fix_slots" name="Time Slots" parent="menu_fix_config"
-              action="369ai_fix.action_booking_slot" sequence="1"/>
+              action="action_screen_slots" sequence="1"/>
     <menuitem id="menu_fix_websites" name="Websites" parent="menu_fix_config"
-              action="369ai_fix.action_online_site" sequence="2"/>
+              action="action_screen_sites" sequence="2"/>
     <menuitem id="menu_fix_messages" name="Status Messages" parent="menu_fix_config"
-              action="369ai_fix.action_online_message" sequence="3"/>
+              action="action_screen_messages" sequence="3"/>
+    <menuitem id="menu_fix_issue_types" name="Issue Types" parent="menu_fix_config"
+              action="action_screen_issue_types" sequence="20"/>
+    <menuitem id="menu_fix_accessories" name="Accessories" parent="menu_fix_config"
+              action="action_screen_accessories" sequence="21"/>
+    <menuitem id="menu_fix_safety_items" name="Safety Checklist" parent="menu_fix_config"
+              action="action_screen_safety_items" sequence="30"/>
+    <menuitem id="menu_fix_device_angles" name="Device Photos" parent="menu_fix_config"
+              action="action_screen_device_angles" sequence="31"/>
     <menuitem id="menu_fix_repair_settings" name="Repair Settings" parent="menu_fix_config"
-              action="mobile_repair.action_mobile_repair_config_settings"
+              action="action_screen_repair_settings"
               groups="base.group_system" sequence="11"/>
 
     <!-- The old place under IT & Mobile Repair (customer/views/menus.xml): hidden

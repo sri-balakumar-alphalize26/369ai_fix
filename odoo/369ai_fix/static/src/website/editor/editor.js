@@ -12,7 +12,6 @@ import { useService } from "@web/core/utils/hooks";
 import { useSortable } from "@web/core/utils/sortable_owl";
 import { getDataURLFromFile } from "@web/core/utils/urls";
 import { _t } from "@web/core/l10n/translation";
-import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { Layout } from "@web/search/layout";
 import { useSaveQueue } from "./save_queue";
 
@@ -291,7 +290,8 @@ export class FixSiteEditor extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
-        this.dialog = useService("dialog");
+        // green pop-ups (app/screen/fix_popup.js), not Odoo dialogs
+        this.popup = useService("fix_popup");
         const ctx = this.props.action?.context || {};
         this.page = ctx.fix_editor_page || "home";
         Object.assign(this, { M, SECTION_FORM, SITE_FORM, LINE_COLS, LINE_TITLE, INFO_COLUMNS, INFO_KINDS, BRAND_FILTERS, PHOTO_FILTERS,
@@ -570,19 +570,17 @@ export class FixSiteEditor extends Component {
         }
         return id;
     }
-    remove(model, rec, what) {
-        this.dialog.add(ConfirmationDialog, {
-            title: _t("Remove?"),
-            body: _t("Remove %s from the website? This cannot be undone. (To hide it instead, press the eye.)", what || rec.name || ""),
-            confirmLabel: _t("Remove"),
-            confirm: async () => {
-                await this.save.run(() => this.orm.unlink(model, [rec.id]));
-                if (this.state.sel && this.state.sel.id === rec.id) {
-                    this.state.sel = null;
-                }
-            },
-            cancel: () => {},
-        });
+    async remove(model, rec, what) {
+        const sure = await this.popup.confirm(
+            _t("Remove %s from the website? This cannot be undone. (To hide it instead, press the eye.)", what || rec.name || ""),
+            { danger: true, ok: _t("Remove"), cancel: _t("Keep it") });
+        if (!sure) {
+            return;
+        }
+        await this.save.run(() => this.orm.unlink(model, [rec.id]));
+        if (this.state.sel && this.state.sel.id === rec.id) {
+            this.state.sel = null;
+        }
     }
     async upload(model, rec, ev) {
         const file = ev.target.files && ev.target.files[0];
@@ -801,12 +799,12 @@ export class FixSiteEditor extends Component {
         await this.load();
     }
     openHomePageForm() {
-        this.action.doAction({
+        this.popup.doAction({
             type: "ir.actions.act_window", res_model: M.page, res_id: this.state.pageId, views: [[this.d.views.home_page, "form"]], target: "new",
         }, { onClose: () => this.load() });
     }
     writePageText(page) {
-        this.action.doAction({
+        this.popup.doAction({
             type: "ir.actions.act_window", res_model: M.info, res_id: page.id, views: [[this.d.views.page_text, "form"]], target: "new",
         }, { onClose: () => this.load() });
     }

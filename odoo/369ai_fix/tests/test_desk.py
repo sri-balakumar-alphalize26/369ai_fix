@@ -166,7 +166,12 @@ class TestBookingDesk(TransactionCase):
         self.assertEqual(visit.state, 'arrived')
         self.assertIn('start', data['detail']['actions'])
 
-        data = order.fix_desk_act('start', stage='live')
+        # Start opens "Before you start" while the safety check and photos are not done
+        action = order.fix_desk_act('start', stage='live')
+        self.assertEqual(action['action']['res_model'], 'fix.service.visit')
+        self.assertTrue(action['action']['views'])
+        self.assertEqual(visit.state, 'arrived')
+        data = order.with_context(fix_checks_passed=True).fix_desk_act('start', stage='live')
         self.assertEqual(visit.state, 'in_progress')
         self._only(data['counts'], 'working')
 

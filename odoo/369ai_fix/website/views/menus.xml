@@ -18,7 +18,7 @@
               action="action_fix_editor_popups" sequence="4"/>
 
     <menuitem id="menu_fix_website_details" name="Website Details" parent="menu_fix_website_root"
-              action="action_website_details" sequence="5"/>
+              action="action_screen_sites" sequence="5"/>
 
     <menuitem id="menu_fix_website_pictures" name="Pictures" parent="menu_fix_website_root" sequence="10"/>
     <menuitem id="menu_fix_device_pictures" name="Device Pictures" parent="menu_fix_website_pictures"
@@ -28,19 +28,6 @@
     <menuitem id="menu_fix_service_pictures" name="Service Pictures" parent="menu_fix_website_pictures"
               action="action_fix_editor_photos" sequence="3"/>
 
-    <menuitem id="menu_fix_website_lists" name="Lists" parent="menu_fix_website_root" sequence="20"/>
-    <menuitem id="menu_fix_home_page_list" name="Saved home pages" parent="menu_fix_website_lists"
-              action="action_fix_home_pages" sequence="1"/>
-    <menuitem id="menu_fix_coverage" name="Coverage Areas" parent="menu_fix_website_lists"
-              action="action_fix_coverage" sequence="2"/>
-    <menuitem id="menu_fix_faqs" name="FAQs" parent="menu_fix_website_lists"
-              action="action_fix_faqs" sequence="3"/>
-    <menuitem id="menu_fix_page_list" name="Info page list" parent="menu_fix_website_lists"
-              action="action_fix_pages" sequence="4"/>
-    <menuitem id="menu_fix_item_list" name="Pop-up items" parent="menu_fix_website_lists"
-              action="action_fix_items" sequence="5"/>
-    <menuitem id="menu_fix_brand_logo_list" name="Brand logo list" parent="menu_fix_website_lists"
-              action="action_brand_logos" sequence="6"/>
-    <menuitem id="menu_fix_service_picture_list" name="Service picture list" parent="menu_fix_website_lists"
-              action="action_service_pictures" sequence="7"/>
+    <!-- The "Lists" menu (plain tables of the same records) was removed in 19.0.2.9.0:
+         the editors above cover everything. The list actions stay. -->
 </odoo>

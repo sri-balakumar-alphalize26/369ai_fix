@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Inside the "369 ai Fix" app (369ai_fix add-on): Old Bookings under Bookings,
-         the desk settings under Configuration. -->
+    <!-- Inside the "369 ai Fix" app (369ai_fix add-on): the desk settings under
+         Configuration. The "Old Bookings" menu was removed in 19.0.3.2.0 (the Booking
+         Desk replaces it); its action stays. -->
     <menuitem id="menu_danatfix_booking_screen"
               name="Live Screen"
               parent="369ai_fix.menu_fix_root"
@@ -17,16 +18,12 @@
         <field name="active" eval="False"/>
     </record>
 
-    <menuitem id="menu_danatfix_booking_list"
-              name="Old Bookings"
-              parent="369ai_fix.menu_fix_bookings"
-              action="action_danatfix_booking_list"
-              sequence="20"/>
-
+    <!-- Opens the green settings screen of 369ai_fix (fix_screen_configs 'desk_settings');
+         action_danatfix_booking_settings (the Odoo form) stays. -->
     <menuitem id="menu_danatfix_booking_settings"
               name="Booking Desk Settings"
               parent="369ai_fix.menu_fix_config"
-              action="action_danatfix_booking_settings"
+              action="369ai_fix.action_screen_desk_settings"
               groups="base.group_system"
               sequence="10"/>
 

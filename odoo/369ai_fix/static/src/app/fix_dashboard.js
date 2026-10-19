@@ -5,12 +5,13 @@ import { Component, useState, onWillStart } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 
 // The numbers of the 369 ai Fix flow, in the same look as the Booking Desk
-// (fix_dashboard.scss; the tiles open the matching list).
+// (fix_dashboard.scss; each tile opens its green screen on the filter that counts it).
 class FixDashboard extends Component {
     static template = "369ai_fix.Dashboard";
 
     setup() {
         this.actionService = useService("action");
+        this.popup = useService("fix_popup");
         this.orm = useService("orm");
         this.state = useState({ isLoading: true, data: {}, maxCompleted: 1 });
         onWillStart(() => this.load());
@@ -28,8 +29,9 @@ class FixDashboard extends Component {
         this.state.isLoading = false;
     }
 
-    open(xmlid) {
-        this.actionService.doAction(xmlid);
+    /** A tile: the green screen on the filter that gives the tile's number. */
+    open(screen, filter) {
+        this.popup.openScreen({ screen, filter });
     }
 
     /** Bar height in % of the tallest month; a month with repairs is never shorter than 5 %. */
@@ -41,26 +43,11 @@ class FixDashboard extends Component {
     }
 
     openJobCards(state) {
-        this.actionService.doAction({
-            type: "ir.actions.act_window",
-            name: "Job Cards",
-            res_model: "job.card",
-            views: [[false, "list"], [false, "form"]],
-            domain: [["online_order_id", "!=", false], ["state", "=", state]],
-            context: { create: false },
-            target: "current",
-        });
+        this.open("job_cards", state);
     }
 
-    openVisits(states) {
-        this.actionService.doAction({
-            type: "ir.actions.act_window",
-            name: "Doorstep Visits",
-            res_model: "fix.service.visit",
-            views: [[false, "list"], [false, "form"]],
-            domain: [["state", "in", states]],
-            target: "current",
-        });
+    openVisits(filter) {
+        this.open("visits", filter);
     }
 }
 
