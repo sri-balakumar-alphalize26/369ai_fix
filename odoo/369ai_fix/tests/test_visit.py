@@ -10,8 +10,8 @@ PHONE = '+968 9123 4567'
 CUSTOMER = (23.6, 58.45)
 
 
-@tagged('post_install', '-at_install')
-class TestDoorstepVisit(TransactionCase):
+class DoorstepCase(TransactionCase):
+    """A doorstep website, a technician and the helpers to book and visit."""
 
     @classmethod
     def setUpClass(cls):
@@ -58,7 +58,11 @@ class TestDoorstepVisit(TransactionCase):
     def _track(self):
         return self.env['online.service.order'].customer_orders(HOST, PHONE)['orders'][0]['visit']
 
-    # ------------------------------------------------------------------
+
+
+@tagged('post_install', '-at_install')
+class TestDoorstepVisit(DoorstepCase):
+
     def test_website_point_is_kept(self):
         order = self._book()
         self.assertAlmostEqual(order.customer_lat, CUSTOMER[0], places=5)
@@ -115,7 +119,8 @@ class TestDoorstepVisit(TransactionCase):
         self.assertTrue(visit.arrived_on)
         self.assertTrue(visit.arrival_verified_on)
 
-        visit.action_start()
+        # (the safety check and device photos before work: test_visit_checks)
+        visit.with_context(fix_checks_passed=True).action_start()
         self.assertTrue(visit.started_on)
         visit.action_done()
         self.assertEqual(visit.state, 'done')

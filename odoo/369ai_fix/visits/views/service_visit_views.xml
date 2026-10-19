@@ -84,8 +84,9 @@
                             invisible="state not in ('assigned', 'on_the_way')"/>
                     <button name="action_start" type="object" string="Start work" class="btn-primary"
                             invisible="state != 'arrived'"/>
+                    <!-- while Working, the result step closes the visit (What did you find? / quotation) -->
                     <button name="action_done" type="object" string="Done"
-                            invisible="state not in ('arrived', 'in_progress')"/>
+                            invisible="state != 'arrived'"/>
                     <button name="action_send_tech_link" type="object" string="Send link to technician"
                             invisible="state not in ('assigned', 'on_the_way', 'arrived', 'in_progress')"
                             help="WhatsApp the technician a new link to their visit page. The page shares their location while it is open."/>

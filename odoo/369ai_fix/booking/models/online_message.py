@@ -13,6 +13,9 @@ BOOKING_KEYS = [
     ('quote_changed', 'New price to approve'),
     ('office_taken', 'Device taken to the office'),
     ('return_ready', 'Pick a time to bring the device back'),
+    ('part_in_stock', 'Part in the office: fixed within N days'),
+    ('office_part_wait', 'Device at the office, waiting for the part'),
+    ('part_arrived_office', 'Part arrived, device at the office'),
 ]
 
 
@@ -25,7 +28,7 @@ class OnlineServiceMessage(models.Model):
         help="Placeholders: {name} customer, {order} order no., {status}, {job_card} job card no., "
              "{site} website name, {track_url} tracking link, {summary} what was booked. "
              "Booking messages also have {estimate} (repairs, parts and total), {slot_url} (link to pick "
-             "a time), {reason}, {parts}, {part}, {days}, {date} and {slot}.")
+             "a time), {reason}, {parts}, {part}, {days}, {date}, {slot}, {device}, {next}, {within} (e.g. 3 days, 2 weeks), {part_days} and {timeline} (what happens once the customer approves the quotation).")
 
     @api.model
     def _render(self, key, values):

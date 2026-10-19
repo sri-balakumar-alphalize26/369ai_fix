@@ -66,5 +66,13 @@ class SparePartPurchaseRequest(models.Model):
                                        note=names, user_id=(order.approved_by_id or self.env.user).id)
             return
         order.sudo().write({'parts_state': 'ready'})
+        at_office = order.job_card_ids.filtered(lambda c: c.wb_at_office and not c.wb_returned)
+        if at_office:
+            # the device is already with us: no time to pick, it is repaired and brought back
+            back_by = max(at_office.mapped('wb_return_by') or [False]) or False
+            order._wb_notify('part_arrived_office', date=back_by.strftime('%a %d %b') if back_by else '')
+            order.message_post(body=_("All ordered parts have arrived: the device is at the office, "
+                                      "the customer was told it comes back by %s.", back_by or '?'))
+            return
         order._wb_notify('part_arrived', slot_url=order._wb_new_slot_link())
         order.message_post(body=_("All ordered parts have arrived: the customer was sent the link to pick a time."))

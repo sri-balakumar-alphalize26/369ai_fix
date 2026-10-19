@@ -92,8 +92,12 @@ class OfficeWizard(models.TransientModel):
         card.message_post(body=_("Device taken to the office by %(who)s, to return by %(date)s. Accessories: %(acc)s",
                                  who=self.env.user.name, date=self.return_by,
                                  acc=', '.join(self.accessory_ids.mapped('name')) or _("none")))
-        if card.online_order_id:
+        # wb_office_silent: the caller sends its own message (the technician's result, visits/)
+        if card.online_order_id and not self.env.context.get('wb_office_silent'):
             card.online_order_id._wb_notify('office_taken', date=self.return_by.strftime('%d %b'))
+        # an approved quotation's "take to the office" (visits/): tell the customer when it comes back
+        if self.env.context.get('fix_visit_take'):
+            self.env['fix.service.visit'].browse(self.env.context['fix_visit_take'])._vr_after_take(self.return_by)
         return {'type': 'ir.actions.act_window_close'}
 
 

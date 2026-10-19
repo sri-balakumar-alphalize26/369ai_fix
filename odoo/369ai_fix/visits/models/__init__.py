@@ -5,3 +5,5 @@ from . import service_visit
 from . import service_visit_position
 from . import online_order
 from . import job_card
+from . import visit_checks
+from . import visit_result

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Starting lists; edit them under 369 ai Fix > Configuration. -->
+    <record id="safety_item_gloves" model="fix.safety.item"><field name="name">Gloves</field><field name="sequence">10</field></record>
+    <record id="safety_item_mask" model="fix.safety.item"><field name="name">Mask</field><field name="sequence">20</field></record>
+    <record id="safety_item_wrist_strap" model="fix.safety.item"><field name="name">Anti-static wrist strap</field><field name="sequence">30</field></record>
+    <record id="safety_item_shoe_covers" model="fix.safety.item"><field name="name">Shoe covers</field><field name="sequence">40</field></record>
+    <record id="safety_item_work_mat" model="fix.safety.item"><field name="name">Work mat</field><field name="sequence">50</field></record>
+
+    <record id="device_angle_front" model="fix.device.angle"><field name="name">Front</field><field name="sequence">10</field></record>
+    <record id="device_angle_back" model="fix.device.angle"><field name="name">Back</field><field name="sequence">20</field></record>
+    <record id="device_angle_left" model="fix.device.angle"><field name="name">Left side</field><field name="sequence">30</field></record>
+    <record id="device_angle_right" model="fix.device.angle"><field name="name">Right side</field><field name="sequence">40</field></record>
+    <record id="device_angle_top" model="fix.device.angle"><field name="name">Top</field><field name="sequence">50</field></record>
+    <record id="device_angle_bottom" model="fix.device.angle"><field name="name">Bottom</field><field name="sequence">60</field></record>
+</odoo>

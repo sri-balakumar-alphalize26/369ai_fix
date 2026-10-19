@@ -5,3 +5,12 @@ access_service_visit_manager,fix.service.visit manager,model_fix_service_visit,m
 access_service_visit_position_tech,fix.service.visit.position technician,model_fix_service_visit_position,mobile_repair.group_mobile_repair_technician,1,0,0,0
 access_service_visit_position_manager,fix.service.visit.position manager,model_fix_service_visit_position,mobile_repair.group_mobile_repair_manager,1,1,1,1
 access_service_visit_arrival_tech,fix.service.visit.arrival technician,model_fix_service_visit_arrival,mobile_repair.group_mobile_repair_technician,1,1,1,1
+access_safety_item_user,fix.safety.item user,model_fix_safety_item,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_safety_item_manager,fix.safety.item manager,model_fix_safety_item,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_device_angle_user,fix.device.angle user,model_fix_device_angle,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_device_angle_manager,fix.device.angle manager,model_fix_device_angle,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_visit_safety_line_tech,fix.visit.safety.line technician,model_fix_visit_safety_line,mobile_repair.group_mobile_repair_technician,1,1,1,0
+access_visit_safety_line_manager,fix.visit.safety.line manager,model_fix_visit_safety_line,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_visit_check_photo_tech,fix.visit.check.photo technician,model_fix_visit_check_photo,mobile_repair.group_mobile_repair_technician,1,1,1,1
+access_visit_result_wizard_tech,fix.visit.result.wizard technician,model_fix_visit_result_wizard,mobile_repair.group_mobile_repair_technician,1,1,1,1
+access_visit_result_wizard_line_tech,fix.visit.result.wizard.line technician,model_fix_visit_result_wizard_line,mobile_repair.group_mobile_repair_technician,1,1,1,1

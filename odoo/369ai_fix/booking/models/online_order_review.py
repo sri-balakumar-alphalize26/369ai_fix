@@ -418,6 +418,7 @@ class OnlineServiceOrder(models.Model):
                 card.activity_schedule('mail.mail_activity_data_todo', summary=_("Customer declined the new price"),
                                        user_id=(order.approved_by_id or self.env.user).id)
                 card._wb_decline_at_office()
+                card.sudo().fs_visit_ids._vr_declined()
         order._ring()
         return {'ok': True, 'state': 'accepted' if yes else 'declined'}
 
@@ -427,7 +428,9 @@ class OnlineServiceOrder(models.Model):
         order = self.sudo()
         Request = order.env['spare.part.purchase.request']
         assignee = order.env['ir.config_parameter'].get_param('mobile_repair.spare_request_assignee_id')
-        user = order.env['res.users'].browse(int(assignee)).exists() if assignee and str(assignee).isdigit() else None
+        # not called `user`: Odoo's _() reads a local named `user` to pick the language,
+        # and None there crashed every order made with no buyer set
+        buyer = order.env['res.users'].browse(int(assignee)).exists() if assignee and str(assignee).isdigit() else None
         holders = {}
         for line in order._wb_missing_parts():
             card = line.job_card_id
@@ -446,8 +449,8 @@ class OnlineServiceOrder(models.Model):
             })
             if hasattr(req, 'action_request'):
                 req.action_request()
-            if user:
-                req.activity_schedule('mail.mail_activity_data_todo', user_id=user.id,
+            if buyer:
+                req.activity_schedule('mail.mail_activity_data_todo', user_id=buyer.id,
                                       summary=_("Order %s for a website booking", req.product_name))
         order._wb_accept_estimate()
         order.write({'parts_state': 'ordering'})

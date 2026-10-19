@@ -46,8 +46,9 @@ class JobCard(models.Model):
                 card._wb_send_new_price()
         return res
 
-    def _wb_send_new_price(self):
-        """The price changed: ask the customer again (Approve / Decline on the website)."""
+    def _wb_send_new_price(self, timeline=''):
+        """The price changed: ask the customer again (Approve / Decline on the website).
+        `timeline`: what happens once they approve (the technician's plan, visits/)."""
         for card in self:
             order = card.online_order_id
             card.quote_state = 'waiting'
@@ -56,7 +57,8 @@ class JobCard(models.Model):
             missing = card.spare_part_line_ids.filtered(lambda l: l.product_id.qty_available < (l.quantity or 1))
             order._wb_notify('quote_changed', estimate=estimate, quote_url=link,
                              old_total='%.3f' % card.estimate_total, new_total='%.3f' % total,
-                             parts=', '.join(missing.mapped(lambda l: l.description or l.product_id.name)))
+                             parts=', '.join(missing.mapped(lambda l: l.description or l.product_id.name)),
+                             timeline=timeline)
             card.message_post(body=_("New price %(new).3f (estimate was %(old).3f): sent to the customer to approve.",
                                      new=total, old=card.estimate_total))
 
@@ -77,13 +79,13 @@ class JobCard(models.Model):
 
     def action_wb_approved_by_phone(self):
         for card in self.filtered(lambda c: c.quote_state in ('waiting', 'declined')):
-            card._wb_quote_approved(by=self.env.user.name)
+            card._wb_quote_approved(by=_("%s, by phone", self.env.user.name))
         return True
 
     def _wb_quote_approved(self, by=None):
         self.ensure_one()
         self.write({'quote_state': 'accepted', 'estimate_total': self._wb_lines_total()})
-        self.message_post(body=_("Customer approved the new price%s.", (_(" (by phone, noted by %s)", by) if by else '')))
+        self.message_post(body=_("Customer approved the new price%s.", (_(" (noted by %s)", by) if by else '')))
         order = self.online_order_id
         missing = self.spare_part_line_ids.filtered(lambda l: l.product_id.qty_available < (l.quantity or 1))
         if missing and order and order.parts_state != 'ordering':
@@ -96,6 +98,8 @@ class JobCard(models.Model):
             if not open_requests:
                 order.sudo().write({'parts_state': 'ready', 'wb_requote_needed': False})
                 order._wb_notify('part_arrived', slot_url=order._wb_new_slot_link())
+        # the technician's plan sent with the quotation goes ahead (visits/visit_result.py)
+        self.sudo().fs_visit_ids.filtered('pend_plan')._vr_approved()
 
     # ------------------------------------------------------------------
     # Take the device to the office (accessories must be recorded)
