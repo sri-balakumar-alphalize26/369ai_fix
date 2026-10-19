@@ -213,9 +213,12 @@ const issueIcon = (s: string) => {
       }
       const card = t.closest<HTMLElement>('.bk-card');
       if (card && cart() && (t.matches('[data-bk-inc]') || t.matches('[data-bk-dec]'))) {
-        const d = dev(), name = card.dataset.name!;
-        cart().set(d, name, cart().qty(d, name) + (t.matches('[data-bk-dec]') ? -1 : 1),
+        const d = dev(), name = card.dataset.name!, had = cart().qty(d, name);
+        const put = () => cart().set(d, name, had + (t.matches('[data-bk-dec]') ? -1 : 1),
           { pid: Number(card.dataset.pid) || undefined, px: card.dataset.price ? Number(card.dataset.price) : null });
+        // another device already in the cart: both in one visit, or a new cart (asked once)
+        if (!had && t.matches('[data-bk-inc]') && cart().confirmDevice) cart().confirmDevice({ ...d, issue: name }).then((ok: boolean) => ok && put());
+        else put();
         return;
       }
       if (t.matches('[data-bk-checkout]')) window.dispatchEvent(new CustomEvent('danat-checkout'));

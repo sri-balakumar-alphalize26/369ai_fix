@@ -424,12 +424,10 @@ const link = (href: string, fallback: string) => href || fallback;
     });
     document.querySelector('[data-uc-prev]')!.addEventListener('click', () => nudge(-1));
     document.querySelector('[data-uc-next]')!.addEventListener('click', () => nudge(1));
+    // Add: the repair needs the device first (brand, then model) - the booking opens at that
+    // step with this repair picked, and adds it to the cart once the model is chosen.
     document.querySelectorAll<HTMLElement>('[data-uc-add]').forEach((b) => b.addEventListener('click', () => {
-      const iss = b.dataset.iss!, px = Number(b.dataset.px), pid = Number(b.dataset.pid);
-      (window as any).danatCart?.add({ device: b.dataset.dev!, cat: b.dataset.cat, model: '', issues: [iss],
-        ...(px > 0 ? { px: { [iss]: px } } : {}), ...(pid ? { pid: { [iss]: pid } } : {}) });
-      b.classList.add('done'); b.querySelector('.t')!.textContent = 'Added';
-      setTimeout(() => { b.classList.remove('done'); b.querySelector('.t')!.textContent = 'Add'; }, 1500);
+      location.href = `/services?cat=${encodeURIComponent(b.dataset.cat!)}&add=${encodeURIComponent(b.dataset.iss!)}#catalog`;
     }));
   }
   const lab = document.getElementById('lab') ?? document.createElement('div');

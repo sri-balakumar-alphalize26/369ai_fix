@@ -48,8 +48,11 @@ export const POST: APIRoute = async ({ request, clientAddress, cookies }) => {
     payload.address_id = id(b.address_id);          // Odoo checks it is this customer's address
   }
   try {
+    // 30 s: Odoo also makes the job cards and WhatsApps the customer before it answers, and a
+    // slow WhatsApp gateway alone can take several seconds. Giving up early would tell the
+    // customer "couldn't send" for a booking that was in fact saved.
     const r = await odooCall<{ ok: boolean; ref?: string; error?: string; upload_token?: string }>(
-      host, 'online.service.order', 'website_create', { payload });
+      host, 'online.service.order', 'website_create', { payload }, 30000);
     return json(r, r.ok ? 200 : 422);
   } catch (e) {
     console.error('[booking] Odoo:', (e as Error).message);

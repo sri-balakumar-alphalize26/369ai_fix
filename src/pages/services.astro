@@ -419,7 +419,7 @@ const payload = JSON.stringify({
                   </div>
                   <label class="wz-fl"><span>Area</span><span class="wz-ic"><input data-af="area" maxlength="80" list="wz-areas" placeholder="e.g. Al Khuwair" /></span></label>
                   <label class="wz-fl"><span>Wilayat / City</span><span class="wz-ic"><input data-af="town" maxlength="60" placeholder="e.g. Bawshar" /></span></label>
-                  <label class="wz-fl" data-af-statebox hidden><span>Governorate</span><span class="wz-ic"><select data-af="state_id"><option value="">Choose…</option></select></span></label>
+                  <label class="wz-fl" data-af-statebox hidden><span data-af-statelabel>Governorate</span><span class="wz-ic"><select data-af="state_id"><option value="">Choose…</option></select></span></label>
                   <label class="wz-fl"><span>Landmark <small>(optional)</small></span><span class="wz-ic"><input data-af="landmark" maxlength="80" placeholder="e.g. near Lulu" /></span></label>
                   <div class="wz-fl"><span>Map pin <small>(recommended)</small></span>
                     <button type="button" class="wz-loc" data-af-loc><span>Use my location</span></button>
@@ -646,6 +646,7 @@ const payload = JSON.stringify({
   const wzState = { step: 1, cat: '', brand: '', model: '', modelId: 0, seriesId: 0 };
   let wzReady = false;   // true once a saved booking-in-progress has been put back (restoreWz); saving waits for it
   let fixFor = '';       // cart line (id) whose model is being chosen from the Cart step
+  let addAfter = '';     // a repair picked on Home ("Most booked" Add): added once the device is chosen
   let bookedRef = '';    // set once the booking is made (the cart empties; the Book step shows the done note)
   const LAST = 5;   // 1 device · 2 model · 3 repairs · 4 cart · 5 book
   const tel = data.wa;
@@ -705,7 +706,10 @@ const payload = JSON.stringify({
   const cartSummary = () => `${plural(cartCount(), 'repair')} · ${plural(cartItems().length, 'device')}`;
   const devTitle = (it: CartItem) => it.model || 'Model not chosen';
 
-  const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? true : cartCount() > 0);
+  // The brand is required (the job card needs it); the model may be skipped once the brand is known.
+  const noBrand = () => cartItems().filter((it) => !it.ids?.brand_id && !it.brand);
+  const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? !!wzState.brand
+    : wzState.step === 4 ? cartCount() > 0 && !noBrand().length : cartCount() > 0);
   const wzGo = (n: number) => {
     if (bookedRef && n < LAST) {   // after a booking: a fresh one starts
       bookedRef = '';
@@ -782,11 +786,18 @@ const payload = JSON.stringify({
       wzGo(4); return;
     }
     wzGo(3);
+    if (addAfter) {      // the repair picked on Home goes into the cart for this device
+      const row = $$<HTMLElement>(`[data-wz-issues="${wzState.cat}"] .wz-iss`, wz).find((r) => r.dataset.iss === addAfter);
+      addAfter = '';
+      if (row && cartApi() && !cartApi().qty(curDev(), row.dataset.iss!)) row.querySelector<HTMLElement>('[data-iss-add]')?.click();
+    }
   };
+  const askBrand = () => { $('[data-wz-mhint]', wz).textContent = 'Choose your brand first - we need it for the repair.'; };
   // Model not in Odoo's list: the customer types it; the job card gets it as text.
   const typedIn = $<HTMLInputElement>('[data-wz-typed]', wz);
   $('[data-wz-typed-go]', wz).addEventListener('click', () => {
     const v = typedIn.value.trim();
+    if (!wzState.brand) { askBrand(); return; }
     if (v.length < 2) { typedIn.focus(); return; }
     wzState.model = v; wzState.modelId = 0; wzState.seriesId = 0;
     modelDone();
@@ -806,7 +817,8 @@ const payload = JSON.stringify({
     modelDone();
   }));
   $('[data-wz-skip]', wz).addEventListener('click', () => {
-    if (fixFor) { wzGo(4); return; }   // still don't know it: back to the cart unchanged
+    if (!wzState.brand) { askBrand(); return; }     // the model can be skipped, the brand cannot
+    if (fixFor) { cartApi()?.retarget(fixFor, curDev()); wzGo(4); return; }   // at least the brand
     wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0; modelDone();
   });
 
@@ -822,11 +834,13 @@ const payload = JSON.stringify({
       row.querySelector('.wz-qty output')!.textContent = String(n || 1);
     });
   }
-  $$<HTMLElement>('.wz-iss', wz).forEach((row) => row.addEventListener('click', (e) => {
+  $$<HTMLElement>('.wz-iss', wz).forEach((row) => row.addEventListener('click', async (e) => {
     const t = (e.target as HTMLElement).closest('button');
     if (!t || !cartApi()) return;
     const dev = curDev(), name = row.dataset.iss!;
     const n = cartApi().qty(dev, name) + (t.matches('[data-iss-dec]') ? -1 : 1);
+    // another device already in the cart: both in one visit, or a new cart (asked once)
+    if (n === 1 && !cartApi().qty(dev, name) && !(await cartApi().confirmDevice({ ...dev, issue: name }))) return;
     cartApi().set(dev, name, n, { pid: Number(row.dataset.pid) || undefined, px: row.dataset.price ? Number(row.dataset.price) : null });
   }));
 
@@ -844,7 +858,10 @@ const payload = JSON.stringify({
     $$('[data-wz-viewcart]', wz).forEach((b) => (b.hidden = !n));
     $('[data-wz-scl]', wz).innerHTML = cartItems().flatMap((it) => it.issues.map((s) => {
       const p = pxOf(it, s), q = qtyIn(it, s);
-      return `<li><span><b>${esc(s)}${q > 1 ? ` ×${q}` : ''}</b><small>${esc(devTitle(it))}</small></span><span>${lineMoney(p, q)}</span></li>`;
+      const k = `${esc(it.id)}::${esc(s)}`;
+      return `<li><span><b>${esc(s)}</b><small>${esc(devTitle(it))}</small>
+        <span class="wz-qty sm" role="group" aria-label="${esc(s)} quantity"><button type="button" data-gq="${k}::-1" aria-label="One less">−</button><output>${q}</output><button type="button" data-gq="${k}::1" aria-label="One more">+</button></span></span>
+        <span>${lineMoney(p, q)}</span></li>`;
     })).join('');
     $('[data-wz-sctp]', wz).textContent = cartTotal();
     cbar.hidden = !(side && n && wzSeen);
@@ -854,7 +871,9 @@ const payload = JSON.stringify({
     $('[data-wz-cbp]', wz).textContent = cartTotal();
     const next = $<HTMLButtonElement>('[data-wz-next]', wz);
     next.disabled = !canNext();
-    next.textContent = wzState.step === 2 && !wzState.model ? (fixFor ? 'Back to cart →' : 'Skip model →')
+    next.textContent = wzState.step === 2 && !wzState.brand ? 'Choose your brand'
+      : wzState.step === 2 && !wzState.model ? (fixFor ? 'Back to cart →' : 'Skip model →')
+      : wzState.step === 4 && noBrand().length ? 'Choose the brand for each device'
       : wzState.step === 3 ? (n ? `View cart (${n}) →` : 'Add a repair to continue')
       : wzState.step === 4 ? 'Continue to book →' : 'Continue →';
   }
@@ -878,7 +897,7 @@ const payload = JSON.stringify({
       const c = catFor(it);
       return `<div class="wz-grp">
         <div class="wz-gh"><span class="wz-gi">${catIcon(it)}</span><span class="wz-gt"><b>${esc(devTitle(it))}</b><small>${esc(c?.name ?? it.device)}</small></span>
-          ${!it.model && c ? `<button type="button" class="wz-fix" data-fix="${esc(it.id)}">+ Add model</button>` : ''}</div>
+          ${!it.model && c ? `<button type="button" class="wz-fix" data-fix="${esc(it.id)}">${!it.ids?.brand_id && !it.brand ? '+ Choose brand & model' : '+ Add model'}</button>` : ''}</div>
         ${it.issues.map((s) => {
           const p = pxOf(it, s), q = qtyIn(it, s), k = `${esc(it.id)}::${esc(s)}`;
           return `<div class="wz-gl"><b>${esc(s)}</b>
@@ -905,11 +924,19 @@ const payload = JSON.stringify({
       paintCart();
       return;
     }
+    gq(t);
+  });
+  // − / + (and remove) on a cart line: the Cart step and the cart panel beside the steps
+  function gq(t: HTMLElement) {
     if (!t.dataset.gq) return;
     const [id, s, d] = t.dataset.gq.split('::');
     const it = cartItems().find((x) => x.id === id);
     if (!it) return;
     cartApi().set({ device: it.device, model: it.model }, s, d === '0' ? 0 : qtyIn(it, s) + Number(d));
+  }
+  $('[data-wz-scl]', wz).addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (t) gq(t);
   });
   $('[data-wz-more]', wz).addEventListener('click', () => {
     wzState.cat = ''; wzState.brand = ''; wzState.model = ''; wzState.modelId = 0; wzState.seriesId = 0;
@@ -958,8 +985,19 @@ const payload = JSON.stringify({
     const ul = $('[data-wz-thumbs]', wz);
     thumbUrls.forEach((u) => URL.revokeObjectURL(u));
     thumbUrls = media.photos.map((p) => URL.createObjectURL(p));
+    // the video gets a preview too: its first frame (#t=0.1 makes Safari draw it), a play mark and its length
+    const vidUrl = media.video ? URL.createObjectURL(media.video) : '';
+    if (vidUrl) thumbUrls.push(vidUrl);
     ul.innerHTML = media.photos.map((_p, i) => `<li><img src="${thumbUrls[i]}" alt="Photo ${i + 1}" data-open="${i}" title="Tap to view" /><button type="button" data-rm="p${i}" aria-label="Remove photo">×</button></li>`).join('')
-      + (media.video ? `<li class="vid"><span data-open="${media.photos.length}" title="Tap to play">🎬 ${esc(media.video.name)}</span><button type="button" data-rm="v" aria-label="Remove video">×</button></li>` : '');
+      + (media.video ? `<li class="vid" data-open="${media.photos.length}" title="Tap to play">
+          <video src="${vidUrl}#t=0.1" muted playsinline preload="metadata" aria-label="${esc(media.video.name)}"></video>
+          <span class="vid-play" aria-hidden="true">▶</span><span class="vid-len" data-vid-len></span>
+          <button type="button" data-rm="v" aria-label="Remove video">×</button></li>` : '');
+    const v = ul.querySelector('video');
+    v?.addEventListener('loadedmetadata', () => {
+      const d = Number.isFinite(v.duration) ? Math.round(v.duration) : 0;   // some recordings report Infinity
+      if (d) ul.querySelector('[data-vid-len]')!.textContent = `${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')}`;
+    }, { once: true });
     if (wzReady) saveMedia();
   };
   $('[data-wz-thumbs]', wz).addEventListener('click', (e) => {
@@ -1201,17 +1239,31 @@ const payload = JSON.stringify({
     accPicked = Number(b.dataset.addr); drawAddresses();
   });
   const af = (k: string) => $<HTMLInputElement>(`[data-af="${k}"]`, wz);
+  // The address is in Oman (3-digit postal code) or India (6-digit pincode), as on 369 Mart:
+  // the code's length picks the country, and with it the governorates / states.
+  let afCountry: 'OM' | 'IN' = 'OM';
   let afStates: { id: number; name: string }[] | null = null;
+  const statesBy: Record<string, { id: number; name: string }[]> = {};
+  async function useCountry(cc: 'OM' | 'IN') {
+    if (afStates !== null && cc === afCountry) return;
+    let list = statesBy[cc];
+    if (!list) {
+      // states only when Odoo has them for the country (then the 369 Mart address book requires one)
+      const f = await api(`/api/account/address-form?country=${cc}`);
+      list = Array.isArray(f.states) ? f.states : [];
+      if (f.ok) statesBy[cc] = list;   // not kept when signed out: asked again once signed in
+    }
+    afCountry = cc; afStates = list;
+    const sel = af('state_id') as unknown as HTMLSelectElement;
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">Choose…</option>' + afStates.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    if (afStates.some((s) => String(s.id) === keep)) sel.value = keep;
+    $('[data-af-statelabel]', wz).textContent = cc === 'IN' ? 'State' : 'Governorate';
+    $('[data-af-statebox]', wz).hidden = !afStates.length;
+  }
   async function openAddressForm() {
     $('[data-acc-form]', wz).hidden = false;
-    if (afStates === null) {
-      // Governorates only when Odoo has them for Oman (then the 369 Mart address book requires one)
-      const f = await api('/api/account/address-form');
-      afStates = Array.isArray(f.states) ? f.states : [];
-      const sel = af('state_id') as unknown as HTMLSelectElement;
-      sel.innerHTML = '<option value="">Choose…</option>' + afStates.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
-      $('[data-af-statebox]', wz).hidden = !afStates.length;
-    }
+    if (afStates === null) await useCountry(af('pin').value.replace(/\D/g, '').length === 6 ? 'IN' : 'OM');
     if (!af('name').value) af('name').value = accWho?.name || '';
     if (!af('phone').value) af('phone').value = accWho?.phone || '';
     if (!af('area').value && wzArea.value) af('area').value = wzArea.value;
@@ -1219,8 +1271,9 @@ const payload = JSON.stringify({
   }
   $('[data-acc-addnew]', wz).addEventListener('click', openAddressForm);
   // Postal code -> wilayat / city, governorate and areas, as on 369 Mart: Odoo's
-  // /369mart/pincode/<pin> (an Oman 3-digit code is looked up there too). What the lookup
-  // filled is replaced when the code changes; what the customer typed is kept.
+  // /369mart/pincode/<pin> (an Oman 3-digit code, or an Indian 6-digit pincode, which also
+  // switches the form to India's states). What the lookup filled is replaced when the code
+  // changes; what the customer typed is kept.
   let pinT = 0, autoTown = '', autoArea = '', autoState = '';
   const pinHelp = $('[data-af-pinhelp]', wz), pinHint = $('[data-af-pinhint]', wz), pinAreas = $('[data-af-areas]', wz);
   const pinSay = (m: string, cls = '') => { pinHelp.hidden = !m; pinHint.textContent = m; pinHint.className = `wz-pinhint ${cls}`; };
@@ -1228,12 +1281,14 @@ const payload = JSON.stringify({
     clearTimeout(pinT);
     const pc = af('pin').value.replace(/\D/g, '');
     pinAreas.hidden = true;
-    if (pc.length !== 3) { pinSay(''); return; }
+    if (pc.length !== 3 && pc.length !== 6) { pinSay(''); return; }
     pinSay('Finding your area…', 'busy');
     pinT = window.setTimeout(async () => {
       const r = await api(`/api/account/pincode?pin=${pc}`);
       if (af('pin').value.replace(/\D/g, '') !== pc) return;
       if (!r?.ok) { pinSay("We couldn't find this postal code — please type the city.", 'none'); return; }
+      await useCountry(pc.length === 6 ? 'IN' : 'OM');
+      if (af('pin').value.replace(/\D/g, '') !== pc) return;
       const st = af('state_id') as unknown as HTMLSelectElement;
       if (!af('town').value.trim() || (autoTown && af('town').value === autoTown)) af('town').value = autoTown = r.town || '';
       if (!af('area').value.trim() || (autoArea && af('area').value === autoArea)) af('area').value = autoArea = r.areas?.[0] || '';
@@ -1274,12 +1329,14 @@ const payload = JSON.stringify({
       ['way', 'way / street no.'], ['area', 'area'], ['town', 'wilayat / city'], ['pin', 'postal code (PC)']];
     const miss = need.find(([k]) => !af(k).value.trim());
     if (miss) { say(accAMsg, `Please add the ${miss[1]}.`); af(miss[0]).focus(); return; }
-    if (!/^\d{3,10}$/.test(af('pin').value.trim())) { say(accAMsg, 'The postal code is 3 digits, e.g. 133.'); af('pin').focus(); return; }
-    if (afStates?.length && !af('state_id').value) { say(accAMsg, 'Please choose the governorate.'); af('state_id').focus(); return; }
+    const pin = af('pin').value.trim();
+    if (!/^(\d{3}|\d{6})$/.test(pin)) { say(accAMsg, 'The postal code is 3 digits in Oman (e.g. 133) or 6 in India (e.g. 624003).'); af('pin').focus(); return; }
+    await useCountry(pin.length === 6 ? 'IN' : 'OM');
+    if (afStates?.length && !af('state_id').value) { say(accAMsg, `Please choose the ${afCountry === 'IN' ? 'state' : 'governorate'}.`); af('state_id').focus(); return; }
     const line = [af('building').value, af('way').value, af('flat').value].map((v) => v.trim()).filter(Boolean).join(', ');
     const r = await api('/api/account/addresses', {
       label: af('label').value, name: af('name').value.trim(), phone: af('phone').value.trim(), alt: af('alt').value.trim(),
-      line, area: af('area').value.trim(), town: af('town').value.trim(), pin: af('pin').value.trim(),
+      line, area: af('area').value.trim(), town: af('town').value.trim(), pin, country_id: afCountry,
       landmark: af('landmark').value.trim(), ...(afAt ? { lat: afAt[0], lng: afAt[1] } : {}),
       ...(af('state_id').value ? { state_id: af('state_id').value } : {}),
     });
@@ -1291,17 +1348,24 @@ const payload = JSON.stringify({
   });
 
   // Book: the booking (Odoo makes the job card), then the photos/video with the upload token.
+  // "Try again" after an error sends the same ref while nothing changed: Odoo answers with the
+  // booking it may already have saved instead of making a second one.
+  let bookRef = '', bookSig = '';
   $('[data-acc-book]', wz).addEventListener('click', async () => {
     const btn = $<HTMLButtonElement>('[data-acc-book]', wz);
     if (!accPicked) { say(accAMsg, 'Choose the address for the visit.'); return; }
     btn.disabled = true; btn.textContent = 'Booking…';
-    const ref = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
-    const r = await api('/api/booking', {
-      ref, mode: 'doorstep', source: 'wizard', address_id: accPicked, problem: problemIn.value.trim(), page: location.pathname,
-      coupon: cartApi()?.coupon() || '', lines: odooLines(),
-    });
+    const body = { mode: 'doorstep', source: 'wizard', address_id: accPicked, problem: problemIn.value.trim(), page: location.pathname,
+      coupon: cartApi()?.coupon() || '', lines: odooLines() };
+    const sig = JSON.stringify(body);
+    if (!bookRef || sig !== bookSig) {
+      bookRef = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+      bookSig = sig;
+    }
+    const r = await api('/api/booking', { ref: bookRef, ...body });
     btn.disabled = false; btn.textContent = bookLabel();
     if (!r.ok) { say(accAMsg, r.error === 'too many' ? 'Too many bookings from this number — please call us.' : "We couldn't send the booking. Please try again, or message us on WhatsApp."); return; }
+    bookRef = ''; bookSig = '';
     $('[data-acc-addrbox]', wz).hidden = true;
     $('[data-acc-done]', wz).hidden = false;
     $('[data-acc-ref]', wz).textContent = r.ref;
@@ -1574,7 +1638,12 @@ const payload = JSON.stringify({
     wzGo(s.step || 1);
     if ((s.step || 1) > 1) requestAnimationFrame(() => wz.scrollIntoView({ block: 'start' }));
     // the address form was being filled in: open it again with what was typed
-    if (s.step === LAST && (s.af?.building || s.af?.way || s.af?.pin)) setTimeout(() => { if ($('[data-acc-addrbox]', wz).hidden === false) openAddressForm(); }, 1200);
+    // (and look the postal code up again: only what is still empty gets filled)
+    if (s.step === LAST && (s.af?.building || s.af?.way || s.af?.pin)) setTimeout(async () => {
+      if ($('[data-acc-addrbox]', wz).hidden !== false) return;
+      await openAddressForm();
+      if (s.af?.pin) af('pin').dispatchEvent(new Event('input'));
+    }, 1200);
     return true;
   }
 
@@ -1607,6 +1676,7 @@ const payload = JSON.stringify({
   const q = new URLSearchParams(location.search);
   const wzStart = () => {
     wzGo(1);
+    addAfter = q.get('add') || '';
     if (q.get('cat') || q.get('q')) { wzReady = true; wzDeepLink(q.get('cat'), q.get('q')); }
     else restoreWz().finally(() => {
       wzReady = true;
@@ -1849,6 +1919,9 @@ const payload = JSON.stringify({
   .wz-sc ul:empty { display: none; }
   .wz-sc ul :global(li) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: 13.5px; }
   .wz-sc ul :global(li small) { display: block; font-size: 12px; color: var(--ink-3); }
+  .wz-sc ul :global(.wz-qty) { display: inline-grid; grid-template-columns: 28px 26px 28px; align-items: center; width: max-content; height: 30px; margin-top: 6px; border-radius: 9px; background: var(--accent-soft); color: var(--violet); overflow: hidden; }
+  .wz-sc ul :global(.wz-qty button) { height: 100%; border: 0; background: none; color: inherit; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .wz-sc ul :global(.wz-qty output) { text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
   .wz-sct { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px dashed var(--line); font-weight: 800; }
   .wz-sct[hidden] { display: none; }
   .wz-scgo { height: 46px; border: 0; border-radius: 12px; background: var(--violet); color: var(--on-accent); font: inherit; font-weight: 800; font-size: 14.5px; cursor: pointer; }
@@ -2014,7 +2087,11 @@ const payload = JSON.stringify({
   /* thumbnails are drawn by the script (innerHTML), so :global; small 76px squares */
   .wz-thumbs :global(li) { position: relative; }
   .wz-thumbs :global(img) { display: block; width: 76px; height: 76px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
-  .wz-thumbs :global(.vid span) { display: flex; align-items: center; height: 76px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
+  .wz-thumbs :global(.vid) { cursor: zoom-in; }
+  .wz-thumbs :global(.vid video) { display: block; width: 76px; height: 76px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: #111; pointer-events: none; }
+  .wz-thumbs :global(.vid-play) { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 20px; text-shadow: 0 1px 6px rgba(0,0,0,.6); pointer-events: none; }
+  .wz-thumbs :global(.vid-len) { position: absolute; left: 5px; bottom: 5px; padding: 1px 5px; border-radius: 6px; background: rgba(0,0,0,.65); color: #fff; font-size: 11px; font-weight: 700; pointer-events: none; }
+  .wz-thumbs :global(.vid-len:empty) { display: none; }
   .wz-thumbs :global([data-open]) { cursor: zoom-in; }
   /* preview pop-up (built by the script on <body>, hence :global) */
   :global(.wz-lb) { position: fixed; inset: 0; z-index: 120; display: grid; grid-template-columns: 56px 1fr 56px; align-items: center; background: rgba(10, 14, 20, .92); touch-action: pan-y; }

@@ -90,6 +90,20 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
 </div>
 <div class="cd-toast" data-cd-toast role="status" aria-live="polite"></div>
 
+<!-- A repair for another device while the cart has one: book both in one visit, or start a new cart -->
+<div class="cdq" data-cdq hidden>
+  <div class="cdq-bg" data-cdq-no></div>
+  <div class="cdq-box" role="dialog" aria-modal="true" aria-labelledby="cdq-title">
+    <button type="button" class="cdq-x" data-cdq-no aria-label="Cancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h3 id="cdq-title">You already have a repair in your cart</h3>
+    <ul class="cdq-list" data-cdq-list></ul>
+    <p class="cdq-new">Adding: <b data-cdq-new></b></p>
+    <button type="button" class="cdq-btn" data-cdq-both>Book both in one visit</button>
+    <button type="button" class="cdq-btn ghost" data-cdq-fresh>Start a new cart</button>
+    <button type="button" class="cdq-link" data-cdq-no>Cancel</button>
+  </div>
+</div>
+
 <script>
   // cat = the wizard's category id; ids = Odoo's category / brand / series / model ids;
   // pid / px = Odoo repair product id and its price, per repair (all set by the wizard)
@@ -186,8 +200,37 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
   const learn = (it: Item, d: Dev) => { if (d.cat) it.cat = d.cat; if (d.brand) it.brand = d.brand; if (d.ids) it.ids = { ...it.ids, ...d.ids }; };
   const countAll = () => items.reduce((n, it) => n + it.issues.reduce((m, s) => m + qtyOf(it, s), 0), 0);
 
+  // A repair for a device the cart doesn't have yet, while it holds another one: ask once -
+  // both in one visit (one job card per device), or a new cart. true = go ahead.
+  const q = document.querySelector<HTMLElement>('[data-cdq]')!;
+  let answer: ((ok: boolean) => void) | null = null;
+  const qDone = (ok: boolean) => {
+    q.hidden = true; document.documentElement.classList.remove('cdq-on');
+    const a = answer; answer = null; a?.(ok);
+  };
+  const devName = (d: { device: string; model: string }) => d.model || d.device;
+  const confirmDevice = (d: Dev & { issue?: string }): Promise<boolean> => {
+    if (!items.length || find(d)) return Promise.resolve(true);
+    if (answer) qDone(false);
+    q.querySelector('[data-cdq-list]')!.innerHTML = items.map((it) => `<li><b>${esc(devName(it))}</b>
+      <small>${esc(it.issues.join(', '))}</small></li>`).join('');
+    q.querySelector('[data-cdq-new]')!.textContent = [devName(d), d.issue].filter(Boolean).join(' – ');
+    q.hidden = false; document.documentElement.classList.add('cdq-on');
+    requestAnimationFrame(() => q.querySelector<HTMLElement>('[data-cdq-both]')!.focus());
+    return new Promise((res) => { answer = res; });
+  };
+  q.addEventListener('click', (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-cdq-both],[data-cdq-fresh],[data-cdq-no]');
+    if (!t) return;
+    if (t.matches('[data-cdq-fresh]')) { items = []; save(items); render(); toast('Cart cleared — starting a new one'); }
+    qDone(!t.matches('[data-cdq-no]'));
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && answer) qDone(false); });
+
   (window as any).danatCart = {
-    add(it: Omit<Item, 'id'>, opts: { open?: boolean; quiet?: boolean } = {}) {
+    confirmDevice,
+    async add(it: Omit<Item, 'id'>, opts: { open?: boolean; quiet?: boolean } = {}) {
+      if (!(await confirmDevice({ ...it, issue: it.issues[0] }))) return;
       const same = find(it);
       if (same) {
         learn(same, it); it.issues.forEach((s) => { if (!same.issues.includes(s)) same.issues.push(s); });
@@ -284,6 +327,20 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
 </script>
 
 <style>
+  .cdq { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; }
+  .cdq[hidden] { display: none; }
+  .cdq-bg { position: absolute; inset: 0; background: rgba(15, 20, 30, .5); backdrop-filter: blur(4px); }
+  .cdq-box { position: relative; width: min(420px, 100%); display: grid; gap: 10px; padding: 22px 20px 16px; border-radius: 20px; background: var(--surface, #fff); color: var(--ink, #111); box-shadow: 0 30px 80px -20px rgba(0,0,0,.45); }
+  .cdq-box h3 { margin: 0 28px 4px 0; font-size: 18px; }
+  .cdq-x { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--tint, #f2f4f7); color: inherit; cursor: pointer; }
+  .cdq-x svg { width: 16px; height: 16px; }
+  .cdq-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .cdq-list :global(li) { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--line, #e5e7eb); border-radius: 12px; }
+  .cdq-list :global(small) { color: var(--ink-3, #667085); font-size: 13px; }
+  .cdq-new { margin: 4px 0 6px; font-size: 14px; color: var(--ink-2, #344054); }
+  .cdq-btn { height: 48px; border: 0; border-radius: 12px; background: var(--violet, #1557c0); color: var(--on-accent, #fff); font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .cdq-btn.ghost { background: var(--tint, #f2f4f7); color: var(--ink, #111); }
+  .cdq-link { justify-self: center; border: 0; background: none; padding: 6px; color: var(--ink-3, #667085); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; }
   .cd { position: fixed; inset: 0; z-index: 95; }
   .cd[hidden] { display: none; }
   .cd-bg { position: absolute; inset: 0; background: rgba(10, 16, 13, .45); opacity: 0; transition: opacity .3s; }
