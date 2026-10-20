@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from markupsafe import Markup, escape
+from markupsafe import Markup
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
@@ -30,8 +30,9 @@ class ApproveWizard(models.TransientModel):
                     line.description or line.product_id.display_name, line.quantity,
                     'text-bg-success' if ok else 'text-bg-danger',
                     _("%s in stock", have) if ok else _("none - must be ordered")))
+            # no parts yet is normal: the technician picks them at the visit (by the problem found)
             wiz.parts_html = (Markup('<table class="table table-sm"><tbody>%s</tbody></table>')
-                              % Markup('').join(rows)) if rows else escape(_("No spare parts on the job card."))
+                              % Markup('').join(rows)) if rows else False
             wiz.has_missing = bool(missing)
 
     def action_confirm(self):

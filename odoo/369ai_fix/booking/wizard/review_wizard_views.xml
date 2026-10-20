@@ -11,8 +11,8 @@
                 <group>
                     <field name="technician_id" options="{'no_create': True}"/>
                 </group>
-                <separator string="Parts on the job card"/>
-                <field name="parts_html" nolabel="1"/>
+                <separator string="Parts on the job card" invisible="not parts_html"/>
+                <field name="parts_html" nolabel="1" invisible="not parts_html"/>
                 <div class="alert alert-warning" role="alert" invisible="not has_missing">
                     Some parts must be ordered. The customer is asked first whether to order them.
                 </div>

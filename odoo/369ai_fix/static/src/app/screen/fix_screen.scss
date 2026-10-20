@@ -146,7 +146,9 @@
     .fxs-dot-saved { background: var(--fxd-green-2); }
     .fxs-dot-error { background: var(--fxd-red); }
 
-    @media (max-width: 1100px) {
+    // list and record stay side by side on laptops and zoomed windows; the record slides over
+    // the list only on tablets and phones
+    @media (max-width: 820px) {
         .fxs-body { grid-template-columns: minmax(0, 1fr); }
         .fxs-list { border-right: 0; }
         .fxs-pane { position: absolute; inset: 0; transform: translateX(104%); transition: transform .22s ease; z-index: 2; box-shadow: -10px 0 30px -20px rgba(0, 0, 0, .5); }

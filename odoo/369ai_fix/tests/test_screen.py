@@ -178,6 +178,8 @@ class TestScreens(TransactionCase):
         self.assertEqual(outcome['popup']['model'], 'wb.approve.wizard')
         self.assertEqual(outcome['popup']['context'].get('default_order_id'), order.id)
         self.assertIn('parts_html', outcome['popup']['values'])
+        # no parts yet is normal (the technician picks them at the visit): no "No spare parts" line
+        self.assertFalse(outcome['popup']['values']['parts_html'])
 
     def test_arrival_code_wrong_then_right(self):
         _order, visit = self._visit_on_the_way()
