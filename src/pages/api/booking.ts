@@ -4,7 +4,7 @@
 // before, and the customer's WhatsApp message still opens either way - a booking is never lost.
 // Answers {ok, ref, upload_token} - the token lets /api/booking-media add the photos.
 import type { APIRoute } from 'astro';
-import { me } from '../../lib/account';
+import { me, secureOf } from '../../lib/account';
 import { hostOf, ipOf, json, odooCall, originOk } from '../../lib/odoo';
 
 export const prerender = false;
@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ request, clientAddress, cookies }) => {
   })).filter((l: any) => l.issue || l.product_id) : [];
   if (!lines.length) return json({ ok: false, error: 'nothing booked' }, 400);
   const host = hostOf(request);
-  const who = await me(host, cookies).catch(() => null);
+  const who = await me(host, cookies, secureOf(request)).catch(() => null);
   const payload: Record<string, unknown> = {
     host,
     ref: s(b.ref, 24),

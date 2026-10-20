@@ -10,8 +10,8 @@
 //   GET  address-form?country=OM what the form needs for OM or IN (states)
 //   POST addresses               a new address {label, name, phone, alt, line, area, town, pin, landmark, lat, lng, country_id}
 import type { APIRoute } from 'astro';
-import { clearSession, martFetch, me, sessionOf, setSession } from '../../../lib/account';
-import { hostOf, ipOf, json, originOk } from '../../../lib/odoo';
+import { clearSession, martAs, martFetch, me, secureOf, sessionOf, setSession } from '../../../lib/account';
+import { clearCustomer, hostOf, ipOf, json, originOk, setCustomer } from '../../../lib/odoo';
 
 export const prerender = false;
 
@@ -21,22 +21,18 @@ const countryOf = (v: unknown) => (String(v || '').toUpperCase() === 'IN' ? 'IN'
 
 export const GET: APIRoute = async ({ params, request, cookies }) => {
   const host = hostOf(request);
+  const secure = secureOf(request);
   switch (params.action) {
     case 'phone-form': {
       const country = new URL(request.url).searchParams.get('country') || '';
       return pass(await martFetch(host, `/369mart/auth/phone-form${country ? `?country=${encodeURIComponent(country)}` : ''}`));
     }
     case 'me': {
-      const who = await me(host, cookies);
+      const who = await me(host, cookies, secure);
       return who ? json(who) : json({ ok: false }, 401);
     }
-    case 'addresses': {
-      const session = sessionOf(cookies);
-      if (!session) return json({ ok: false, error: 'Please sign in.' }, 401);
-      const r = await martFetch(host, '/369mart/addresses', { session });
-      if (r.status === 401) clearSession(cookies);
-      return pass(r);
-    }
+    case 'addresses':
+      return pass(await martAs(host, '/369mart/addresses', cookies, secure));
     case 'pincode': {
       // postal code -> wilayat, governorate and area, from 369 Mart's lookup in Odoo (as on 369 Mart)
       const pin = (new URL(request.url).searchParams.get('pin') || '').replace(/\D/g, '').slice(0, 10);
@@ -45,10 +41,8 @@ export const GET: APIRoute = async ({ params, request, cookies }) => {
     }
     case 'address-form': {
       // what the address form needs for Oman or India (e.g. the governorates / states, when Odoo has them)
-      const session = sessionOf(cookies);
-      if (!session) return json({ ok: false, error: 'Please sign in.' }, 401);
       const country = countryOf(new URL(request.url).searchParams.get('country'));
-      return pass(await martFetch(host, `/369mart/addresses/form?country=${country}`, { session }));
+      return pass(await martAs(host, `/369mart/addresses/form?country=${country}`, cookies, secure));
     }
   }
   return json({ ok: false, error: 'not found' }, 404);
@@ -59,7 +53,7 @@ export const POST: APIRoute = async ({ params, request, cookies, clientAddress }
   const host = hostOf(request);
   const ip = ipOf(request, clientAddress);
   const body = await request.json().catch(() => ({}));
-  const secure = new URL(request.url).protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https';
+  const secure = secureOf(request);
   switch (params.action) {
     case 'phone-start': {
       const b = { phone: String(body.phone || '').slice(0, 30), country: String(body.country || '').slice(0, 4),
@@ -74,24 +68,25 @@ export const POST: APIRoute = async ({ params, request, cookies, clientAddress }
                   password: body.password ? String(body.password).slice(0, 128) : undefined };
       const r = await martFetch(host, '/369mart/auth/phone/verify', { method: 'POST', body: b, fresh: true, ip });
       const res = pass(r);
-      if (r.data?.ok && r.session) setSession(cookies, r.session, secure);
+      if (r.data?.ok && r.session) {
+        setSession(cookies, r.session, secure);
+        // one sign-in for the whole site: My orders knows this number too
+        if (r.data.phone) setCustomer(cookies, String(r.data.phone).replace(/\D/g, ''), host, secure);
+      }
       return res;
     }
     case 'logout': {
       const session = sessionOf(cookies);
       if (session) await martFetch(host, '/369mart/auth/logout', { method: 'POST', session });
       clearSession(cookies);
+      clearCustomer(cookies);        // signed out everywhere, My orders too
       return json({ ok: true });
     }
     case 'addresses': {
-      const session = sessionOf(cookies);
-      if (!session) return json({ ok: false, error: 'Please sign in.' }, 401);
       const keys = ['label', 'name', 'phone', 'alt', 'line', 'area', 'town', 'pin', 'landmark', 'lat', 'lng', 'state_id'];
       const b: Record<string, unknown> = { country_id: countryOf(body.country_id) };
       for (const k of keys) if (body[k] !== undefined && body[k] !== null && body[k] !== '') b[k] = typeof body[k] === 'number' ? body[k] : String(body[k]).slice(0, 200);
-      const r = await martFetch(host, '/369mart/addresses', { method: 'POST', body: b, session });
-      if (r.status === 401) clearSession(cookies);
-      return pass(r);
+      return pass(await martAs(host, '/369mart/addresses', cookies, secure, { method: 'POST', body: b }));
     }
   }
   return json({ ok: false, error: 'not found' }, 404);

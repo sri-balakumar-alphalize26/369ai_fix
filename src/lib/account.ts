@@ -80,12 +80,26 @@ export function clearSession(cookies: AstroCookies) {
 
 export const sessionOf = (cookies: AstroCookies) => cookies.get(SESSION_COOKIE)?.value || null;
 
-/** The signed-in customer ({partner_id, name, phone, email}) or null. */
-export async function me(host: string, cookies: AstroCookies): Promise<any | null> {
+export const secureOf = (request: Request) =>
+  new URL(request.url).protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https';
+
+/** A call as the signed-in customer. Odoo gives a signed-in session a new id every 3 hours
+ *  and stops taking the old one 2 minutes later, so the new id is kept (for another 30 days,
+ *  as 369 Mart's own site does) - otherwise the customer would be signed out after 3 hours.
+ *  A signed-out answer drops the cookie; Odoo not answering keeps it. */
+export async function martAs(host: string, path: string, cookies: AstroCookies, secure: boolean,
+  opts: { method?: string; body?: unknown; ip?: string } = {}): Promise<Result> {
   const session = sessionOf(cookies);
-  if (!session) return null;
-  const r = await martFetch(host, '/369mart/auth/me', { session });
-  if (r.status === 200 && r.data?.ok) return r.data;
+  if (!session) return { status: 401, data: { ok: false, error: 'Please sign in.' }, session: null };
+  const r = await martFetch(host, path, { ...opts, session });
   if (r.status === 401) clearSession(cookies);
-  return null;
+  else if (r.status < 400 && r.session && r.session !== session) setSession(cookies, r.session, secure);
+  return r;
+}
+
+/** The signed-in customer ({partner_id, name, phone, email}) or null. */
+export async function me(host: string, cookies: AstroCookies, secure = false): Promise<any | null> {
+  if (!sessionOf(cookies)) return null;
+  const r = await martAs(host, '/369mart/auth/me', cookies, secure);
+  return r.status === 200 && r.data?.ok ? r.data : null;
 }
