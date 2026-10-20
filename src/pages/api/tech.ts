@@ -5,8 +5,10 @@
 //   POST {v, t, action: 'check_tick', item_id, done}                       a safety tick (after arriving)
 //   POST {v, t, action: 'check_safety_photo' | 'check_side_photo' | 'check_video', photo_id?, data, name?}
 //   POST {v, t, action: 'check_clear_safety'}                              take the safety photos again
+//   POST {v, t, action: 'result_issue', issue_id, on, brand_id?}       tick / untick a problem found
 //   POST {v, t, action: 'result_parts', query}  /  'result_add_part' {product_id, brand_id?}  /  'result_remove_part' {line_id}
-//   POST {v, t, action: 'result_fixed' | 'result_in_stock' {days, take, accessory_ids, no_accessories} | 'result_quote', note?}
+//   POST {v, t, action: 'result_fixed' | 'result_quote' {plan, days, unit, part_days}, note?}
+//   POST {v, t, action: 'result_approved_here' | 'result_declined_here' | 'result_later' | 'result_take' {accessory_ids, no_accessories}}
 import type { APIRoute } from 'astro';
 import { hostOf, json, odooCall, originOk } from '../../lib/odoo';
 
@@ -18,8 +20,10 @@ const ACTIONS = new Set(['ping', 'on_the_way', 'arrive', 'start', 'done',
   // before work: the safety check, the photos and the video (Odoo checks the files' content)
   'check_tick', 'check_safety_photo', 'check_side_photo', 'check_video', 'check_clear_safety',
   // while working: what was found, the parts, and the result
-  'result_parts', 'result_note', 'result_add_part', 'result_remove_part',
-  'result_fixed', 'result_in_stock', 'result_quote']);
+  'result_issue', 'result_parts', 'result_note', 'result_add_part', 'result_remove_part',
+  'result_fixed', 'result_quote',
+  // the customer's answer at the door, and taking the device to the office
+  'result_approved_here', 'result_declined_here', 'result_later', 'result_take']);
 const MAX_B64 = 42 * 1024 * 1024;   // a 30 MB video, base64
 
 export const GET: APIRoute = async ({ request }) => {
@@ -45,6 +49,7 @@ export const POST: APIRoute = async ({ request }) => {
     item_id: num(b.item_id), photo_id: num(b.photo_id), done: !!b.done, name: s(b.name, 80), data,
   } : action.startsWith('result_') ? {
     query: s(b.query, 80), product_id: num(b.product_id), brand_id: num(b.brand_id), line_id: num(b.line_id),
+    issue_id: num(b.issue_id), on: !!b.on, plan: s(b.plan, 20),
     qty: num(b.qty), days: num(b.days), part_days: num(b.part_days), unit: b.unit === 'weeks' ? 'weeks' : 'days',
     take: !!b.take, no_accessories: !!b.no_accessories,
     note: b.note === undefined ? null : s(b.note, 2000),
