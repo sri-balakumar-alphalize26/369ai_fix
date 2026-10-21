@@ -74,10 +74,14 @@ class OnlineServiceOrder(models.Model):
         """Both alarms, small enough to poll from every Odoo page."""
         settings = self.env['danatfix.booking.settings'].get_settings()
         user = self.env.user
+        # technicians work from My Visits (369ai_fix) and cannot open the desk: no alarm for them
+        office = not (user.has_group('mobile_repair.group_mobile_repair_technician')
+                      and not user.has_group('mobile_repair.group_mobile_repair_receptionist'))
         # each alarm has its own switch and its own listeners (Booking Desk Settings)
-        hears_new = settings.new_alarm_on and (not settings.alarm_user_ids or user in settings.alarm_user_ids)
-        hears_slot = settings.slot_alarm_on and (not settings.slot_alarm_user_ids
-                                                 or user in settings.slot_alarm_user_ids)
+        hears_new = office and settings.new_alarm_on and (not settings.alarm_user_ids
+                                                          or user in settings.alarm_user_ids)
+        hears_slot = office and settings.slot_alarm_on and (not settings.slot_alarm_user_ids
+                                                            or user in settings.slot_alarm_user_ids)
         Order = self.sudo()
         new = Order.search([('state', '=', 'new'), ('desk_calling', '=', False),
                             ('company_id', 'in', self.env.companies.ids)]) if hears_new else Order

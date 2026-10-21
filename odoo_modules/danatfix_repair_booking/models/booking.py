@@ -225,8 +225,11 @@ class DanatfixBooking(models.Model):
     def alarm_state(self):
         """Small enough to poll from every page of the web client."""
         settings = self.env['danatfix.booking.settings'].get_settings()
-        hears = (not settings.alarm_user_ids
-                 or self.env.user in settings.alarm_user_ids)
+        # technicians work from My Visits (369ai_fix) and cannot open the desk: no alarm
+        user = self.env.user
+        tech_only = (user.has_group('mobile_repair.group_mobile_repair_technician')
+                     and not user.has_group('mobile_repair.group_mobile_repair_receptionist'))
+        hears = not tech_only and (not settings.alarm_user_ids or user in settings.alarm_user_ids)
         return {
             'new': self.sudo().search_count([('state', '=', 'new')]) if hears else 0,
             'ring': max(3, settings.ring_seconds or 20),
