@@ -342,38 +342,28 @@ class ServiceVisit(models.Model):
             return None
         return _("Unknown action.")
 
-    @api.model
-    def tech_page(self, host, ref, token, action='', lat=None, lng=None, accuracy=None,
-                  heading=None, speed=None, battery=None, code='', **check):
-        """Adds the checks to the technician's page: the changes above, and no Start
-        while something is missing."""
-        if action.startswith('check_') or action == 'start':
-            self.env['online.service.order']._check_website_caller()
-            visit, error = self._fs_from_tech_link(host, ref, token)
-            if error:
-                return {'ok': False, 'error': error}
-            if action.startswith('check_'):
-                try:
-                    with self.env.cr.savepoint():
-                        problem = visit._vc_tech_act(action, item_id=check.get('item_id'), done=check.get('done'),
-                                                     photo_id=check.get('photo_id'), data=check.get('data'),
-                                                     name=check.get('name'))
-                except (UserError, ValidationError):
-                    problem = _("This photo could not be read. Take it again.")
-                view = visit._fs_tech_view()
-                return dict(view, ok=False, error='check', message=problem) if problem else view
-            if visit.state == 'arrived':
-                missing = visit._vc_missing()
-                if missing:
-                    return dict(visit._fs_tech_view(), ok=False, error='checks',
-                                message=_("Finish the checks first: %s", ', '.join(missing)))
-                visit._vc_stamp()
-                visit = visit.with_context(fix_checks_passed=True)
-                return super(ServiceVisit, visit).tech_page(host, ref, token, action=action, lat=lat, lng=lng,
-                                                            accuracy=accuracy, heading=heading, speed=speed,
-                                                            battery=battery, code=code)
-        return super().tech_page(host, ref, token, action=action, lat=lat, lng=lng, accuracy=accuracy,
-                                 heading=heading, speed=speed, battery=battery, code=code)
+    def _fs_tech_do(self, action='', **kw):
+        """Adds the checks to the technician's steps (page or My Visits): the changes above,
+        and no Start while something is missing."""
+        visit = self.sudo()
+        if action.startswith('check_'):
+            try:
+                with self.env.cr.savepoint():
+                    problem = visit._vc_tech_act(action, item_id=kw.get('item_id'), done=kw.get('done'),
+                                                 photo_id=kw.get('photo_id'), data=kw.get('data'),
+                                                 name=kw.get('name'))
+            except (UserError, ValidationError):
+                problem = _("This photo could not be read. Take it again.")
+            view = visit._fs_tech_view()
+            return dict(view, ok=False, error='check', message=problem) if problem else view
+        if action == 'start' and visit.state == 'arrived':
+            missing = visit._vc_missing()
+            if missing:
+                return dict(visit._fs_tech_view(), ok=False, error='checks',
+                            message=_("Finish the checks first: %s", ', '.join(missing)))
+            visit._vc_stamp()
+            return super(ServiceVisit, visit.with_context(fix_checks_passed=True))._fs_tech_do(action, **kw)
+        return super()._fs_tech_do(action, **kw)
 
 
 class JobCard(models.Model):

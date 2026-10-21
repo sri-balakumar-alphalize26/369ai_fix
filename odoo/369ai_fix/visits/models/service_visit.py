@@ -725,14 +725,24 @@ class ServiceVisit(models.Model):
         }
 
     @api.model
-    def tech_page(self, host, ref, token, action='', lat=None, lng=None, accuracy=None,
-                  heading=None, speed=None, battery=None, code=''):
-        """The technician's page (website server, bot key): what it shows, one step
-        (on_the_way, arrive, start, done) or a GPS ping. Never raises for a bad step."""
+    def tech_page(self, host, ref, token, action='', **kw):
+        """The technician's page (website server, bot key): the WhatsApp link is checked
+        here, the step itself is _fs_tech_do (shared with My Visits in Odoo, app/)."""
         self.env['online.service.order']._check_website_caller()
         visit, error = self._fs_from_tech_link(host, ref, token)
         if error:
             return {'ok': False, 'error': error}
+        return visit._fs_tech_do(action, **kw)
+
+    def _fs_tech_do(self, action='', lat=None, lng=None, accuracy=None, heading=None, speed=None,
+                    battery=None, code='', **kw):
+        """What the technician's page shows, one step (on_the_way, arrive, start, done) or a
+        GPS ping, for a visit already checked (its link, or the technician's own login).
+        The checks (visit_checks) and "What did you find?" (visit_result) add their steps.
+        Never raises for a bad step."""
+        self.ensure_one()
+        visit = self.sudo()
+        where = self.env.context.get('fix_tech_where') or _("the technician's page")
         has_fix = valid_fix(lat, lng) is not None
         if action == 'ping':
             saved = has_fix and visit._fs_record_position(lat, lng, accuracy, heading, speed, battery)
@@ -757,6 +767,6 @@ class ServiceVisit(models.Model):
         except UserError as err:
             return dict(visit._fs_tech_view(), ok=False, error='state', message=str(err))
         if action:
-            visit.message_post(body=_("%(step)s, from the technician's page.",
-                                      step=dict(STATES)[visit.state]), subtype_xmlid='mail.mt_note')
+            visit.message_post(body=_("%(step)s, from %(where)s.", step=dict(STATES)[visit.state], where=where),
+                               subtype_xmlid='mail.mt_note')
         return visit._fs_tech_view()

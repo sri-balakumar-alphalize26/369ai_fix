@@ -600,16 +600,11 @@ class ServiceVisit(models.Model):
             raise UserError(_("Unknown action."))
         return {}
 
-    @api.model
-    def tech_page(self, host, ref, token, action='', lat=None, lng=None, accuracy=None,
-                  heading=None, speed=None, battery=None, code='', **args):
+    def _fs_tech_do(self, action='', **args):
+        """Adds "What did you find?" (the result_* steps) to the technician's steps."""
         if not action.startswith('result_'):
-            return super().tech_page(host, ref, token, action=action, lat=lat, lng=lng, accuracy=accuracy,
-                                     heading=heading, speed=speed, battery=battery, code=code, **args)
-        self.env['online.service.order']._check_website_caller()
-        visit, error = self._fs_from_tech_link(host, ref, token)
-        if error:
-            return {'ok': False, 'error': error}
+            return super()._fs_tech_do(action, **args)
+        visit = self.sudo()
         if visit.state != 'in_progress':
             return dict(visit._fs_tech_view(), ok=False, error='state',
                         message=_("This is done while the work is in progress."))
