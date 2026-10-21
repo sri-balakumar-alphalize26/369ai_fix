@@ -8,9 +8,11 @@
         <field name="inherit_id" ref="mobile_repair.view_spare_part_product_form_inherit"/>
         <field name="arch" type="xml">
             <xpath expr="//group[@name='device_info']/field[@name='device_brand_id']" position="before">
-                <field name="repair_category_ids" widget="many2many_tags" options="{'no_create': True}"/>
-                <field name="repair_issue_type_ids" widget="many2many_tags" options="{'no_create': True}"
+                <field name="repair_category_ids" widget="many2many_tags" options="{'no_create': True}"
                        invisible="type != 'service'"/>
+                <field name="fit_category_ids" widget="many2many_tags" options="{'no_create': True}"
+                       invisible="type == 'service'"/>
+                <field name="repair_issue_type_ids" widget="many2many_tags" options="{'no_create': True}"/>
             </xpath>
         </field>
     </record>
@@ -24,9 +26,11 @@
         <field name="arch" type="xml">
             <xpath expr="//group[@name='group_general']" position="after">
                 <group string="Device Information" name="repair_device_info">
-                    <field name="repair_category_ids" widget="many2many_tags" options="{'no_create': True}"/>
-                    <field name="repair_issue_type_ids" widget="many2many_tags" options="{'no_create': True}"
+                    <field name="repair_category_ids" widget="many2many_tags" options="{'no_create': True}"
                            invisible="type != 'service'"/>
+                    <field name="fit_category_ids" widget="many2many_tags" options="{'no_create': True}"
+                           invisible="type == 'service'"/>
+                    <field name="repair_issue_type_ids" widget="many2many_tags" options="{'no_create': True}"/>
                     <field name="device_brand_id"/>
                     <field name="device_series_id" domain="[('brand_id', '=', device_brand_id)]"/>
                     <field name="device_model_id" domain="[('series_id', '=', device_series_id)]"/>

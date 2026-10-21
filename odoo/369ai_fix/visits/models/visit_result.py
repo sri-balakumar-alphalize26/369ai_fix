@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """What the technician found, and the quotation first - as on Urban Company.
 
-While the visit is Working the technician says what they found and, when the repair
-needs parts, picks them from the catalogue - each shows whether the office has it,
-another branch has it, or it must be ordered.
+While the visit is Working the technician ticks the problems found (the customer's
+choice is ticked already) and is offered the parts that fix them for this device; the
+search box finds any other part. Each part shows whether the office has it, another
+branch has it, or it must be ordered.
 
 * No part, no extra price: Fixed on the spot.
 * Parts / a higher price: the QUOTATION goes to the customer first, with the plan and
@@ -87,6 +88,7 @@ class ServiceVisit(models.Model):
         technician = visit.technician_id or company._wb_unassigned_employee()
         partner = order.partner_id or order._find_or_create_partner()
         lines = order.line_ids.filtered('product_id')
+        ticked = visit._vr_ticked()
         issue = [order.problem or order.summary or '']
         if visit.check_found:
             issue.append(visit.check_found)
@@ -100,6 +102,7 @@ class ServiceVisit(models.Model):
             'series_id': (model.series_id.id if model else False) or (g_series.id if brand == g_brand else False),
             'model_id': model.id or False,
             'issue': '\n'.join(x for x in issue if x) or _("Doorstep visit %s", visit.name),
+            'issue_type_ids': [(6, 0, ticked.ids)],
             'service_line_ids': [(0, 0, {
                 'product_id': line.product_id.id, 'description': line.product_id.name,
                 'quantity': line.qty or 1, 'unit_price': line.product_id.lst_price,
@@ -141,6 +144,23 @@ class ServiceVisit(models.Model):
             'branches': [{'name': wh.name, 'qty': q} for wh, q in by_wh.items() if q > 0],
         }
 
+    def _vr_device(self):
+        """(category, brand, model) of the device: the job card's, else the booking's."""
+        self.ensure_one()
+        card = self.sudo().job_card_id
+        if card:
+            return card.device_category_id or card.brand_id.category_id, card.brand_id, card.model_id
+        category, brand, _series, model = self._vr_device_guess()
+        return category or brand.category_id, brand, model
+
+    @staticmethod
+    def _vr_rank(brand, model):
+        """Sort key for parts: this model's own first, then this brand's, then the rest."""
+        def rank(p):
+            return (0 if model and p.device_model_id == model else 1 if brand and p.device_brand_id == brand
+                    else 2, 0 if p.is_mobile_repair_part else 1, p.name or '')
+        return rank
+
     def _vr_parts(self, query='', limit=20):
         """Spare parts for the search box: the device's own first, each with its stock."""
         self.ensure_one()
@@ -149,15 +169,62 @@ class ServiceVisit(models.Model):
         if query:
             domain += ['|', '|', ('name', 'ilike', query), ('default_code', 'ilike', query),
                        ('barcode', '=', query)]
-        Product = self.env['product.product'].sudo()
-        products = Product.search(domain, limit=200)
-        card = self.sudo().job_card_id
-        brand, model = (card.brand_id, card.model_id) if card else self._vr_device_guess()[1::2]
+        products = self.env['product.product'].sudo().search(domain, limit=200)
+        _category, brand, model = self._vr_device()
+        return [self._vr_part_row(p) for p in sorted(products, key=self._vr_rank(brand, model))[:limit]]
 
-        def rank(p):
-            return (0 if model and p.device_model_id == model else 1 if brand and p.device_brand_id == brand
-                    else 2, 0 if p.is_mobile_repair_part else 1, p.name or '')
-        return [self._vr_part_row(p) for p in sorted(products, key=rank)[:limit]]
+    # ------------------------------------------------------------------ what's wrong (as on Urban Company)
+    def _vr_ticked(self):
+        """The problems ticked so far: the job card's, which the booking filled with what the
+        customer chose (the booking's repairs, while there is no job card)."""
+        self.ensure_one()
+        visit = self.sudo()
+        if visit.job_card_id:
+            return visit.job_card_id.issue_type_ids
+        return visit.order_id.line_ids.product_id.repair_issue_type_ids
+
+    def _vr_issues(self):
+        """The problems the technician can tick: this device type's (and those for every
+        device), the ticked ones first."""
+        self.ensure_one()
+        category = self._vr_device()[0]
+        domain = ['|', ('device_category_ids', '=', False),
+                  ('device_category_ids', 'in', category.ids)] if category else []
+        ticked = self._vr_ticked()
+        issues = ticked | self.env['job.card.issue.type'].sudo().search(domain)
+        return [{'id': i.id, 'name': i.name, 'on': i in ticked} for i in issues]
+
+    def _vr_set_issue(self, issue, on, brand=None):
+        """Tick / untick a problem on the job card (made here when there is none yet)."""
+        self.ensure_one()
+        card = self._vr_card(brand=brand)
+        if on:
+            card.issue_type_ids = [(4, issue.id)]
+        elif issue in card.issue_type_ids:
+            if card.issue_type_ids == issue and not (card.issue or '').strip():
+                raise UserError(_("Keep at least one problem ticked, or write what you found first."))
+            card.issue_type_ids = [(3, issue.id)]
+
+    def _vr_suggest(self, limit=12):
+        """The parts that fix the ticked problems and fit this device (this model's own
+        first), leaving out those already added."""
+        self.ensure_one()
+        ticked = self._vr_ticked()
+        if not ticked:
+            return []
+        category, brand, model = self._vr_device()
+        domain = [('type', '=', 'consu'), ('sale_ok', '=', True), ('repair_issue_type_ids', 'in', ticked.ids)]
+        if category:
+            domain += ['|', ('fit_category_ids', '=', False), ('fit_category_ids', 'in', category.ids)]
+        if brand:
+            domain += ['|', ('device_brand_id', '=', False), ('device_brand_id', '=', brand.id)]
+        if model:
+            domain += ['|', ('device_model_id', '=', False), ('device_model_id', '=', model.id)]
+        products = self.env['product.product'].sudo().search(domain, limit=200)
+        card = self.sudo().job_card_id
+        if card:
+            products -= card.spare_part_line_ids.product_id
+        return [self._vr_part_row(p) for p in sorted(products, key=self._vr_rank(brand, model))[:limit]]
 
     def _vr_part_row(self, product, qty=1.0):
         stock = self._vr_stock(product, qty)
@@ -289,6 +356,9 @@ class ServiceVisit(models.Model):
             'order_take': _("The part must be ordered (about %(wait)s days); we keep your device at our office "
                             "and bring it back repaired by %(date)s.", wait=wait, date=when),
         }[plan]
+        found = ', '.join(card.issue_type_ids.mapped('name'))
+        if found:
+            timeline = _("We found: %s.", found) + '\n' + timeline
         visit.write({'pend_plan': plan, 'pend_days': total, 'pend_within': within or False,
                      'pend_part_days': wait, 'pend_date': date})
         self._vr_set('waiting', check_days=wait + total)
@@ -457,13 +527,18 @@ class ServiceVisit(models.Model):
         self.ensure_one()
         visit = self.sudo()
         need = visit._vr_need()
+        currency = (visit.company_id or self.env.company).currency_id
         view = {
+            'currency': currency.name,
+            'decimals': currency.decimal_places,
             'found': visit.check_found or '',
             'stage': visit.check_result if visit.check_result in ('waiting', 'repairing', 'to_take') else 'find',
             'plan_label': dict(PLANS).get(visit.pend_plan, ''),
             'timeline_date': visit.pend_date.strftime('%a %d %b') if visit.pend_date else '',
             'need_device': not visit.job_card_id and not visit._vr_device_guess()[1],
             'lines': visit._vr_lines(),
+            'issues': visit._vr_issues(),
+            'suggested': visit._vr_suggest() if visit.check_result not in ('waiting', 'repairing', 'to_take') else [],
             'needs_quote': need['needs_quote'],
             'to_order': need['to_order'],
             'total': need['total'],
@@ -495,6 +570,11 @@ class ServiceVisit(models.Model):
             return {'parts': visit._vr_parts(args.get('query') or '')}
         if action == 'result_note':
             visit._vr_note(note)
+        elif action == 'result_issue':
+            issue = Model('job.card.issue.type', 'issue_id')
+            if not issue:
+                raise UserError(_("Choose a problem."))
+            visit._vr_set_issue(issue, bool(args.get('on')), brand=Model('device.brand', 'brand_id'))
         elif action == 'result_add_part':
             product = Model('product.product', 'product_id')
             if not product:

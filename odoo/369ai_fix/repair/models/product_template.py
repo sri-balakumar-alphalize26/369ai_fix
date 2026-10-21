@@ -12,5 +12,12 @@ class ProductTemplate(models.Model):
              'Brand / Series / Model match the card (or are empty).')
     repair_issue_type_ids = fields.Many2many(
         'job.card.issue.type', 'product_template_repair_issue_rel', 'product_tmpl_id', 'issue_type_id',
-        string='Issue types',
-        help='Faults this service fixes. A booking for this service fills the job card\'s Issue Types.')
+        string='Problems it fixes',
+        help='Faults this repair or part fixes. A booking for a repair fills the job card\'s Issue Types; '
+             'at the visit the technician ticks the problems found and is offered the parts that fix them.')
+    # for spare parts: kept apart from repair_category_ids, which marks the website's repairs
+    fit_category_ids = fields.Many2many(
+        'device.category', 'product_template_fit_category_rel', 'product_tmpl_id', 'category_id',
+        string='Fits device types',
+        help='Spare parts: the device types this part fits. At the visit it is only offered for those '
+             '(empty: any device).')

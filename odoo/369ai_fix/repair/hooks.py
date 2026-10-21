@@ -31,12 +31,15 @@ def post_init_hook(env):
 
 def run_data_fixes(env):
     """Shared by the install hook and the 19.0.1.2.0 upgrade: device tree clean-up,
-    issue types per device, and issue types on the website's repair services."""
+    issue types per device, issue types on the website's repair services and on the
+    spare parts."""
     from .device_tree import fix_device_tree
     from .issue_types import fill_issue_types, import_ai_issue_types
+    from .part_problems import fill_part_problems
     fix_device_tree(env)
     import_ai_issue_types(env)
     fill_issue_types(env)
+    fill_part_problems(env)
 
 
 def _category(env, name):

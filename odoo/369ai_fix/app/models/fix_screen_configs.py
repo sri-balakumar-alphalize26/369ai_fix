@@ -412,6 +412,8 @@ SCREENS = {
             {'key': 'active', 'label': 'In use', 'domain': [('active', '=', True)]},
             {'key': 'in_stock', 'label': 'In stock', 'domain': [('qty_available', '>', 0)]},
             {'key': 'none', 'label': 'Out of stock', 'domain': [('qty_available', '<=', 0), ('active', '=', True)]},
+            {'key': 'no_problem', 'label': 'No problem set',
+             'domain': [('repair_issue_type_ids', '=', False), ('active', '=', True)]},
             {'key': 'archived', 'label': 'Archived', 'domain': [('active', '=', False)]},
             {'key': 'all', 'label': 'All', 'domain': []},
         ],
@@ -420,7 +422,10 @@ SCREENS = {
         'sections': [
             {'title': 'Part', 'icon': 'fa-cogs',
              'fields': ['name', 'default_code', 'barcode', 'lst_price', 'standard_price', 'active'], 'info': ['qty_available']},
-            {'title': 'Fits', 'icon': 'fa-mobile', 'fields': ['device_brand_id', 'device_series_id', 'device_model_id']},
+            # the technician ticks a problem at the visit and is offered the parts that fix it
+            {'title': 'Fits and fixes', 'icon': 'fa-mobile',
+             'fields': ['repair_issue_type_ids', 'fit_category_ids', 'device_brand_id', 'device_series_id',
+                        'device_model_id']},
             {'title': 'Picture', 'icon': 'fa-picture-o', 'fields': ['image_1920']},
         ],
         'pick_domain': {'device_series_id': [('brand_id', '=', '$device_brand_id')],
