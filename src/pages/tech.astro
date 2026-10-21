@@ -59,15 +59,22 @@ export const prerender = false;
         <div class="tv-card tv-ck" data-vr hidden>
           <div data-vr-find>
             <h3>What did you find?</h3>
-            <textarea class="vr-note" data-vr-note rows="2" maxlength="2000" placeholder="e.g. Screen cracked, battery swollen"></textarea>
             <label class="vr-field" data-vr-device hidden>Device brand (no job card yet)
               <select data-vr-brand><option value="">Choose…</option></select>
             </label>
+            <!-- as on Urban Company: tick what's wrong, and the parts for it are listed -->
+            <h4>What's wrong? <small>(tap all that apply)</small></h4>
+            <input class="vr-ifind" data-vr-ifind type="search" placeholder="Find a problem" hidden />
+            <div class="vr-issues" data-vr-issues></div>
+            <button type="button" class="vc-link" data-vr-more hidden></button>
+            <textarea class="vr-note" data-vr-note rows="2" maxlength="2000" placeholder="Anything else you found (optional)"></textarea>
 
             <h4>Parts needed <small>(skip when no part is needed)</small></h4>
             <div class="vc-list" data-vr-lines></div>
+            <p class="tv-hint" data-vr-sughint></p>
+            <div class="vc-list" data-vr-suggest></div>
             <form class="vr-search" data-vr-search>
-              <input data-vr-q type="search" placeholder="Search a part, e.g. iPhone 13 screen" />
+              <input data-vr-q type="search" placeholder="Not listed? Search a part" />
               <button type="submit" class="tv-btn ghost sm">Search</button>
             </form>
             <div class="vc-list" data-vr-found></div>
@@ -274,9 +281,36 @@ export const prerender = false;
   };
   const PLANS_HERE: [string, string][] = [['now', 'Fix now (I have the part)'], ['take', 'Take the device to the office'], ['come_back', 'Customer keeps it, we come back']];
   const PLANS_ORDER: [string, string][] = [['keep', 'Customer keeps it until the part arrives'], ['order_take', 'Take the device to the office until the part arrives']];
-  let brandsDrawn = false, plansFor = '';
+  let brandsDrawn = false, plansFor = '', issuesOpen = false;
   const show = (sel: string, on: boolean) => { $(sel).hidden = !on; };
   const plan = () => document.querySelector<HTMLInputElement>('input[name="vr-plan"]:checked')?.value || '';
+  const money = (r: any, v: number) => `${r.currency || ''} ${Number(v || 0).toFixed(r.decimals ?? 2)}`.trim();
+  const partRow = (r: any, p: any) => `<div class="vc-row">
+      <span class="vc-st">${esc(p.name)} <small>· ${money(r, p.price)}</small><br /><small>${WHERE[p.status](p)}</small></span>
+      <button type="button" class="tv-btn ghost sm" data-vr-add="${p.product_id}">Add</button></div>`;
+
+  // what's wrong: the ticked ones and the first few; "More problems" shows the rest, with a find box
+  const FEW = 12;
+  function renderIssues(r: any) {
+    const all: any[] = r.issues || [];
+    const word = issuesOpen ? $<HTMLInputElement>('[data-vr-ifind]').value.trim().toLowerCase() : '';
+    const list = issuesOpen ? all.filter((i) => i.on || !word || i.name.toLowerCase().includes(word))
+      : all.filter((i, n) => i.on || n < FEW);
+    $('[data-vr-issues]').innerHTML = list.map((i) => `<button type="button" class="vr-chip${i.on ? ' on' : ''}"
+      data-vr-issue="${i.id}" aria-pressed="${i.on}">${i.on ? '✓ ' : ''}${esc(i.name)}</button>`).join('')
+      || '<p class="tv-hint">No problem matches.</p>';
+    const more = $('[data-vr-more]');
+    more.hidden = !issuesOpen && all.length <= list.length;
+    more.textContent = issuesOpen ? 'Show fewer' : `More problems (${all.length - list.length})`;
+    show('[data-vr-ifind]', issuesOpen);
+  }
+  function renderSuggest(r: any) {
+    const ticked = (r.issues || []).some((i: any) => i.on);
+    $('[data-vr-suggest]').innerHTML = (r.suggested || []).map((p: any) => partRow(r, p)).join('');
+    $('[data-vr-sughint]').textContent = !ticked ? 'Tick what\'s wrong to see the parts for it.'
+      : (r.suggested || []).length ? 'Parts for what you ticked:'
+        : 'No parts linked to these problems yet. Search below.';
+  }
 
   function renderResult(r: any) {
     show('[data-vr]', !!r);
@@ -298,6 +332,8 @@ export const prerender = false;
       <span class="vc-st">${esc(l.name)}${l.qty > 1 ? ` ×${l.qty}` : ''}<br /><small>${WHERE[l.status](l)}</small></span>
       <button type="button" class="vc-link" data-vr-del="${l.line_id}">Remove</button></div>`).join('')
       || '<p class="tv-hint">No parts added.</p>';
+    renderIssues(r);
+    renderSuggest(r);
     const hasParts = r.lines.length > 0;
     show('[data-vr-plan]', hasParts);
     show('[data-vr-fixed]', !hasParts);
@@ -337,15 +373,21 @@ export const prerender = false;
   $('[data-vr-search]').addEventListener('submit', async (e) => {
     e.preventDefault();
     const d = await result({ action: 'result_parts', query: $<HTMLInputElement>('[data-vr-q]').value });
-    $('[data-vr-found]').innerHTML = (d.parts || []).map((p: any) => `<div class="vc-row">
-      <span class="vc-st">${esc(p.name)}<br /><small>${WHERE[p.status](p)}</small></span>
-      <button type="button" class="tv-btn ghost sm" data-vr-add="${p.product_id}">Add</button></div>`).join('')
+    $('[data-vr-found]').innerHTML = (d.parts || []).map((p: any) => partRow(d.result || {}, p)).join('')
       || (d.ok ? '<p class="tv-hint">No part found. Try another word.</p>' : '');
   });
   $('[data-vr]').addEventListener('click', async (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vr-add],[data-vr-del]');
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vr-add],[data-vr-del],[data-vr-issue],[data-vr-more]');
     if (!el) return;
-    if (el.dataset.vrAdd) {
+    if (el.hasAttribute('data-vr-more')) {
+      issuesOpen = !issuesOpen;
+      if (!issuesOpen) $<HTMLInputElement>('[data-vr-ifind]').value = '';
+      if (view?.result) renderIssues(view.result);
+    } else if (el.dataset.vrIssue) {
+      const brand = Number($<HTMLSelectElement>('[data-vr-brand]').value) || null;
+      if (view?.result?.need_device && !brand) { msg('Choose the device brand first.'); return; }
+      await result({ action: 'result_issue', issue_id: Number(el.dataset.vrIssue), on: !el.classList.contains('on'), brand_id: brand });
+    } else if (el.dataset.vrAdd) {
       const brand = Number($<HTMLSelectElement>('[data-vr-brand]').value) || null;
       if (view?.result?.need_device && !brand) { msg('Choose the device brand first.'); return; }
       const d = await result({ action: 'result_add_part', product_id: Number(el.dataset.vrAdd), brand_id: brand });
@@ -359,6 +401,7 @@ export const prerender = false;
     if (el.name === 'vr-plan' || el.hasAttribute('data-vr-noacc')) syncPlan();
     if (el.hasAttribute('data-vr-partdays')) el.dataset.set = '1';
   });
+  $('[data-vr-ifind]').addEventListener('input', () => { if (view?.result) renderIssues(view.result); });
   $('[data-vr-note]').addEventListener('blur', () => { if (view?.result?.stage === 'find') result({ action: 'result_note', ...noteArg() }); });
   $('[data-vr-fixed]').addEventListener('click', () => {
     if (confirm('Fixed on the spot? The visit will be closed.')) result({ action: 'result_fixed', ...noteArg() });
@@ -524,6 +567,11 @@ export const prerender = false;
   [data-vr] [hidden] { display: none !important; }
   .vr-acc { display: grid; gap: 6px; max-height: 260px; overflow: auto; margin-top: 6px; }
   .tv-ck :global(.vr-warn) { color: #b26b00; font-weight: 600; }
+  .vr-issues { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+  .tv-ck :global(.vr-chip) { min-height: 40px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+  .tv-ck :global(.vr-chip.on) { border-color: var(--violet); background: var(--violet); color: var(--on-accent, #fff); }
+  .vr-ifind { width: 100%; box-sizing: border-box; height: 44px; margin-bottom: 8px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
+  .vr-note { margin-top: 8px; }
   .tv-ck :global(.vc-link) { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; flex: none; }
   .tv-ck :global(.vc-st small) { font-weight: 500; }
   .tv-ck :global(.tv-btn.big) { width: 100%; height: 54px; margin-top: 10px; font-size: 17px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); }

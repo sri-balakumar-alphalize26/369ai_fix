@@ -23,6 +23,7 @@ const phone = contactOf(content.site).display;
     <div class="wrap qs" data-qs data-phone={phone}>
       <div class="qs-card" data-q-card hidden>
         <h3>After checking your device <small data-q-ref></small></h3>
+        <p class="qs-found" data-q-found hidden></p>
         <ul data-q-lines></ul>
         <p class="qs-old">Estimate you agreed before: <b data-q-old></b></p>
         <p class="qs-parts" data-q-parts hidden></p>
@@ -58,6 +59,9 @@ const phone = contactOf(content.site).display;
     $('[data-q-card]').hidden = false;
     $('[data-q-lead]').textContent = `Hi ${r.customer || 'there'} — booking ${r.ref}.`;
     $('[data-q-ref]').textContent = r.ref;
+    const found = $('[data-q-found]');
+    found.hidden = !(r.found || []).length;
+    found.innerHTML = found.hidden ? '' : `What we found: <b>${esc(r.found.join(', '))}</b>`;
     $('[data-q-lines]').innerHTML = r.lines.map((l: string) => `<li>${esc(l.replace(/^•\s*/, ''))}</li>`).join('');
     $('[data-q-old]').textContent = `${r.currency} ${Number(r.old_total || 0).toFixed(3)}`;
     const parts = $('[data-q-parts]');
@@ -94,7 +98,7 @@ const phone = contactOf(content.site).display;
   .qs-card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
   /* the lines are drawn by the script (innerHTML), so :global; the last one is the total */
   .qs-card ul :global(li:last-child) { font-weight: 700; list-style: none; margin-left: -18px; padding-top: 6px; border-top: 1px dashed var(--line); }
-  .qs-old, .qs-parts, .qs-office, .qs-done { margin: 0; }
+  .qs-old, .qs-parts, .qs-office, .qs-done, .qs-found { margin: 0; }
   .qs-old { color: var(--ink-3); }
   .qs-acts { display: flex; flex-wrap: wrap; gap: 10px; }
   .qs-acts[hidden] { display: none; }
