@@ -263,7 +263,8 @@ class OnlineServiceOrder(models.Model):
         if stage == 'calling':
             return ['approve', 'reject']
         if stage == 'approved':
-            return ['assign', 'call']
+            # no time yet: the technician gets the link once the customer picks one (booking/)
+            return ['call']
         if stage == 'booked':
             return ['seen', 'call']
         if stage == 'to_assign':
@@ -386,6 +387,9 @@ class OnlineServiceOrder(models.Model):
             'poll_error_text': getattr(order, 'poll_error', '') or '',
             'opened_by': order.opened_by_id.name or '',
             'actions': order._fix_desk_actions(stage, visit, cards),
+            # what the customer and the technician got on WhatsApp, oldest first (the WhatsApp tab)
+            'whatsapp': self.env['online.service.wa.message'].sudo().search(
+                [('order_id', '=', order.id)], order='id desc', limit=100)[::-1]._desk_rows(),
             'visit': None,
             'map': None,
         })

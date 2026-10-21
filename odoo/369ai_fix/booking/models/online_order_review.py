@@ -348,8 +348,33 @@ class OnlineServiceOrder(models.Model):
         order._wb_notify('slot_booked', slot=order.slot_label)
         order.message_post(body=(_("Customer changed the time to %s.", order.slot_label) if changed
                                  else _("Customer booked %s (and accepted the estimate).", order.slot_label)))
+        order._wb_auto_assign(visit, changed)
         order._ring()
         return {'ok': True, 'booked': {'date': fields.Date.to_string(day), 'label': order.slot_label}}
+
+    def _wb_auto_assign(self, visit, changed=False):
+        """The time is booked: the technician chosen at approval (on the job card) gets the
+        visit at once - their link, and the customer's "your technician is ..." - with no
+        second Assign on the desk. One who already has it gets the link again for a new time.
+        Without a chosen technician the desk asks, as before. Never blocks the booking."""
+        self.ensure_one()
+        try:
+            with self.env.cr.savepoint():
+                visit = visit.sudo()
+                placeholder = (self.company_id or self.env.company)._wb_unassigned_employee()
+                chosen = visit.job_card_id.assigned_to
+                if visit.state == 'draft' and (not visit.technician_id or visit.technician_id == placeholder) \
+                        and chosen and chosen != placeholder:
+                    visit.technician_id = chosen
+                tech = visit.technician_id
+                if visit.state == 'draft' and tech and tech != placeholder:
+                    visit.action_assign()
+                    self.message_post(body=_("%s has the visit (chosen at approval): the link went out "
+                                             "with the time.", tech.name))
+                elif changed and visit.state == 'assigned':
+                    visit._fs_send_tech_link()
+        except Exception:  # noqa: BLE001 - the customer's booking stands; the desk can still assign
+            _logger.exception("Booking %s: giving the visit to the technician failed", self.name)
 
     def _wb_accept_estimate(self):
         """Picking a time (or 'yes, order it') accepts the estimate: remember the total."""
@@ -396,6 +421,7 @@ class OnlineServiceOrder(models.Model):
             'currency': (order.company_id or self.env.company).currency_id.name,
             'parts': [l.description or l.product_id.name for l in waiting.spare_part_line_ids
                       if l.product_id.qty_available < (l.quantity or 1)],
+            'found': (waiting or cards).issue_type_ids.mapped('name'),
             'at_office': any(cards.mapped('wb_at_office')),
         }
 

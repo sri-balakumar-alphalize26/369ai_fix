@@ -361,7 +361,7 @@ class OnlineServiceOrder(models.Model):
             })
             if not text:
                 continue
-            status, detail = site._wa_send(order.phone, text)
+            status, detail = site._wa_deliver(order.phone, text, order=order)
             order.message_post(
                 body=_("WhatsApp to customer (%(status)s): %(result)s",
                        status=self._status_label(key),

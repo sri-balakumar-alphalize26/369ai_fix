@@ -132,6 +132,14 @@ class OnlineServiceSite(models.Model):
             return 'sent', ''
         return 'blocked', _("Not sent: WhatsApp switched off or blocked by the gateway policy")
 
+    def _wa_deliver(self, phone, text, order=None, who='customer'):
+        """_wa_send, and the message kept as sent: the Booking Desk's WhatsApp tab shows what
+        the customer or the technician got, even while WhatsApp is not connected."""
+        self.ensure_one()
+        status, detail = self._wa_send(phone, text)
+        self.env['online.service.wa.message']._keep(self, phone, text, status, detail, order=order, who=who)
+        return status, detail
+
     def action_view_orders(self):
         self.ensure_one()
         action = self.env['ir.actions.act_window']._for_xml_id(

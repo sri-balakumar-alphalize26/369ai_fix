@@ -33,8 +33,8 @@ const PRESENCE_EVENT = "fix_desk_presence";
 const HINTS = {
     new: "Website bookings waiting for a decision: approve, call the customer or reject.",
     calling: "Somebody is on the phone with the customer.",
-    approved: "Approved; the customer has the estimate and a link to pick a time.",
-    booked: "The customer picked a time. Press Seen so the ding-dong stops.",
+    approved: "Approved; the customer has the estimate and a link to pick a time. The technician chosen at approval gets the link once they pick it.",
+    booked: "The customer picked a time. Press Seen so the ding-dong stops. A technician chosen at approval already has the link.",
     to_assign: "Time booked and seen: choose the technician and send them the link.",
     assigned: "The technician has the link; waiting for them to set off.",
     live: "On the way or at the door: the map follows the technician's phone.",
@@ -450,7 +450,29 @@ export class FixDesk extends Component {
             tabs.push({ key: "visit", label: _t("Visit"), icon: "fa-car" });
         }
         tabs.push({ key: "notes", label: _t("Notes"), icon: "fa-comments-o" });
+        const wa = (d.whatsapp || []).length;
+        tabs.push({ key: "whatsapp", label: wa ? _t("WhatsApp (%s)", wa) : _t("WhatsApp"), icon: "fa-whatsapp" });
         return tabs;
+    }
+
+    /** A WhatsApp text as pieces, its web links tappable (drawn by the template, never as HTML). */
+    waParts(text) {
+        const parts = [];
+        const re = /https?:\/\/[^\s<>"]+/g;
+        let last = 0;
+        let m;
+        while ((m = re.exec(text || ""))) {
+            if (m.index > last) {
+                parts.push({ link: false, text: text.slice(last, m.index) });
+            }
+            const url = m[0].replace(/[.,;:!?)]+$/, "");
+            parts.push({ link: true, text: url });
+            last = m.index + url.length;
+        }
+        if (last < (text || "").length) {
+            parts.push({ link: false, text: text.slice(last) });
+        }
+        return parts;
     }
 
     get cardId() {

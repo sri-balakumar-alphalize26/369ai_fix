@@ -169,6 +169,26 @@
                     </ul>
                 </section>
             </t>
+            <t t-elif="state.paneTab === 'whatsapp'">
+                <!-- exactly what the customer and the technician got, links included -->
+                <section class="fxd-box">
+                    <h3><i class="fa fa-whatsapp"/> WhatsApp messages of this booking</h3>
+                    <p class="fxd-muted fxd-wa-hint">The same words the customer and the technician get. "Waiting" means WhatsApp is not connected: the message goes out once it is.</p>
+                    <ul class="fxd-wa">
+                        <t t-foreach="d.whatsapp" t-as="m" t-key="m.id">
+                            <li t-attf-class="fxd-wa-msg fxd-wa-{{ m.who }}">
+                                <div class="fxd-wa-to"><i t-attf-class="fa {{ m.who === 'technician' ? 'fa-wrench' : 'fa-user' }}"/> To the <t t-esc="m.who_label.toLowerCase()"/><small t-if="m.phone"> · <t t-esc="m.phone"/></small></div>
+                                <div class="fxd-wa-body"><t t-foreach="waParts(m.body)" t-as="p" t-key="p_index"><a t-if="p.link" t-att-href="p.text" target="_blank" rel="noopener" t-esc="p.text"/><t t-else="" t-esc="p.text"/></t></div>
+                                <div class="fxd-wa-meta">
+                                    <span t-esc="when(m.at)"/>
+                                    <span t-attf-class="fxd-wa-st fxd-wa-st-{{ m.status }}" t-esc="m.status_label"/>
+                                </div>
+                            </li>
+                        </t>
+                        <li class="fxd-muted" t-if="!d.whatsapp.length">No WhatsApp messages for this booking yet.</li>
+                    </ul>
+                </section>
+            </t>
 
             <t t-else="">
             <!-- buttons of this stage -->

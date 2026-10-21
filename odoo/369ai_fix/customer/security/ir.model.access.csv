@@ -10,3 +10,5 @@ access_online_site_manager,online.service.site manager,model_online_service_site
 access_online_message_tech,online.service.message technician,model_online_service_message,mobile_repair.group_mobile_repair_technician,1,0,0,0
 access_online_message_manager,online.service.message manager,model_online_service_message,mobile_repair.group_mobile_repair_manager,1,1,1,1
 access_online_otp_system,online.service.otp system,model_online_service_otp,base.group_system,1,0,0,0
+access_online_wa_message_recep,online.service.wa.message receptionist,model_online_service_wa_message,mobile_repair.group_mobile_repair_receptionist,1,0,0,0
+access_online_wa_message_manager,online.service.wa.message manager,model_online_service_wa_message,mobile_repair.group_mobile_repair_manager,1,0,0,1

@@ -213,3 +213,71 @@ class TestVisitResult(DoorstepCase):
         self.assertEqual(page['result_label'], 'Repair at the office')
         late = Visit.tech_page(HOST, visit.name, token, action='result_fixed')
         self.assertEqual(late['error'], 'state')
+
+    # ------------------------------------------------------------------ what's wrong -> the parts for it
+    def test_problems_filter_the_parts(self):
+        Issue = self.env['job.card.issue.type']
+        screen = Issue.create({'name': 'VR Screen broken', 'device_category_ids': [(6, 0, self.category.ids)]})
+        battery = Issue.create({'name': 'VR Battery weak', 'device_category_ids': [(6, 0, self.category.ids)]})
+        laptops = self.env['device.category'].create({'name': 'VR Laptops'})
+        hinge = Issue.create({'name': 'VR Hinge loose', 'device_category_ids': [(6, 0, laptops.ids)]})
+        self.in_office.repair_issue_type_ids = screen
+        laptop_screen = self.env['product.product'].create({
+            'name': 'VR Laptop screen', 'type': 'consu', 'sale_ok': True, 'lst_price': 50.0,
+            'repair_issue_type_ids': [(6, 0, screen.ids)], 'fit_category_ids': [(6, 0, laptops.ids)]})
+
+        order, visit, token = self._working()
+        Visit = self.env['fix.service.visit']
+        page = Visit.tech_page(HOST, visit.name, token)
+        self.assertEqual(page['result']['suggested'], [])                 # nothing ticked yet
+        # no job card and no brand yet: the brand comes first
+        refused = Visit.tech_page(HOST, visit.name, token, action='result_issue', issue_id=screen.id, on=True)
+        self.assertEqual(refused['error'], 'result')
+        page = Visit.tech_page(HOST, visit.name, token, action='result_issue', issue_id=screen.id, on=True,
+                               brand_id=self.brand.id)
+        self.assertTrue(page['ok'], page)
+        card = visit.job_card_id
+        self.assertEqual(card.issue_type_ids, screen)
+        # only this device type's problems, the ticked one first
+        issues = page['result']['issues']
+        self.assertEqual((issues[0]['id'], issues[0]['on']), (screen.id, True))
+        ids = [i['id'] for i in issues]
+        self.assertIn(battery.id, ids)
+        self.assertNotIn(hinge.id, ids)
+        # only the parts that fix it and fit a phone
+        self.assertEqual([p['product_id'] for p in page['result']['suggested']], [self.in_office.id])
+        self.assertNotIn(laptop_screen.id, [p['product_id'] for p in page['result']['suggested']])
+        page = Visit.tech_page(HOST, visit.name, token, action='result_add_part', product_id=self.in_office.id)
+        self.assertEqual(page['result']['suggested'], [])                 # added: no longer offered
+        # the last problem stays when nothing else describes the fault
+        card.issue = False
+        with self.assertRaises(UserError):
+            visit._vr_set_issue(screen, False)
+        # the customer is told what was found, with the price
+        before = len(self.sent)
+        page = Visit.tech_page(HOST, visit.name, token, action='result_quote', plan='now')
+        self.assertTrue(page['ok'], page)
+        self.assertTrue(any('We found: VR Screen broken' in t for _p, t in self.sent[before:]), self.sent[before:])
+        link = next(t for _p, t in self.sent[before:] if '/quote?' in t).split('/quote?', 1)[1].split()[0]
+        quote_token = dict(part.split('=', 1) for part in link.split('&'))['t']
+        found = self.env['online.service.order'].quote_options(HOST, order.name, quote_token)
+        self.assertEqual(found['found'], ['VR Screen broken'])
+
+    def test_part_problems_from_names(self):
+        from ..repair.part_problems import fill_part_problems, guess_part
+        problems, devices = guess_part('iPhone 13 Screen OLED')
+        self.assertIn('Screen Cracked / Broken Display', problems)
+        self.assertEqual(devices, ['Mobile Phone'])
+        self.assertEqual(guess_part('Laptop Stand Adjustable'), ([], []))     # not a part
+        self.assertEqual(guess_part('ASUS RT-AX1800S Dual Band')[0], [])        # a router, not a watch band
+        Template = self.env['product.template']
+        laptop_screen = Template.create({'name': 'VR HP 15.6 inch Laptop Screen', 'type': 'consu'})
+        kept = Template.create({'name': 'VR Phone Battery', 'type': 'consu'})
+        own = self.env['job.card.issue.type'].create({'name': 'VR Own choice'})
+        kept.repair_issue_type_ids = own
+        fill_part_problems(self.env)
+        names = laptop_screen.repair_issue_type_ids.mapped('name')
+        self.assertIn('Screen Cracked / Broken Display', names)
+        self.assertNotIn('Touch Not Working', names)                          # not a laptop's problem
+        self.assertEqual(laptop_screen.fit_category_ids.mapped('name'), ['Laptop'])
+        self.assertEqual(kept.repair_issue_type_ids, own)                    # staff's choice kept

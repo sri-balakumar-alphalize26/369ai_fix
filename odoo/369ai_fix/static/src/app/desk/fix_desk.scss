@@ -1,6 +1,7 @@
 /* The Booking Desk: one calm console in the 369 ai Fix green.
    Tablet first: big tap targets, three columns (rail | cards | the booking) that each scroll on
-   their own; under 1100px the rail becomes a pill strip and the booking slides over the list.
+   their own, kept side by side on laptops and zoomed windows (narrower under 1280px and 1040px);
+   only under 820px (tablets, phones) the rail becomes a pill strip and the booking slides over the list.
    Classes are fxd-*; no min()/max() (Odoo's SCSS compiler cannot evaluate them); the fonts are
    @font-face'd in website/editor/editor.scss. */
 
@@ -221,8 +222,35 @@
     .fxd-pin i { transform: rotate(45deg); font-size: 15px; }
     .fxd-dot { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
 
-    /* ------------------------------------------------------------- small screens: strip + slide-over */
-    @media (max-width: 1100px) {
+    /* ------------------------------------------------------------- the WhatsApp tab: chat bubbles */
+    .fxd-wa-hint { margin: 0; font-size: 13px; }
+    .fxd-wa { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .fxd-wa-msg { max-width: 92%; padding: 10px 12px 8px; border-radius: 4px 14px 14px 14px; background: #dcf8c6; border: 1px solid rgba(15, 28, 21, .08); }
+    .fxd-wa-technician { align-self: flex-end; border-radius: 14px 4px 14px 14px; background: var(--fxd-blue-soft); }
+    .fxd-wa-to { font-size: 12px; font-weight: 700; color: var(--fxd-muted); margin-bottom: 4px; }
+    .fxd-wa-to small { font-weight: 500; }
+    .fxd-wa-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.45; color: var(--fxd-ink); }
+    .fxd-wa-body a { color: var(--fxd-blue); text-decoration: underline; }
+    .fxd-wa-meta { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 6px; font-size: 11.5px; color: var(--fxd-muted); }
+    .fxd-wa-st { font-weight: 700; }
+    .fxd-wa-st-sent { color: var(--fxd-green); }
+    .fxd-wa-st-queued { color: var(--fxd-amber); }
+    .fxd-wa-st-blocked, .fxd-wa-st-error, .fxd-wa-st-skipped { color: var(--fxd-red); }
+
+    /* ------------------------------------------------------------- laptops and zoomed windows:
+       the same three columns (stages | cards | the booking), only narrower */
+    @media (max-width: 1280px) {
+        .fxd-body { grid-template-columns: 172px 300px minmax(0, 1fr); }
+    }
+    @media (max-width: 1040px) {
+        .fxd-body { grid-template-columns: 150px 260px minmax(0, 1fr); }
+        .fxd-rail { padding: 12px 8px; }
+        .fxd-rail-btn { gap: 8px; padding: 8px; font-size: 13px; }
+        .fxd-grid { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    /* ------------------------------------------------------------- tablets and phones: strip + slide-over */
+    @media (max-width: 820px) {
         .fxd-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
         .fxd-rail { flex-direction: row; gap: 6px; padding: 10px 12px; overflow-x: auto; overflow-y: hidden; border-right: 0; border-bottom: 1px solid var(--fxd-line); scrollbar-width: thin; }
         .fxd-rail-btn { width: auto; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--fxd-line); white-space: nowrap; }
