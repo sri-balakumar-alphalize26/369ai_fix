@@ -137,3 +137,74 @@ class TestVisitChecks(DoorstepCase):
         self.assertEqual(card.state, 'inspection')
         self.assertEqual(visit.state, 'in_progress')
 
+
+    def test_start_work_starts_the_diagnosis_and_tells_the_customer(self):
+        """Start work = Start diagnosis: the card goes to Inspection, the customer hears it with
+        the safety check, and My orders shows the check with the technician's photo."""
+        self.env['online.service.message'].search([('key', '=', 'inspection')]).body = \
+            "Hi {name}, our technician is inspecting your device (order {order}).{safety}\nTrack it: {track_url}"
+        visit, _token = self._arrived()
+        order = visit.order_id
+        category = self.env['device.category'].create({'name': 'FS Phones'})
+        brand = self.env['device.brand'].create({'name': 'FS Brand', 'category_id': category.id})
+        card = self.env['job.card'].create({
+            'partner_id': order._find_or_create_partner().id, 'brand_id': brand.id,
+            'device_category_id': category.id, 'assigned_to': self.employee.id, 'issue': 'Screen',
+            'delivery_type': 'door_step', 'online_order_id': order.id,
+        })
+        visit.job_card_id = card
+        self.assertEqual(card.state, 'draft')
+        self._fill(visit)
+        before = len(self.sent)
+        visit.action_start_checked()
+        self.assertEqual((visit.state, card.state), ('in_progress', 'inspection'))
+        texts = [text for _phone, text in self.sent[before:] if 'inspecting your device' in text]
+        self.assertEqual(len(texts), 1, self.sent[before:])
+        self.assertIn('Safety check done', texts[0])
+        self.assertIn('Gloves', texts[0])
+        self.assertNotIn('{safety}', texts[0])
+        safety = self._track()['safety']
+        self.assertIn('Gloves', safety['items'])
+        self.assertTrue(safety['photo'].startswith('data:image/'))
+
+    def test_without_the_checks_no_safety_line(self):
+        self.env['online.service.message'].search([('key', '=', 'inspection')]).body = \
+            "Hi {name}, inspecting (order {order}).{safety}\nTrack it: {track_url}"
+        visit, _token = self._arrived()
+        order = visit.order_id
+        before = len(self.sent)
+        order.with_context(osm_extra={})._notify_customer('inspection')
+        text = [t for _p, t in self.sent[before:]][-1]
+        self.assertNotIn('Safety check', text)
+        self.assertNotIn('{safety}', text)
+        self.assertNotIn('safety', self._track())
+
+    def test_start_diagnosis_waits_for_the_technician_at_the_door(self):
+        """Pressing Start diagnosis before the technician is there: refused, no check skipped."""
+        order, visit = self._visit()
+        category = self.env['device.category'].create({'name': 'FS Tablets'})
+        brand = self.env['device.brand'].create({'name': 'FS Tab Brand', 'category_id': category.id})
+        card = self.env['job.card'].create({
+            'partner_id': order._find_or_create_partner().id, 'brand_id': brand.id,
+            'device_category_id': category.id, 'assigned_to': self.employee.id, 'issue': 'Screen',
+            'delivery_type': 'door_step', 'online_order_id': order.id,
+        })
+        visit.job_card_id = card
+        self.assertEqual(visit.state, 'draft')
+        with self.assertRaises(UserError):
+            card.action_start_inspection()                     # visit not even assigned
+        visit.action_assign()
+        visit.action_on_the_way()
+        with self.assertRaises(UserError):
+            card.action_start_inspection()                     # on the way
+        self.assertEqual(card.state, 'draft')
+        self.assertTrue(visit._fs_arrive(skip_code=True)['ok'])
+        self.assertEqual(card.action_start_inspection()['res_id'], visit.id)   # the safety check opens
+        # no open visit (e.g. the device is at the office): starts as before
+        office = self.env['job.card'].create({
+            'partner_id': order._find_or_create_partner().id, 'brand_id': brand.id,
+            'device_category_id': category.id, 'assigned_to': self.employee.id, 'issue': 'Battery',
+            'delivery_type': 'door_step',
+        })
+        office.action_start_inspection()
+        self.assertEqual(office.state, 'inspection')

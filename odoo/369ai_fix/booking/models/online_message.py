@@ -28,7 +28,9 @@ class OnlineServiceMessage(models.Model):
         help="Placeholders: {name} customer, {order} order no., {status}, {job_card} job card no., "
              "{site} website name, {track_url} tracking link, {summary} what was booked. "
              "Booking messages also have {estimate} (repairs, parts and total), {slot_url} (link to pick "
-             "a time), {reason}, {parts}, {part}, {days}, {date}, {slot}, {device}, {next}, {within} (e.g. 3 days, 2 weeks), {part_days} and {timeline} (what happens once the customer approves the quotation).")
+             "a time), {reason}, {parts}, {part}, {days}, {date}, {slot}, {device}, {next}, {within} (e.g. 3 days, 2 weeks), {part_days} and {timeline} (what happens once the customer approves the quotation). "
+             "The \"inspecting\" message also has {safety}: a line with the technician's safety check "
+             "(gloves, mask, ...).")
 
     @api.model
     def _render(self, key, values):

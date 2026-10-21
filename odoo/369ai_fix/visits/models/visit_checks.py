@@ -13,6 +13,10 @@ import base64
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
+from odoo.tools.image import image_process
+from odoo.tools.mimetypes import guess_mimetype
+
+from .service_visit import _iso
 
 MIN_SAFETY_PHOTOS = 1
 MAX_SAFETY_PHOTOS = 3
@@ -237,6 +241,35 @@ class ServiceVisit(models.Model):
                                       photos=len(visit.device_photo_ids.filtered('image'))),
                                subtype_xmlid='mail.mt_note')
 
+    # ------------------------------------------------------------------ what the customer sees
+    def _vc_worn(self):
+        """The safety items ticked, once the checks are done (empty when started without them)."""
+        self.ensure_one()
+        visit = self.sudo()
+        if not visit.checks_done_on:
+            return []
+        return visit.safety_line_ids.filtered('worn').mapped('name')
+
+    def _vc_safety_text(self):
+        """The line in the customer's "inspecting your device" WhatsApp ('' without the checks)."""
+        worn = self._vc_worn()
+        return '\n' + _("Safety check done ✅ %s", ', '.join(worn)) if worn else ''
+
+    def _fs_track_block(self):
+        """My orders: the safety check, with the technician's photo wearing it (as on Urban Company)."""
+        out = super()._fs_track_block()
+        worn = self._vc_worn()
+        if worn and self.state in ('in_progress', 'done'):
+            photo = self.sudo().safety_photo_ids.filtered('image')[:1]
+            uri = None
+            if photo:
+                raw = base64.b64decode(photo.image)
+                small = image_process(raw, size=(320, 320))
+                uri = 'data:%s;base64,%s' % (guess_mimetype(small, default='image/jpeg'),
+                                             base64.b64encode(small).decode())
+            out['safety'] = {'items': worn, 'at': _iso(self.checks_done_on), 'photo': uri}
+        return out
+
     # ------------------------------------------------------------------ the phone page
     def _vc_view(self):
         """The checks as the technician's page draws them."""
@@ -347,13 +380,47 @@ class JobCard(models.Model):
     _inherit = 'job.card'
 
     def action_start_inspection(self):
-        """Start Diagnosis is the same moment as Start work: while the technician is at
-        the door (visit Arrived) and the checks are not done, the window opens instead."""
-        if not self.env.context.get('fix_checks_passed'):
-            for card in self:
-                visit = card.sudo().fs_visit_ids.filtered(lambda v: v.state == 'arrived')[:1]
-                if visit and visit._vc_missing():
-                    if len(self) > 1:
-                        raise UserError(_("Do the checks of %s before starting the diagnosis.", visit.name))
-                    return visit.with_env(self.env).action_open_checks()
-        return super().action_start_inspection()
+        """Start Diagnosis is the same moment as the technician's Start work, at the customer's
+        door. On a home-visit card it waits for the technician to arrive and do the safety check
+        (gloves, mask, ...) - the "Before you start" window opens when that is still to do - and
+        then starts the visit too. Cards with no open visit (e.g. the device is at the office)
+        start as before."""
+        if self.env.context.get('fix_checks_passed'):
+            return super().action_start_inspection()
+        states = dict(self.env['fix.service.visit']._fields['state'].selection)
+        plain = self.browse()
+        for card in self:
+            visit = card.sudo().fs_visit_ids.filtered(
+                lambda v: v.state not in ('done', 'cancelled')).sorted('id', reverse=True)[:1]
+            if not visit or visit.state == 'in_progress':
+                plain |= card
+                continue
+            if visit.state != 'arrived':
+                raise UserError(_(
+                    "%(card)s: the technician is not at the customer yet (visit %(visit)s is %(state)s). "
+                    "The diagnosis starts at the door: the technician marks Arrived, does the safety check "
+                    "(gloves, mask, ...) and the photos, then taps Start work.",
+                    card=card.name, visit=visit.name, state=states.get(visit.state, visit.state)))
+            if visit._vc_missing():
+                if len(self) > 1:
+                    raise UserError(_("Do the checks of %s before starting the diagnosis.", visit.name))
+                return visit.with_env(self.env).action_open_checks()
+            # checks done: Start work, which also starts this diagnosis (service_visit.action_start)
+            visit._vc_stamp()
+            visit.with_env(self.env).with_context(fix_checks_passed=True).action_start()
+        return super(JobCard, plain).action_start_inspection() if plain else True
+
+
+class OnlineServiceOrder(models.Model):
+    _inherit = 'online.service.order'
+
+    def _notify_customer(self, key):
+        """"Inspecting your device" also says the safety check was done ({safety})."""
+        if key != 'inspection':
+            return super()._notify_customer(key)
+        for order in self:
+            visit = order.sudo()._fs_current_visit()
+            extra = dict(self.env.context.get('osm_extra') or {},
+                         safety=visit._vc_safety_text() if visit else '')
+            super(OnlineServiceOrder, order.with_context(osm_extra=extra))._notify_customer(key)
+        return None

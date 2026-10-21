@@ -17,7 +17,7 @@ Track it: {track_url}</field>
     <record id="msg_inspection" model="online.service.message">
         <field name="key">inspection</field>
         <field name="sequence">3</field>
-        <field name="body">Hi {name}, our technician is inspecting your device 🔍 (order {order}).
+        <field name="body">Hi {name}, our technician is inspecting your device 🔍 (order {order}).{safety}
 Track it: {track_url}</field>
     </record>
     <record id="msg_quotation" model="online.service.message">

@@ -17,9 +17,9 @@ import logging
 from odoo import _, api, models
 from odoo.http import request
 
-_logger = logging.getLogger(__name__)
+from ...customer.models.online_otp import TEST_CODE_PARAM, test_code as _test_code
 
-TEST_CODE_PARAM = '369ai_fix.test_login_code'
+_logger = logging.getLogger(__name__)
 
 
 def _digits(number):
@@ -35,11 +35,6 @@ def _fix_site(env):
     except RuntimeError:     # no HTTP request (cron, shell)
         host = ''
     return env['online.service.site'].sudo()._for_host(host) if host else None
-
-
-def _test_code(env):
-    code = (env['ir.config_parameter'].sudo().get_param(TEST_CODE_PARAM) or '').strip()
-    return code if len(code) == 6 and code.isdigit() else ''
 
 
 class PhoneCode(models.Model):

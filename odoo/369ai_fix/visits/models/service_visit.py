@@ -384,6 +384,11 @@ class ServiceVisit(models.Model):
     def action_start(self):
         self._fs_require(('arrived',))
         self.write({'state': 'in_progress', 'started_on': fields.Datetime.now()})
+        # Start work is the start of the diagnosis: the job card goes to Inspection, so the
+        # customer hears "inspecting your device" (with the safety check) and My orders moves on
+        cards = self.sudo().job_card_id.filtered(lambda c: c.state == 'draft')
+        if cards:
+            cards.with_context(fix_checks_passed=True).action_start_inspection()
         return True
 
     def action_done(self):
@@ -575,7 +580,7 @@ class ServiceVisit(models.Model):
             })
             if not text:
                 continue
-            status, detail = site._wa_send(phone, text)
+            status, detail = site._wa_deliver(phone, text, order=order)
             visit.message_post(
                 body=_("WhatsApp to customer (%(status)s): %(result)s",
                        status=labels.get(key, key),
@@ -642,7 +647,8 @@ class ServiceVisit(models.Model):
                 'address': visit.address or '',
                 'tech_url': link,
             })
-            status, detail = site._wa_send(phone, text) if text else ('skipped', _("the message is switched off"))
+            status, detail = (site._wa_deliver(phone, text, order=order, who='technician') if text
+                              else ('skipped', _("the message is switched off")))
         if status in ('sent', 'queued'):
             visit.tech_link_sent_on = fields.Datetime.now()
         result = {'sent': _("sent"), 'queued': _("queued, the gateway will retry"),

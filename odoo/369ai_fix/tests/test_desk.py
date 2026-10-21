@@ -196,6 +196,98 @@ class TestBookingDesk(TransactionCase):
         with self.assertRaises(UserError):
             order.fix_desk_act('reject')
 
+    # ------------------------------------------------------------------ the technician chosen at approval
+    def _book_with_card(self):
+        category = self.env['device.category'].create({'name': 'Desk Phones'})
+        brand = self.env['device.brand'].create({'name': 'Desk Brand', 'category_id': category.id})
+        order = self._book(lines=[{'device': 'Mobile Phones', 'model': 'X1', 'issue': 'Screen', 'qty': 1,
+                                   'category_id': category.id, 'brand_id': brand.id}])
+        self.assertTrue(order.job_card_ids)
+        return order
+
+    def _approve(self, order, technician=None):
+        """As the Approve pop-up does: the technician (if chosen) on the job card, then confirmed."""
+        if technician:
+            order.job_card_ids.write({'assigned_to': technician.id})
+        order.action_confirm()
+
+    def _pick_time(self, order):
+        """The customer picks the first free window on the slot page."""
+        token = order._wb_new_slot_link().split('&t=', 1)[1]
+        page = self.Order.slot_options(HOST, order.name, token)
+        free = [(d['date'], w['slot_id']) for d in page.get('days', []) for w in d['windows'] if w['free'] > 0]
+        if not free:
+            day = fields.Date.add(fields.Date.context_today(order), days=2)
+            self.env['fix.booking.slot'].create({'date': day, 'start': 23.0, 'end': 23.75, 'capacity': 5})
+            page = self.Order.slot_options(HOST, order.name, token)
+            free = [(d['date'], w['slot_id']) for d in page['days'] for w in d['windows'] if w['free'] > 0]
+        result = self.Order.slot_book(HOST, order.name, token, free[0][1], free[0][0])
+        self.assertTrue(result['ok'], result)
+
+    def test_chosen_technician_gets_the_visit_with_the_time(self):
+        order = self._book_with_card()
+        self._approve(order, self.employee)
+        visit = order.visit_ids
+        self.assertEqual((visit.state, visit.technician_id), ('draft', self.employee))
+        detail = order.fix_desk_detail()
+        self.assertEqual(detail['stage'], 'approved')
+        self.assertNotIn('assign', detail['actions'])          # no time yet: no link without a time
+        before = len(self.sent)
+        self._pick_time(order)
+        self.assertEqual(visit.state, 'assigned')               # no second Assign on the desk
+        self.assertTrue(any('90000001' in phone for phone, _text in self.sent[before:]), self.sent[before:])
+        self._only(self._counts(), 'booked')                    # the "time booked" alarm still rings
+        order.action_wb_slot_seen()
+        self._only(self._counts(), 'assigned')
+
+    def test_no_technician_chosen_the_desk_asks(self):
+        order = self._book_with_card()
+        self._approve(order)
+        self._pick_time(order)
+        self.assertEqual(order.visit_ids.state, 'draft')
+        order.action_wb_slot_seen()
+        self._only(self._counts(), 'to_assign')
+        self.assertIn('assign', order.fix_desk_detail()['actions'])
+
+    def test_whatsapp_tab_shows_what_was_sent(self):
+        """The office reads exactly what the customer and the technician got, links included."""
+        order = self._book_with_card()
+        self._approve(order, self.employee)
+        self._pick_time(order)
+        rows = order.fix_desk_detail()['whatsapp']
+        self.assertTrue(rows)
+        self.assertEqual(rows, sorted(rows, key=lambda r: r['id']))           # oldest first, like a chat
+        to_customer = [r for r in rows if r['who'] == 'customer']
+        to_tech = [r for r in rows if r['who'] == 'technician']
+        self.assertTrue(to_customer and to_tech, rows)
+        self.assertTrue(all(r['body'] and r['status'] == 'sent' for r in rows))
+        self.assertIn('/tech?', to_tech[-1]['body'])                           # the technician's page link
+        # the same text that went out
+        sent_texts = [text for _phone, text in self.sent]
+        self.assertTrue(all(r['body'] in sent_texts for r in rows))
+        # not sent when WhatsApp is down: kept as waiting, still readable
+        with patch.object(type(self.env['online.service.site']), '_wa_send', lambda *a, **k: ('queued', 'not connected')):
+            order._wb_notify('slot_booked', slot=order.slot_label)
+        last = order.fix_desk_detail()['whatsapp'][-1]
+        self.assertEqual((last['status'], last['who']), ('queued', 'customer'))
+        self.assertTrue(last['body'])
+
+    def test_my_orders_code_in_test_mode(self):
+        """Test mode (this computer): the My orders code is the test code and nothing is sent;
+        off (live): a random code goes on WhatsApp and the test code is refused."""
+        self._book()
+        Otp, ICP = self.env['online.service.otp'], self.env['ir.config_parameter'].sudo()
+        ICP.set_param('369ai_fix.test_login_code', '123456')
+        before = len(self.sent)
+        self.assertTrue(Otp.otp_request(HOST, PHONE)['ok'])
+        self.assertEqual(len(self.sent), before)                     # nothing sent
+        self.assertTrue(Otp.otp_verify(HOST, PHONE, '123456')['ok'])
+        ICP.set_param('369ai_fix.test_login_code', False)
+        self.assertTrue(Otp.otp_request(HOST, PHONE)['ok'])
+        self.assertEqual(len(self.sent), before + 1)                 # the real code went out
+        self.assertNotIn('123456', self.sent[-1][1])
+        self.assertFalse(Otp.otp_verify(HOST, PHONE, '123456')['ok'])
+
     def test_reject_shows_today(self):
         order = self._book()
         self.assertEqual(order.fix_desk_act('reject')['action']['res_model'], 'wb.reject.wizard')

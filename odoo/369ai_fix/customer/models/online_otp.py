@@ -8,6 +8,7 @@ only sent to a number that has ordered on that website.
 """
 import hashlib
 import hmac
+import logging
 import secrets
 from datetime import timedelta
 
@@ -15,11 +16,21 @@ from odoo import _, api, fields, models
 
 from .online_order import digits_of, clip
 
+_logger = logging.getLogger(__name__)
+
 CODE_MINUTES = 5
 MAX_TRIES = 5
 MAX_PER_PHONE = 3
 MAX_PER_IP = 10
 WINDOW_MINUTES = 15
+# Test mode (local test databases only), shared with the booking sign-in (booking/login_code.py):
+# when this system parameter holds 6 digits, every code IS those digits and no WhatsApp is sent.
+TEST_CODE_PARAM = '369ai_fix.test_login_code'
+
+
+def test_code(env):
+    code = (env['ir.config_parameter'].sudo().get_param(TEST_CODE_PARAM) or '').strip()
+    return code if len(code) == 6 and code.isdigit() else ''
 
 
 class OnlineServiceOtp(models.Model):
@@ -63,7 +74,8 @@ class OnlineServiceOtp(models.Model):
         if not has_orders:
             # Same answer as a real send; nothing goes out.
             return {'ok': True, 'sent': False}
-        code = '%06d' % secrets.randbelow(1000000)
+        test = test_code(self.env)
+        code = test or '%06d' % secrets.randbelow(1000000)
         Otp.search([('site_id', '=', site.id), ('phone_digits', '=', digits), ('used', '=', False)]) \
             .write({'used': True})
         Otp.create({
@@ -73,6 +85,10 @@ class OnlineServiceOtp(models.Model):
             'expires_at': fields.Datetime.now() + timedelta(minutes=CODE_MINUTES),
             'ip': ip,
         })
+        if test:
+            _logger.warning("369ai fix: TEST MODE - My orders code for %s not sent (%s is set)",
+                            digits, TEST_CODE_PARAM)
+            return {'ok': True, 'sent': True, 'error': ''}
         text = _("Your %(site)s code is %(code)s\nIt is valid for %(minutes)s minutes. "
                  "Do not share it with anyone.",
                  site=site.name, code=code, minutes=CODE_MINUTES)
