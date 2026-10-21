@@ -6,4 +6,12 @@
         <field name="tag">369ai_fix_desk</field>
         <field name="path">fix-desk</field>
     </record>
+
+    <!-- My Visits: the technician's own screen, the same steps as their web page from
+         WhatsApp, with their Odoo login (static/src/app/tech, app/models/fix_tech.py). -->
+    <record id="action_fix_tech" model="ir.actions.client">
+        <field name="name">My Visits</field>
+        <field name="tag">369ai_fix_tech</field>
+        <field name="path">my-visits</field>
+    </record>
 </odoo>

@@ -1,0 +1,62 @@
+/* My Visits (static/src/app/tech): the Booking Desk's look (fix_desk.scss, its fxd-* classes
+   and colours) in two columns, my visits | the visit. Under 820px (phones, tablets) the visit
+   slides over the list, as on the desk. No min()/max(): Odoo's SCSS compiler cannot do them. */
+
+.o_fxd {
+    .fxt-body { position: relative; flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr); overflow: hidden; }
+
+    /* the list */
+    .fxt-card { width: 100%; text-align: left; font: inherit; color: inherit; }
+    .fxt-state { font-size: 11.5px; font-weight: 700; color: var(--fxd-muted); text-transform: uppercase; letter-spacing: .05em; }
+    .fxt-state-assigned { --fxd-stage: var(--fxd-blue); }
+    .fxt-state-on_the_way, .fxt-state-arrived { --fxd-stage: var(--fxd-amber); }
+    .fxt-state-in_progress { --fxd-stage: var(--fxd-green); }
+    .fxt-state-done { --fxd-stage: #c9d2cc; opacity: .8; }
+    .fxt-done-head { margin-top: 12px; }
+
+    /* the visit */
+    .fxt-detail { max-width: 780px; }
+    .fxt-pill-assigned, .fxt-pill-on_the_way, .fxt-pill-arrived { background: var(--fxd-blue-soft); color: var(--fxd-blue); }
+    .fxt-pill-cancelled { background: var(--fxd-red-soft); color: var(--fxd-red); }
+    .fxt-cust { font-size: 17px; font-weight: 800; }
+    .fxt-sum, .fxt-addr { color: var(--fxd-muted); font-size: 14px; }
+    .fxt-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .fxd-box h4 { margin: 10px 0 2px; font-size: 14px; font-weight: 800; color: var(--fxd-ink); }
+    .fxd-box h4 small { font-weight: 500; color: var(--fxd-muted); }
+    .fxt-hint { margin: 0; font-size: 13px; }
+
+    .fxt-tick { display: flex; align-items: center; gap: 12px; min-height: 46px; margin: 0; padding: 0 12px; border: 1px solid var(--fxd-line); border-radius: 12px; font-weight: 600; cursor: pointer; }
+    .fxt-tick input { width: 22px; height: 22px; flex: none; accent-color: var(--fxd-green); }
+    .fxt-tick small { font-weight: 500; color: var(--fxd-muted); }
+    .fxt-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; }
+    .fxt-line > span { min-width: 0; }
+    .fxt-ok { color: var(--fxd-green); font-weight: 700; }
+    .fxt-no { color: var(--fxd-red); font-weight: 700; }
+    .fxt-where { display: block; font-weight: 600; }
+    .fxt-where-in_stock { color: var(--fxd-green); }
+    .fxt-where-other_branch { color: var(--fxd-amber); }
+    .fxt-where-order { color: var(--fxd-red); }
+    .fxt-big { width: 100%; min-height: 54px; font-size: 16px; }
+
+    .fxt-code { display: grid; gap: 6px; font-weight: 600; }
+    .fxt-code input { height: 54px; font-size: 24px; letter-spacing: .5em; text-align: center; }
+
+    /* what did you find? */
+    .fxt-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .fxt-chip { min-height: 40px; padding: 6px 14px; border: 1px solid var(--fxd-line); border-radius: 999px; background: var(--fxd-card); color: var(--fxd-ink); font-size: 13.5px; font-weight: 600; text-align: left; cursor: pointer; }
+    .fxt-chip:hover { border-color: var(--fxd-green); }
+    .fxt-chip-on { background: var(--fxd-green); border-color: var(--fxd-green); color: #fff; }
+    .fxt-find, .fxt-note { width: 100%; }
+    .fxt-search { display: flex; gap: 8px; margin: 4px 0; }
+    .fxt-search input { flex: 1; min-width: 0; }
+    .fxt-field { display: grid; gap: 6px; margin: 0; font-weight: 600; }
+    .fxt-span { display: flex; gap: 8px; }
+    .fxt-span input { flex: 1; min-width: 0; }
+    .fxt-plan { margin: 0; font-weight: 700; }
+    .fxt-end { margin: 0; font-size: 15px; font-weight: 700; }
+
+    @media (max-width: 820px) {
+        .fxt-body { grid-template-columns: minmax(0, 1fr); }
+        .fxt-body.fxt-detail-open .fxd-pane { transform: none; }
+    }
+}

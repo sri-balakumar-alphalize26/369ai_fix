@@ -6,3 +6,4 @@ from . import test_visit_checks
 from . import test_visit_result
 from . import test_screen
 from . import test_screen_ui
+from . import test_tech

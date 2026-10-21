@@ -12,13 +12,24 @@
               name="Booking Desk"
               parent="menu_fix_root"
               action="action_fix_desk"
+              groups="mobile_repair.group_mobile_repair_receptionist"
               sequence="1"/>
 
     <menuitem id="menu_fix_dashboard"
               name="Dashboard"
               parent="menu_fix_root"
               action="action_fix_dashboard"
+              groups="mobile_repair.group_mobile_repair_receptionist"
               sequence="2"/>
+
+    <!-- My Visits: what a technician-only user sees of this app (the office menus here are
+         for Receptionist and up). Last for the office, so the app still opens on the desk. -->
+    <menuitem id="menu_fix_tech"
+              name="My Visits"
+              parent="menu_fix_root"
+              action="action_fix_tech"
+              groups="mobile_repair.group_mobile_repair_technician"
+              sequence="95"/>
 
     <!-- Old Bookings and Booking Desk Settings come from danatfix_repair_booking,
          which hangs its menus here. -->
@@ -29,14 +40,16 @@
          Bookings. Since 19.0.2.9.0 only the full list and the parts list: every booking is
          Doorstep (one repair flow), and new / time booked / rejected are columns on the
          Booking Desk. Their actions stay for the Dashboard tiles. -->
-    <menuitem id="menu_fix_bookings" name="Bookings" parent="menu_fix_root" sequence="10"/>
+    <menuitem id="menu_fix_bookings" name="Bookings" parent="menu_fix_root" sequence="10"
+              groups="mobile_repair.group_mobile_repair_receptionist"/>
     <menuitem id="menu_fix_all_orders" name="All Bookings" parent="menu_fix_bookings"
               action="action_screen_bookings" sequence="3"/>
     <menuitem id="menu_fix_parts" name="Waiting for Parts" parent="menu_fix_bookings"
               action="action_screen_bookings_parts" sequence="12"/>
 
     <!-- Service -->
-    <menuitem id="menu_fix_service" name="Service" parent="menu_fix_root" sequence="20"/>
+    <menuitem id="menu_fix_service" name="Service" parent="menu_fix_root" sequence="20"
+              groups="mobile_repair.group_mobile_repair_receptionist"/>
     <menuitem id="menu_fix_job_cards" name="Job Cards" parent="menu_fix_service"
               action="action_screen_job_cards" sequence="1"/>
     <menuitem id="menu_fix_visits" name="Doorstep Visits" parent="menu_fix_service"
@@ -45,7 +58,8 @@
               action="action_screen_spare_requests" sequence="3"/>
 
     <!-- Catalogue -->
-    <menuitem id="menu_fix_catalogue" name="Catalogue" parent="menu_fix_root" sequence="30"/>
+    <menuitem id="menu_fix_catalogue" name="Catalogue" parent="menu_fix_root" sequence="30"
+              groups="mobile_repair.group_mobile_repair_receptionist"/>
     <menuitem id="menu_fix_services" name="Repair Services" parent="menu_fix_catalogue"
               action="action_screen_services" sequence="1"/>
     <menuitem id="menu_fix_spare_parts" name="Spare Parts" parent="menu_fix_catalogue"

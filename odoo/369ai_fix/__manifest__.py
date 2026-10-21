@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.17.0',
+    'version': '19.0.2.18.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """
@@ -124,6 +124,10 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
             '369ai_fix/static/src/app/desk/fix_desk.scss',
             '369ai_fix/static/src/app/desk/fix_desk.js',
             '369ai_fix/static/src/app/desk/fix_desk.xml',
+            # My Visits: the technician's own screen (the desk's look, the web page's steps)
+            '369ai_fix/static/src/app/tech/fix_tech.scss',
+            '369ai_fix/static/src/app/tech/fix_tech.js',
+            '369ai_fix/static/src/app/tech/fix_tech.xml',
             '369ai_fix/static/src/customer/online_alarm_service.js',
             '369ai_fix/static/src/customer/dashboard_online.xml',
             '369ai_fix/static/src/booking/dashboard_bookings.xml',
