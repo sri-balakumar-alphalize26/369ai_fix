@@ -1,8 +1,8 @@
 ---
 // Hero actions: "What are you looking for?" search, Find my location (IP address,
 // optional exact GPS → nearest covered area + branch, computed on the device), and
-// Track your repair (sends the reference to Danat on WhatsApp — there is no
-// booking system yet, so no status is shown that we cannot know).
+// Track your repair: by phone, the live My orders page (/track, code on WhatsApp); by booking
+// ID, a WhatsApp message to the team (an ID alone doesn't prove whose booking it is).
 import { staticContent, coverLine, contactOf, type Coverage, type Contact } from '../lib/content';
 import { staticCatalog, searchIndex, type WzCategory } from '../lib/catalog';
 import { DIAL } from '../lib/phone';
@@ -136,7 +136,7 @@ const waIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <form class="tr-form" data-tr-form novalidate>
         <div class="tr-field" data-tr-fid>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10h6M7 14h4"/></svg>
-          <input name="id" placeholder="e.g. DN-10234" autocomplete="off" aria-label="Booking ID" />
+          <input name="id" placeholder="e.g. W-MH3K2P7Q" autocomplete="off" aria-label="Booking ID" />
         </div>
         <div class="tr-field" data-tr-fphone hidden>
           <label class="tr-cc" title="Country code"><span data-tr-code>+968</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg><select name="cc" data-tr-cc aria-label="Country code">{DIAL.map((d) => <option value={d.cc} data-code={d.code} data-eg={d.eg} data-len={d.len} selected={d.cc === "om"}>{d.name} ({d.code})</option>)}</select></label>

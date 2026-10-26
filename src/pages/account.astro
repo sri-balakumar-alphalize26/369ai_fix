@@ -1,0 +1,648 @@
+---
+// My account (as on 369 Mart, in this site's look): sign in once with the mobile number and a
+// WhatsApp code, then the side menu - My orders (live), My profile, Addresses, Help, Sign out.
+// The same 369 Mart account and Odoo session as the booking wizard (src/lib/account.ts keeps
+// it signed in); everything comes from /api/account/* and /api/my-orders.
+import Base from '../layouts/Base.astro';
+import OrderCards from '../components/OrderCards.astro';
+import { DIAL } from '../lib/phone';
+import { getContent, contactOf } from '../lib/content';
+import { hostOf } from '../lib/odoo';
+// Per request, so the header, footer and chatbot show what is in Odoo now.
+export const prerender = false;
+
+const content = await getContent(hostOf(Astro.request));
+const contact = contactOf(content.site);
+const waHelp = `https://wa.me/${contact.wa}?text=${encodeURIComponent('Hi Danat Fix, I need help with my booking.')}`;
+const MENU = [
+  ['orders', 'My orders', '<path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z"/><path d="M3.5 7.5 12 12l8.5-4.5M12 12v9"/>'],
+  ['profile', 'My profile', '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'],
+  ['address', 'Addresses', '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'],
+  ['rewards', 'My rewards', '<rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-1.6-3.2-5.5-3.4-5.5-1 0 1.4 2.4 1 5.5 1zM12 8c1.6-3.2 5.5-3.4 5.5-1 0 1.4-2.4 1-5.5 1z"/>'],
+  ['help', 'Help', '<circle cx="12" cy="12" r="9.5"/><path d="M9.5 9.2a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.3-2.5 3.9M12 17v.01"/>'],
+] as const;
+---
+
+<Base title="My account" description="Your bookings, profile and saved addresses." content={content}>
+  <section class="section ac-sec">
+    <div class="wrap ac-page" data-ac>
+      <aside class="ac-side">
+        <div class="ac-me">
+          <span class="ac-av" data-ac-av aria-hidden="true">?</span>
+          <div><b data-ac-name>Checking your account…</b><small data-ac-phone></small>
+            <a class="ac-prize-chip" href="#rewards" data-ac-prizechip hidden>🎁 1 prize to use</a></div>
+        </div>
+        <nav class="ac-nav" aria-label="Account" data-ac-nav>
+          {MENU.map(([k, label, ic]) => (
+            <button type="button" data-k={k}><svg viewBox="0 0 24 24" aria-hidden="true" set:html={ic} />{label}</button>
+          ))}
+          <hr />
+          <button type="button" class="ac-out" data-ac-signout><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/></svg>Sign out</button>
+        </nav>
+      </aside>
+
+      <div class="ac-main">
+        <h1 class="ac-title" data-ac-title>My account</h1>
+
+        <div class="ac-card" data-ac-panel="loading"><p class="ac-muted">Checking your account…</p></div>
+
+        <!-- signed out: the mobile number and a 6-digit WhatsApp code, as in the booking wizard -->
+        <div class="ac-card ac-signin" data-ac-panel="signin" hidden>
+          <p class="ac-muted">Sign in with your mobile. We send a 6-digit code on WhatsApp — and you stay signed in on this device.</p>
+          <div class="ac-f">
+            <label class="ac-fl"><span>Mobile number</span>
+              <span class="ac-ph">
+                <select data-si-cc aria-label="Country code">{DIAL.map((d) => <option value={d.cc} selected={d.cc === 'om'}>{d.code} {d.name}</option>)}</select>
+                <input data-si-phone inputmode="tel" maxlength="16" autocomplete="tel-national" placeholder="9123 4567" aria-label="Mobile number" />
+              </span>
+            </label>
+            <label class="ac-fl" data-si-new hidden><span>Your name</span><input data-si-name autocomplete="name" maxlength="60" placeholder="Full name" /></label>
+            <label class="ac-fl" data-si-new hidden><span>Email <small>(optional)</small></span><input data-si-email type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" /></label>
+            <label class="ac-fl" data-si-codebox hidden><span>Code from WhatsApp</span><input data-si-code inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6 digits" /></label>
+            <!-- an existing account whose number isn't proven yet confirms its password once (369 Mart's rule) -->
+            <label class="ac-fl" data-si-passbox hidden><span>Your password <small>(once, to confirm it's your account)</small></span><input data-si-pass type="password" autocomplete="current-password" maxlength="128" placeholder="Password" /></label>
+          </div>
+          <p class="ac-msg" data-si-msg role="status" hidden></p>
+          <div class="ac-acts">
+            <button type="button" class="ac-btn" data-si-send>Send code on WhatsApp</button>
+            <button type="button" class="ac-btn" data-si-verify hidden>Sign in</button>
+          </div>
+        </div>
+
+        <div data-ac-panel="orders" hidden>
+          <p class="ac-live"><span class="tk-live"><i></i>live</span> Updates by itself every 15 seconds.</p>
+          <div data-tk-list data-wa={contact.wa} data-tel={contact.tel}></div>
+        </div>
+
+        <div class="ac-card" data-ac-panel="profile" hidden>
+          <div class="ac-head"><div><h3>Personal details</h3><p class="ac-muted">Used for your bookings and WhatsApp updates.</p></div>
+            <button type="button" class="ac-ghost" data-pf-edit>Edit</button></div>
+          <div class="ac-f">
+            <label class="ac-fl"><span>Full name</span><input data-pf="name" autocomplete="name" maxlength="80" readonly /></label>
+            <label class="ac-fl"><span>Email</span><input data-pf="email" type="email" autocomplete="email" maxlength="120" placeholder="Not added" readonly /></label>
+            <label class="ac-fl"><span>Mobile number <small>(your sign-in; to change it, chat with us)</small></span><input data-pf="phone" readonly tabindex="-1" /></label>
+          </div>
+          <p class="ac-msg" data-pf-msg role="status" hidden></p>
+          <div class="ac-acts" data-pf-acts hidden>
+            <button type="button" class="ac-ghost" data-pf-cancel>Cancel</button>
+            <button type="button" class="ac-btn" data-pf-save>Save</button>
+          </div>
+        </div>
+
+        <div data-ac-panel="address" hidden>
+          <div class="ac-addrs" data-ad-list></div>
+          <button type="button" class="ac-card ac-add" data-ad-new>+ Add a new address</button>
+          <div class="ac-card" data-ad-form hidden>
+            <h3 data-ad-formtitle>New address</h3>
+            <div class="ac-f ac-f2">
+              <label class="ac-fl"><span>Label</span><select data-af="label"><option>Home</option><option>Work</option><option>Other</option></select></label>
+              <label class="ac-fl"><span>Contact name</span><input data-af="name" maxlength="60" /></label>
+              <label class="ac-fl"><span>Mobile</span><input data-af="phone" inputmode="tel" maxlength="20" /></label>
+              <label class="ac-fl"><span>Alternative number <small>(optional)</small></span><input data-af="alt" inputmode="tel" maxlength="20" /></label>
+              <label class="ac-fl ac-wide"><span>House / building, street</span><input data-af="line" maxlength="160" placeholder="e.g. Villa 12, Way 3421, flat 2" /></label>
+              <label class="ac-fl"><span>Postal code (PC) <small>— fills the city for you</small></span><input data-af="pin" inputmode="numeric" maxlength="6" placeholder="e.g. 133" /></label>
+              <p class="ac-pin" data-af-pinhint hidden></p>
+              <label class="ac-fl"><span>Area</span><input data-af="area" maxlength="80" placeholder="e.g. Al Khuwair" /></label>
+              <label class="ac-fl"><span>Wilayat / City</span><input data-af="town" maxlength="60" placeholder="e.g. Bawshar" /></label>
+              <label class="ac-fl" data-af-statebox hidden><span data-af-statelabel>Governorate</span><select data-af="state_id"><option value="">Choose…</option></select></label>
+              <label class="ac-fl"><span>Landmark <small>(optional)</small></span><input data-af="landmark" maxlength="80" placeholder="e.g. near Lulu" /></label>
+            </div>
+            <p class="ac-msg" data-ad-msg role="alert" hidden></p>
+            <div class="ac-acts">
+              <button type="button" class="ac-ghost" data-ad-cancel>Cancel</button>
+              <button type="button" class="ac-btn" data-ad-save>Save address</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- My rewards: the Spin & Win prize (Odoo, /api/spin), its code and whether it was used -->
+        <div data-ac-panel="rewards" hidden>
+          <div data-rw-box data-wa={waHelp}><p class="ac-muted ac-card">Checking your rewards…</p></div>
+        </div>
+
+        <div data-ac-panel="help" hidden>
+          <div class="ac-tiles">
+            <a class="ac-card ac-tile" href={waHelp} target="_blank" rel="noopener"><b>Chat on WhatsApp</b><span>Questions about a booking, the price or the visit.</span></a>
+            <a class="ac-card ac-tile" href={`tel:${contact.tel}`}><b>Call us</b><span>{contact.display}</span></a>
+            <a class="ac-card ac-tile" href="/page/faq"><b>FAQ</b><span>Prices, warranty, visits and payments.</span></a>
+            <a class="ac-card ac-tile" href="/page/areas"><b>Areas we cover</b><span>Where our technicians come to you.</span></a>
+            <a class="ac-card ac-tile" href="/services"><b>Book a repair</b><span>Pick your device and the repair.</span></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="ac-modal-wrap" data-ac-modal hidden>
+        <div class="ac-modal" role="dialog" aria-modal="true" aria-labelledby="ac-so">
+          <h3 id="ac-so">Sign out of Danat Fix?</h3>
+          <p class="ac-muted">You'll need a new WhatsApp code to see your bookings again.</p>
+          <div class="ac-acts">
+            <button type="button" class="ac-ghost" data-so-stay>Stay signed in</button>
+            <button type="button" class="ac-btn ac-danger" data-so-go>Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <OrderCards />
+</Base>
+
+<script>
+  import { bindPhone, checkPhone } from '../lib/phone';
+  import { esc, ordersView } from '../lib/orderCards';
+
+  const root = document.querySelector<HTMLElement>('[data-ac]')!;
+  const $ = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+  const $$ = (s: string) => [...root.querySelectorAll<HTMLElement>(s)];
+  const say = (el: HTMLElement, m: string, bad = true) => { el.textContent = m; el.hidden = !m; el.classList.toggle('bad', bad); };
+  const api = async (url: string, body?: unknown) => {
+    try {
+      const r = await fetch(url, body === undefined ? { credentials: 'same-origin', cache: 'no-store' } : {
+        method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      let j: any = {};
+      try { j = await r.json(); } catch {}
+      return { status: r.status, ...j };
+    } catch {
+      return { status: 0, ok: false, error: 'Network problem. Please try again.' };
+    }
+  };
+  const TITLES: Record<string, string> = { orders: 'My orders', profile: 'My profile', address: 'Addresses', rewards: 'My rewards', help: 'Help', signin: 'Sign in', loading: 'My account' };
+  let who: any = null;
+  let section = 'orders';
+
+  // ---------- who is signed in ----------
+  function paintMe() {
+    const name = (who?.name || '').trim();
+    $('[data-ac-av]').textContent = who ? (name ? name[0].toUpperCase() : '+') : '?';
+    $('[data-ac-name]').textContent = who ? (name || 'Your account') : 'Not signed in';
+    $('[data-ac-phone]').textContent = who?.phone ? who.phone : who ? '' : 'Sign in to see your bookings';
+    root.classList.toggle('out', !who);
+    window.dispatchEvent(new CustomEvent('danat-account', { detail: who }));   // the header's account button
+  }
+  function show(k: string) {
+    if (!who && k !== 'help') k = 'signin';
+    $$('[data-ac-panel]').forEach((p) => (p.hidden = p.dataset.acPanel !== k));
+    $$('[data-ac-nav] [data-k]').forEach((b) => b.setAttribute('aria-current', String(b.dataset.k === k)));
+    $('[data-ac-title]').textContent = TITLES[k] || 'My account';
+    if (k === 'orders') loadOrders(true); else stopOrders();
+    if (k === 'profile') fillProfile();
+    if (k === 'address') loadAddresses();
+    if (k === 'rewards') loadRewards();
+  }
+  const fromHash = () => { const h = location.hash.slice(1); return TITLES[h] && h !== 'signin' && h !== 'loading' ? h : 'orders'; };
+  $('[data-ac-nav]').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-k]');
+    if (!b) return;
+    section = b.dataset.k!;
+    history.replaceState(null, '', '#' + section);
+    show(section);
+    b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });   // the chip row on phones
+  });
+  window.addEventListener('hashchange', () => { section = fromHash(); show(section); });
+
+  async function start() {
+    section = fromHash();
+    const r = await api('/api/account/me');
+    who = r.ok ? r : null;
+    paintMe();
+    show(section);
+    if (who && section !== 'rewards') loadRewards();   // the side card's prize chip
+  }
+
+  // ---------- sign in: mobile + WhatsApp code ----------
+  const siCc = $<HTMLSelectElement>('[data-si-cc]'), siPhone = $<HTMLInputElement>('[data-si-phone]');
+  const siName = $<HTMLInputElement>('[data-si-name]'), siEmail = $<HTMLInputElement>('[data-si-email]');
+  const siCode = $<HTMLInputElement>('[data-si-code]'), siPass = $<HTMLInputElement>('[data-si-pass]');
+  const siMsg = $('[data-si-msg]');
+  let purpose: 'signin' | 'signup' = 'signin';
+  bindPhone(siPhone, () => siCc.value, (m) => say(siMsg, m));
+  $('[data-si-send]').addEventListener('click', async () => {
+    const ph = checkPhone(siCc.value, siPhone.value);
+    if (!ph.ok) { say(siMsg, siPhone.value.trim() ? ph.msg : 'Please enter your mobile number.'); siPhone.focus(); return; }
+    if (purpose === 'signup' && siName.value.trim().length < 2) { say(siMsg, 'Please enter your name.'); siName.focus(); return; }
+    const btn = $<HTMLButtonElement>('[data-si-send]');
+    btn.disabled = true;
+    const r = await api('/api/account/phone-start', { phone: siPhone.value, country: siCc.value.toUpperCase(), purpose, name: siName.value.trim() });
+    btn.disabled = false;
+    if (r.signup) {          // no account with this number yet: sign up with a name
+      purpose = 'signup';
+      $$('[data-si-new]').forEach((x) => (x.hidden = false));
+      say(siMsg, "New here? Add your name, then we'll send the code.", false);
+      siName.focus(); return;
+    }
+    if (r.signin) purpose = 'signin';
+    if (!r.ok) { say(siMsg, r.error || "We couldn't send the code. Try again in a moment."); return; }
+    $('[data-si-codebox]').hidden = false;
+    $('[data-si-verify]').hidden = false;
+    btn.textContent = 'Send again';
+    say(siMsg, 'Code sent on WhatsApp — it expires in 10 minutes.', false);
+    siCode.focus();
+  });
+  async function verify() {
+    const code = siCode.value.replace(/\D/g, '');
+    if (code.length !== 6) { say(siMsg, 'Enter the 6-digit code from WhatsApp.'); siCode.focus(); return; }
+    const passBox = $('[data-si-passbox]');
+    const r = await api('/api/account/phone-verify', { phone: siPhone.value, country: siCc.value.toUpperCase(), code,
+      purpose, name: siName.value.trim(), email: siEmail.value.trim(), ...(passBox.hidden ? {} : { password: siPass.value }) });
+    if (r.needPassword) {   // the code was right; this account must confirm its password once
+      passBox.hidden = false; say(siMsg, r.error || 'Enter your password once to confirm this is your account.'); siPass.focus(); return;
+    }
+    if (!r.ok) { say(siMsg, r.error || 'That code did not work.'); return; }
+    passBox.hidden = true; siPass.value = ''; siCode.value = '';
+    say(siMsg, '', false);
+    const me = await api('/api/account/me');
+    who = me.ok ? me : r;
+    paintMe();
+    // back to where the customer came from (only a page of this site)
+    const next = new URLSearchParams(location.search).get('next') || '';
+    if (next.startsWith('/') && !next.startsWith('//')) { location.href = next; return; }
+    show(section);
+  }
+  $('[data-si-verify]').addEventListener('click', verify);
+  siCode.addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
+
+  // ---------- my orders (live, as on /track) ----------
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const stopOrders = () => { if (timer) { clearInterval(timer); timer = null; } };
+  // the list, and an order's own page at #orders/<ref>
+  const orderView = ordersView($('[data-tk-list]'), { prefix: 'orders/', back: 'orders' });
+  async function loadOrders(first = false) {
+    const list = $('[data-tk-list]');
+    if (first && !list.innerHTML) list.innerHTML = '<p class="ac-muted">Loading your bookings…</p>';
+    const r = await api('/api/my-orders');
+    if (section !== 'orders') return;
+    if (r.status === 401) { who = null; paintMe(); show('signin'); return; }
+    if (!r.ok) { if (first) list.innerHTML = `<div class="tk-empty">${esc(r.error || 'Order tracking is not available right now.')}</div>`; }
+    else orderView.set(r.orders || []);
+    if (!timer) timer = setInterval(() => { if (!document.hidden && section === 'orders') loadOrders(); }, 15000);
+  }
+  // a time just picked (components/SlotPicker.astro): the order shows it at once
+  window.addEventListener('danat-orders-refresh', () => { if (section === 'orders') loadOrders(); });
+
+  // ---------- my profile ----------
+  const pf = (k: string) => $<HTMLInputElement>(`[data-pf="${k}"]`);
+  const pfMsg = $('[data-pf-msg]');
+  function fillProfile() {
+    pf('name').value = who?.name || ''; pf('email').value = who?.email || ''; pf('phone').value = who?.phone || '';
+    editProfile(false);
+  }
+  function editProfile(on: boolean) {
+    pf('name').readOnly = !on; pf('email').readOnly = !on;
+    root.classList.toggle('pf-on', on);
+    $('[data-pf-acts]').hidden = !on; $('[data-pf-edit]').hidden = on;
+    if (!on) say(pfMsg, '', false); else pf('name').focus();
+  }
+  $('[data-pf-edit]').addEventListener('click', () => editProfile(true));
+  $('[data-pf-cancel]').addEventListener('click', fillProfile);
+  $('[data-pf-save]').addEventListener('click', async () => {
+    const name = pf('name').value.trim(), email = pf('email').value.trim();
+    if (name.length < 2) { say(pfMsg, 'Please enter your name.'); pf('name').focus(); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { say(pfMsg, 'That email does not look right.'); pf('email').focus(); return; }
+    const btn = $<HTMLButtonElement>('[data-pf-save]'); btn.disabled = true;
+    const r = await api('/api/account/profile', { name, email });
+    btn.disabled = false;
+    if (r.status === 401) { who = null; paintMe(); show('signin'); return; }
+    if (!r.ok) { say(pfMsg, r.error || "We couldn't save it. Please try again."); if (r.field === 'name' || r.field === 'email') pf(r.field).focus(); return; }
+    who = { ...who, ...r };
+    paintMe(); fillProfile();
+    say(pfMsg, 'Saved ✓', false);
+  });
+
+  // ---------- addresses ----------
+  let addrs: any[] = [];
+  let editing = 0;      // the address being edited, 0 = a new one
+  const adMsg = $('[data-ad-msg]');
+  const af = (k: string) => $<HTMLInputElement>(`[data-af="${k}"]`);
+  async function loadAddresses() {
+    const r = await api('/api/account/addresses');
+    if (r.status === 401) { who = null; paintMe(); show('signin'); return; }
+    addrs = r.addresses || [];
+    drawAddresses();
+  }
+  function drawAddresses() {
+    window.dispatchEvent(new CustomEvent('danat-addresses'));   // the header's location chip shows the default
+    $('[data-ad-list]').innerHTML = addrs.length ? addrs.map((a) => `
+      <article class="ac-card ac-addr${a.default ? ' on' : ''}">
+        <b>${esc(a.label || 'Address')}${a.default ? ' <em>Default</em>' : ''}</b>
+        <span>${esc([a.line, a.area, a.town, a.pin && 'PC ' + a.pin].filter(Boolean).join(', '))}</span>
+        <small>${esc([a.name, a.phone, a.alt && 'alt. ' + a.alt].filter(Boolean).join(' · '))}</small>
+        <div class="ac-addr-acts">
+          <button type="button" class="ac-link" data-ad-edit="${a.id}">Edit</button>
+          ${a.default ? '' : `<button type="button" class="ac-link" data-ad-default="${a.id}">Set as default</button>`}
+          <button type="button" class="ac-link ac-red" data-ad-remove="${a.id}">Remove</button>
+        </div>
+      </article>`).join('')
+      : '<p class="ac-muted ac-card">No saved addresses yet. Add one and the booking fills it in for you.</p>';
+  }
+  $('[data-ad-list]').addEventListener('click', async (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (!t) return;
+    if (t.dataset.adEdit) return openForm(addrs.find((a) => a.id === Number(t.dataset.adEdit)));
+    if (t.dataset.adDefault) {
+      t.setAttribute('disabled', '');
+      const r = await api('/api/account/address-default', { id: Number(t.dataset.adDefault) });
+      if (r.ok && Array.isArray(r.addresses)) { addrs = r.addresses; drawAddresses(); } else loadAddresses();
+      return;
+    }
+    if (t.dataset.adRemove) {
+      const a = addrs.find((x) => x.id === Number(t.dataset.adRemove));
+      if (!confirm(`Remove the address "${a?.label || 'Address'}"?`)) return;
+      t.setAttribute('disabled', '');
+      await api('/api/account/address-remove', { id: Number(t.dataset.adRemove) });
+      loadAddresses();
+    }
+  });
+
+  // Oman (3-digit postal code) or India (6-digit pincode), as on 369 Mart: the code's length
+  // picks the country, and with it the governorates / states.
+  let afCountry: 'OM' | 'IN' = 'OM';
+  const statesBy: Record<string, { id: number; name: string }[]> = {};
+  async function useCountry(cc: 'OM' | 'IN') {
+    let list = statesBy[cc];
+    if (!list) {
+      const f = await api(`/api/account/address-form?country=${cc}`);
+      list = Array.isArray(f.states) ? f.states : [];
+      if (f.ok) statesBy[cc] = list;
+    }
+    afCountry = cc;
+    const sel = af('state_id') as unknown as HTMLSelectElement;
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">Choose…</option>' + list.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    if (list.some((s) => String(s.id) === keep)) sel.value = keep;
+    $('[data-af-statelabel]').textContent = cc === 'IN' ? 'State' : 'Governorate';
+    $('[data-af-statebox]').hidden = !list.length;
+    return list;
+  }
+  async function openForm(a?: any) {
+    editing = a?.id || 0;
+    $('[data-ad-formtitle]').textContent = a ? 'Edit address' : 'New address';
+    (af('label') as unknown as HTMLSelectElement).value = ['Home', 'Work', 'Other'].includes(a?.label) ? a.label : 'Home';
+    for (const k of ['name', 'phone', 'alt', 'line', 'pin', 'area', 'town', 'landmark']) af(k).value = a?.[k] || '';
+    if (!a) { af('name').value = who?.name || ''; af('phone').value = who?.phone || ''; }
+    await useCountry(a?.country_code === 'IN' || String(a?.pin || '').length === 6 ? 'IN' : 'OM');
+    (af('state_id') as unknown as HTMLSelectElement).value = a?.state_id ? String(a.state_id) : '';
+    say(adMsg, '', false);
+    $('[data-af-pinhint]').hidden = true;
+    $('[data-ad-form]').hidden = false; $('[data-ad-new]').hidden = true;
+    af('line').focus();
+  }
+  const closeForm = () => { $('[data-ad-form]').hidden = true; $('[data-ad-new]').hidden = false; editing = 0; };
+  $('[data-ad-new]').addEventListener('click', () => openForm());
+  $('[data-ad-cancel]').addEventListener('click', closeForm);
+  // postal code -> wilayat / city, governorate and area (369 Mart's lookup in Odoo)
+  let pinT = 0;
+  af('pin').addEventListener('input', () => {
+    clearTimeout(pinT);
+    const pc = af('pin').value.replace(/\D/g, '');
+    const hint = $('[data-af-pinhint]');
+    if (pc.length !== 3 && pc.length !== 6) { hint.hidden = true; return; }
+    hint.hidden = false; hint.textContent = 'Finding your area…';
+    pinT = window.setTimeout(async () => {
+      const r = await api(`/api/account/pincode?pin=${pc}`);
+      if (af('pin').value.replace(/\D/g, '') !== pc) return;
+      if (!r?.ok) { hint.textContent = "We couldn't find this postal code — please type the city."; return; }
+      await useCountry(pc.length === 6 ? 'IN' : 'OM');
+      if (!af('town').value.trim()) af('town').value = r.town || '';
+      if (!af('area').value.trim()) af('area').value = r.areas?.[0] || '';
+      const st = af('state_id') as unknown as HTMLSelectElement;
+      if (r.state_id && !st.value) st.value = String(r.state_id);
+      hint.textContent = [r.town, r.state].filter(Boolean).join(', ');
+    }, 350);
+  });
+  $('[data-ad-save]').addEventListener('click', async () => {
+    const need: [string, string][] = [['name', 'contact name'], ['phone', 'mobile'], ['line', 'house / building and street'],
+      ['pin', 'postal code (PC)'], ['area', 'area'], ['town', 'wilayat / city']];
+    const miss = need.find(([k]) => !af(k).value.trim());
+    if (miss) { say(adMsg, `Please add the ${miss[1]}.`); af(miss[0]).focus(); return; }
+    const pin = af('pin').value.trim();
+    if (!/^(\d{3}|\d{6})$/.test(pin)) { say(adMsg, 'The postal code is 3 digits in Oman (e.g. 133) or 6 in India (e.g. 624003).'); af('pin').focus(); return; }
+    const states = await useCountry(pin.length === 6 ? 'IN' : 'OM');
+    if (states.length && !af('state_id').value) { say(adMsg, `Please choose the ${afCountry === 'IN' ? 'state' : 'governorate'}.`); af('state_id').focus(); return; }
+    const body: Record<string, unknown> = {
+      label: af('label').value, name: af('name').value.trim(), phone: af('phone').value.trim(), alt: af('alt').value.trim(),
+      line: af('line').value.trim(), area: af('area').value.trim(), town: af('town').value.trim(), pin, country_id: afCountry,
+      landmark: af('landmark').value.trim(), ...(af('state_id').value ? { state_id: af('state_id').value } : {}),
+    };
+    const btn = $<HTMLButtonElement>('[data-ad-save]'); btn.disabled = true;
+    const r = editing ? await api('/api/account/address-update', { id: editing, ...body }) : await api('/api/account/addresses', body);
+    btn.disabled = false;
+    if (r.status === 401) { who = null; paintMe(); show('signin'); return; }
+    if (!r.ok) { say(adMsg, r.error || "We couldn't save the address."); if (r.field && root.querySelector(`[data-af="${r.field}"]`)) af(r.field).focus(); return; }
+    closeForm();
+    loadAddresses();
+  });
+
+  // ---------- my rewards: the Spin & Win prize (the latest one; older ones stay in Odoo) ----------
+  const prizeDay = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  const GIFT = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-1.6-3.2-5.5-3.4-5.5-1 0 1.4 2.4 1 5.5 1zM12 8c1.6-3.2 5.5-3.4 5.5-1 0 1.4-2.4 1-5.5 1z"/></svg>';
+  const spinBtn = (label: string) => (window as any).__openSpin ? `<button type="button" class="ac-btn" data-rw-spin>${label}</button>` : '';
+  function drawRewards(win: any) {
+    const box = $('[data-rw-box]');
+    $('[data-ac-prizechip]').hidden = !(win && win.state === 'won');
+    if (!win) {
+      box.innerHTML = `<div class="ac-card ac-rw-empty"><span class="ac-rw-ic">${GIFT}</span><div><h3>No prize yet</h3>
+        <p class="ac-muted">Spin the wheel for a free extra on your next repair: a screen guard, a cleaning, a free pickup and more.</p></div>
+        <div class="ac-acts">${spinBtn('Spin &amp; Win')}</div></div>`;
+      return;
+    }
+    const until = win.valid_until ? prizeDay(win.valid_until) : '';
+    const state = win.state === 'won' ? { tag: 'Ready to use', cls: 'on', note: `Goes on your next booking by itself${until ? ` · valid till ${esc(until)}` : ''}.` }
+      : win.state === 'used' ? { tag: 'Used', cls: 'used', note: win.order ? `On your booking <a href="#orders/${encodeURIComponent(win.order)}">${esc(win.order)}</a>.` : 'On one of your bookings.' }
+      : win.state === 'given' ? { tag: 'Given', cls: 'used', note: 'Given to you at the visit. Enjoy!' }
+      : { tag: 'Expired', cls: 'off', note: `This prize expired${until ? ` on ${esc(until)}` : ''}.` };
+    const acts = win.state === 'won'
+      ? `<a class="ac-btn" href="/services">Book a repair</a><a class="ac-ghost" href="${esc($('[data-rw-box]').dataset.wa || '')}" target="_blank" rel="noopener">WhatsApp us</a>`
+      : win.state === 'used' && win.order ? `<a class="ac-ghost" href="#orders/${encodeURIComponent(win.order)}">See the booking</a>`
+      : win.state === 'expired' ? spinBtn('Spin again') : '';
+    box.innerHTML = `
+      <article class="ac-card ac-rw ${state.cls}">
+        <span class="ac-rw-ic">${GIFT}</span>
+        <div class="ac-rw-main">
+          <span class="ac-rw-tag">${state.tag}</span>
+          <h3>${esc(win.prize || 'Your prize')}</h3>
+          <div class="ac-rw-code"><span><small>Your code</small><b>${esc(win.code || '')}</b></span>
+            ${win.state === 'won' ? '<button type="button" data-rw-copy>Copy</button>' : ''}</div>
+          <p class="ac-muted">${state.note}</p>
+          ${acts ? `<div class="ac-acts">${acts}</div>` : ''}
+        </div>
+      </article>
+      <p class="ac-muted ac-rw-foot">Spin &amp; Win prizes are from the wheel on our site, one spin every few weeks.</p>`;
+  }
+  async function loadRewards() {
+    const r = await api('/api/spin');
+    const off = r.error === 'off';
+    $('[data-ac-nav] [data-k="rewards"]').hidden = off;     // the wheel is switched off in Odoo: no section
+    if (r.status === 401) { if (section === 'rewards') { who = null; paintMe(); show('signin'); } return; }
+    if (off) { if (section === 'rewards') { section = 'orders'; show('orders'); } return; }
+    if (!r.ok) { if (section === 'rewards') $('[data-rw-box]').innerHTML = `<p class="ac-muted ac-card">${esc(r.error === 'unavailable' ? 'Rewards are not available right now. Please try again in a moment.' : (r.error || 'Please try again.'))}</p>`; return; }
+    drawRewards(r.win || null);
+  }
+  $('[data-rw-box]').addEventListener('click', async (e) => {
+    const t = (e.target as HTMLElement).closest<HTMLElement>('button');
+    if (!t) return;
+    if (t.matches('[data-rw-spin]')) { (window as any).__openSpin?.(); return; }
+    if (t.matches('[data-rw-copy]')) {
+      const b = $('[data-rw-box] .ac-rw-code b');
+      try { await navigator.clipboard.writeText(b.textContent || ''); t.textContent = 'Copied ✓'; setTimeout(() => { t.textContent = 'Copy'; }, 1800); }
+      catch {   // no clipboard here (an old browser, a blocked page): select the code so it can be copied by hand
+        const range = document.createRange(); range.selectNodeContents(b);
+        const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(range);
+      }
+    }
+  });
+  // a spin on this page (or the wheel reopening with a prize): the section follows at once
+  window.addEventListener('danat-prize', (e) => { if (who) drawRewards((e as CustomEvent).detail || null); });
+
+  // ---------- sign out (asks first, as on 369 Mart) ----------
+  const modal = $('[data-ac-modal]');
+  const closeModal = () => { modal.hidden = true; };
+  $('[data-ac-signout]').addEventListener('click', () => { modal.hidden = false; $<HTMLButtonElement>('[data-so-stay]').focus(); });
+  $('[data-so-stay]').addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+  $('[data-so-go]').addEventListener('click', async () => {
+    closeModal();
+    await api('/api/account/logout', {});
+    who = null; addrs = []; $('[data-tk-list]').innerHTML = '';
+    purpose = 'signin';
+    $$('[data-si-new]').forEach((x) => (x.hidden = true));
+    $('[data-si-codebox]').hidden = true; $('[data-si-verify]').hidden = true;
+    $('[data-si-send]').textContent = 'Send code on WhatsApp';
+    paintMe(); show('signin');
+  });
+
+  start();
+</script>
+
+<style>
+  .ac-sec { padding-top: 22px; }
+  .ac-page { display: grid; grid-template-columns: 288px minmax(0, 1fr); gap: 26px; align-items: start; }
+  .ac-side, .ac-main { min-width: 0; }   /* the phone's chip row scrolls inside, not the page */
+  .ac-side { position: sticky; top: 96px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+  .ac-me { display: flex; align-items: center; gap: 12px; padding: 4px 4px 16px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+  .ac-av { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--grad, var(--violet)); color: var(--on-accent); font-size: 22px; font-weight: 800; box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--accent-soft); }
+  .ac-me div { display: grid; min-width: 0; }
+  .ac-me b { color: var(--ink); font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ac-me small { color: var(--ink-3); font-size: 13px; }
+  .ac-nav { display: flex; flex-direction: column; gap: 2px; }
+  .ac-nav button { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border: 0; border-radius: 12px; background: none; color: var(--ink-2); font: inherit; font-size: 15px; font-weight: 600; text-align: left; cursor: pointer; transition: background .15s, color .15s, padding .2s; }
+  .ac-nav button:hover { color: var(--ink); background: var(--tint); }
+  .ac-nav button[aria-current='true'] { color: var(--violet); background: var(--accent-soft); font-weight: 700; }
+  .ac-nav svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .ac-nav hr { border: 0; height: 1px; background: var(--line); margin: 10px 0 6px; }
+  .ac-nav .ac-out:hover { color: #d63a3a; background: rgba(214, 58, 58, .08); }
+  /* signed out: only Help is useful in the menu */
+  .ac-page.out .ac-nav [data-k]:not([data-k='help']), .ac-page.out .ac-out, .ac-page.out .ac-nav hr { display: none; }
+  .ac-title { font-family: var(--display, inherit); font-size: 24px; letter-spacing: -.02em; margin: 2px 0 14px; color: var(--ink); }
+  .ac-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .ac-card + .ac-card, .ac-addrs + .ac-card { margin-top: 14px; }
+  .ac-card h3 { margin: 0 0 2px; font-size: 16px; color: var(--ink); }
+  .ac-muted { color: var(--ink-2); margin: 0; font-size: 14.5px; }
+  .ac-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+  .ac-f { display: grid; gap: 12px; margin-top: 12px; }
+  .ac-f2 { grid-template-columns: 1fr 1fr; }
+  .ac-wide { grid-column: 1 / -1; }
+  .ac-fl { display: grid; gap: 6px; min-width: 0; }
+  .ac-fl > span { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .ac-fl small { font-weight: 500; color: var(--ink-3); }
+  .ac-fl input, .ac-fl select { width: 100%; min-width: 0; height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15.5px; outline: none; transition: border-color .2s, box-shadow .2s; }
+  .ac-fl input:focus, .ac-fl select:focus { border-color: var(--violet); box-shadow: 0 0 0 4px color-mix(in srgb, var(--violet) 14%, transparent); }
+  .ac-fl input[readonly] { background: var(--tint); }
+  .ac-page.pf-on [data-pf='name'], .ac-page.pf-on [data-pf='email'] { background: var(--surface); }
+  .ac-ph { display: flex; gap: 8px; }
+  .ac-ph select { width: 130px; flex: none; }
+  .ac-ph input { flex: 1; }
+  .ac-pin { grid-column: 1 / -1; margin: -6px 0 0; font-size: 13.5px; color: var(--ink-2); }
+  .ac-msg { margin: 12px 0 0; font-size: 14.5px; color: var(--ink-2); }
+  .ac-msg.bad { color: #d63a3a; }
+  .ac-acts { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
+  .ac-signin .ac-acts { justify-content: stretch; }
+  .ac-signin .ac-btn { flex: 1; }
+  .ac-btn { height: 40px; padding: 0 22px; border: 0; border-radius: 12px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+  .ac-btn:disabled { opacity: .6; }
+  .ac-ghost { height: 38px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 12px; background: none; color: var(--ink); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .ac-ghost:hover { border-color: var(--violet); color: var(--violet); }
+  .ac-danger { background: #d63a3a; color: #fff; }
+  .ac-live { display: flex; align-items: center; gap: 8px; margin: -4px 0 12px; color: var(--ink-3); font-size: 13px; }
+  .tk-live { display: inline-flex; align-items: center; gap: 6px; color: #1a9a52; font-weight: 600; }
+  .tk-live i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: acp 1.6s infinite; }
+  @keyframes acp { 50% { opacity: .25; } }
+  .ac-addrs { display: grid; gap: 12px; }
+  /* the address cards are drawn by the script, so they are styled with :global */
+  .ac-addrs :global(.ac-addr), .ac-addrs :global(.ac-card) { display: grid; gap: 4px; margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); }
+  .ac-addrs :global(.ac-addr.on) { border-color: var(--violet); }
+  .ac-addrs :global(.ac-addr b) { color: var(--ink); }
+  .ac-addrs :global(.ac-addr em) { margin-left: 6px; padding: 2px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--violet); font-size: 12px; font-style: normal; font-weight: 700; }
+  .ac-addrs :global(.ac-addr span) { color: var(--ink-2); font-size: 14.5px; }
+  .ac-addrs :global(.ac-addr small) { color: var(--ink-3); font-size: 13px; }
+  .ac-addrs :global(.ac-addr-acts) { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+  .ac-addrs :global(.ac-link) { padding: 2px 0; border: 0; background: none; color: var(--violet); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .ac-addrs :global(.ac-red) { color: #d63a3a; }
+  .ac-add { width: 100%; margin-top: 14px; color: var(--violet); font: inherit; font-weight: 700; text-align: left; cursor: pointer; border-style: dashed; box-shadow: none; }
+  /* my rewards (drawn by the script: :global) */
+  [data-rw-box] :global(.ac-card) { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; box-shadow: var(--shadow); }
+  [data-rw-box] :global(.ac-muted) { margin: 0; color: var(--ink-2); font-size: 14.5px; }
+  [data-rw-box] :global(.ac-muted a) { color: var(--violet); font-weight: 700; }
+  [data-rw-box] :global(.ac-acts) { display: flex; gap: 10px; flex-wrap: wrap; }
+  [data-rw-box] :global(.ac-btn) { height: 40px; padding: 0 20px; border: 0; border-radius: 12px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font: inherit; font-weight: 700; font-size: 15px; cursor: pointer; }
+  [data-rw-box] :global(.ac-ghost) { height: 38px; padding: 0 14px; border: 1.5px solid var(--line); border-radius: 12px; background: none; color: var(--ink); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
+  [data-rw-box] :global(.ac-ghost:hover) { border-color: var(--violet); color: var(--violet); }
+  .ac-prize-chip { justify-self: start; margin-top: 4px; padding: 2px 9px; border-radius: 99px; background: #fff4d6; color: #8a5a00; font-size: 12px; font-weight: 700; text-decoration: none; }
+  .ac-prize-chip[hidden] { display: none; }
+  [data-rw-box] :global(.ac-rw), [data-rw-box] :global(.ac-rw-empty) { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
+  [data-rw-box] :global(.ac-rw-empty) { grid-template-columns: auto minmax(0, 1fr); }
+  [data-rw-box] :global(.ac-rw-empty .ac-acts) { grid-column: 1 / -1; justify-content: flex-start; margin-top: 0; }
+  [data-rw-box] :global(.ac-rw-ic) { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; background: linear-gradient(140deg, #ffd96a, #f5b400); color: #3d2a00; }
+  [data-rw-box] :global(.ac-rw-ic svg) { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  [data-rw-box] :global(.ac-rw.used .ac-rw-ic), [data-rw-box] :global(.ac-rw.off .ac-rw-ic) { background: var(--tint); color: var(--ink-3); }
+  [data-rw-box] :global(.ac-rw-main) { display: grid; gap: 8px; min-width: 0; }
+  [data-rw-box] :global(.ac-rw-main h3) { margin: 0; font-size: 18px; }
+  [data-rw-box] :global(.ac-rw-tag) { justify-self: start; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 800; background: rgba(18, 161, 80, .12); color: #12803f; }
+  [data-rw-box] :global(.ac-rw.used .ac-rw-tag) { background: var(--accent-soft); color: var(--violet); }
+  [data-rw-box] :global(.ac-rw.off .ac-rw-tag) { background: rgba(214, 58, 58, .1); color: #c0392b; }
+  [data-rw-box] :global(.ac-rw-code) { display: flex; align-items: stretch; max-width: 340px; border: 1.5px dashed color-mix(in srgb, var(--violet) 45%, transparent); border-radius: 14px; background: var(--accent-soft); overflow: hidden; }
+  [data-rw-box] :global(.ac-rw-code span) { flex: 1; display: grid; gap: 2px; padding: 10px 14px; min-width: 0; }
+  [data-rw-box] :global(.ac-rw-code small) { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  [data-rw-box] :global(.ac-rw-code b) { font-family: ui-monospace, Consolas, monospace; font-size: 17px; letter-spacing: .06em; color: var(--violet); overflow-wrap: anywhere; }
+  [data-rw-box] :global(.ac-rw-code button) { flex: none; white-space: nowrap; padding: 0 18px; border: 0; border-left: 1.5px dashed color-mix(in srgb, var(--violet) 45%, transparent); background: none; color: var(--violet); font: inherit; font-weight: 800; cursor: pointer; }
+  [data-rw-box] :global(.ac-rw.off .ac-rw-code), [data-rw-box] :global(.ac-rw.used .ac-rw-code) { background: var(--tint); border-color: var(--line); }
+  [data-rw-box] :global(.ac-rw.off .ac-rw-code b), [data-rw-box] :global(.ac-rw.used .ac-rw-code b) { color: var(--ink-3); text-decoration: line-through; }
+  [data-rw-box] :global(.ac-rw .ac-acts) { justify-content: flex-start; margin-top: 4px; }
+  [data-rw-box] :global(a.ac-btn), [data-rw-box] :global(a.ac-ghost) { display: inline-flex; align-items: center; text-decoration: none; }
+  [data-rw-box] :global(.ac-rw-foot) { margin-top: 12px; font-size: 13px; }
+  [data-rw-box] :global(.ac-rw-empty h3) { margin: 2px 0 4px; font-size: 16px; }
+  [data-rw-box] :global(.ac-rw-code b) { user-select: all; }
+  @media (max-width: 560px) {
+    [data-rw-box] :global(.ac-rw) { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    [data-rw-box] :global(.ac-rw-ic) { width: 44px; height: 44px; border-radius: 13px; }
+    [data-rw-box] :global(.ac-rw-code b) { font-size: 17px; }
+    [data-rw-box] :global(.ac-rw .ac-acts > *) { flex: 1; justify-content: center; }
+  }
+  .ac-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .ac-tile { display: grid; gap: 4px; margin: 0 !important; text-decoration: none; transition: border-color .15s, transform .15s; }
+  .ac-tile:hover { border-color: var(--violet); transform: translateY(-2px); }
+  .ac-tile b { color: var(--ink); }
+  .ac-tile span { color: var(--ink-2); font-size: 14px; }
+  .ac-modal-wrap { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, .45); }
+  .ac-modal-wrap[hidden] { display: none; }
+  .ac-modal { width: min(380px, 100%); background: var(--surface); border-radius: 16px; padding: 20px; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, .5); }
+  .ac-modal h3 { margin: 0 0 6px; color: var(--ink); }
+  @media (max-width: 900px) {
+    .ac-page { grid-template-columns: 1fr; gap: 14px; }
+    .ac-side { position: static; padding: 14px; }
+    .ac-me { padding-bottom: 12px; }
+    .ac-nav { flex-direction: row; overflow-x: auto; gap: 6px; scrollbar-width: none; padding-bottom: 2px; }
+    .ac-nav::-webkit-scrollbar { display: none; }
+    .ac-nav button { flex: none; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; white-space: nowrap; font-size: 14px; }
+    .ac-nav svg { width: 17px; height: 17px; }
+    .ac-nav hr { display: none; }
+    .ac-title { margin-top: 0; }
+  }
+  @media (max-width: 560px) {
+    .ac-f2 { grid-template-columns: 1fr; }
+    .ac-card { padding: 14px; }
+    .ac-title { font-size: 21px; }
+    .ac-ph select { width: 104px; }
+    .ac-acts > * { flex: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .tk-live i { animation: none; } }
+</style>

@@ -17,6 +17,9 @@ export const infoPages = [
   { title: 'Contact', slug: 'contact', column: 'company', kind: 'contact', body: '' },
   { title: 'Areas we cover', slug: 'areas', column: 'help', kind: 'areas', body: '' },
   { title: 'FAQ', slug: 'faq', column: 'help', kind: 'faq', body: '' },
-  { title: 'Privacy policy', slug: 'privacy', column: 'policies', kind: 'text', body: '' },
-  { title: 'Terms of service', slug: 'terms', column: 'policies', kind: 'text', body: '' },
+  // DRAFT (26 Oct 2026), written from what the site does; the owner to review. Odoo's Info Pages override it.
+  { title: 'Privacy policy', slug: 'privacy', column: 'policies', kind: 'text',
+    body: '<p>When you book a repair or sign in, we keep your name, mobile number, email (if you give one), the address and map pin for the visit, and the photos, video and notes you send about the device.</p><p>We use them only to arrange and carry out your repair: to confirm the booking, send the technician, keep you updated on WhatsApp and show your orders under My account. Your technician sees what the visit needs. We do not sell your details or use them for other companies\' advertising.</p><p>The site keeps you signed in with a cookie on your device, and keeps your cart in your browser. Signing out removes the sign-in.</p><p>To see, correct or delete what we hold about you, chat with us on WhatsApp or call us.</p>' },
+  { title: 'Terms of service', slug: 'terms', column: 'policies', kind: 'text',
+    body: '<p>Prices on the site are estimates. The technician checks your device first and confirms the final price with you before any work starts; nothing is repaired without your OK.</p><p>If the repair needs more work or a part, we may take the device to our lab and tell you how long it will take and what it costs before we go ahead.</p><p>Please back up your data before a repair where you can. We only access what the repair needs.</p><p>You can cancel or move a booking before the visit by chatting with us on WhatsApp.</p><p>Questions about a repair or a bill? Chat with us on WhatsApp or call us, and we will sort it out.</p>' },
 ] as const;

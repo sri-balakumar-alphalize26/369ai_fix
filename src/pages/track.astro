@@ -3,12 +3,17 @@
 // live status of every repair booked on this site. Data comes from Odoo through
 // /api/otp/* and /api/my-orders (server side); the page refreshes itself every 15 s.
 import Base from '../layouts/Base.astro';
+import OrderCards from '../components/OrderCards.astro';
 import { DIAL } from '../lib/phone';
+import { getContent, contactOf } from '../lib/content';
+import { hostOf } from '../lib/odoo';
 // Per request, so the header, footer and chatbot show what is in Odoo now.
 export const prerender = false;
+const content = await getContent(hostOf(Astro.request));
+const contact = contactOf(content.site);
 ---
 
-<Base title="My orders" description="Track the live status of your repair with your mobile number.">
+<Base title="My orders" description="Track the live status of your repair with your mobile number." content={content}>
   <section class="page-head">
     <div class="wrap">
       <span class="eyebrow">Track your repair</span>
@@ -42,14 +47,16 @@ export const prerender = false;
           <p>Logged in as <b data-tk-who></b> · <span class="tk-live"><i></i>live</span></p>
           <button class="tk-link" type="button" data-tk-out>Log out</button>
         </div>
-        <div data-tk-list></div>
+        <div data-tk-list data-wa={contact.wa} data-tel={contact.tel}></div>
       </div>
     </div>
   </section>
+  <OrderCards />
 </Base>
 
 <script>
   import { checkPhone } from '../lib/phone';
+  import { ordersView } from '../lib/orderCards';
 
   const root = document.querySelector<HTMLElement>('[data-tk]')!;
   const $ = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
@@ -58,7 +65,6 @@ export const prerender = false;
   const cc = $<HTMLSelectElement>('[data-tk-cc]'), ph = $<HTMLInputElement>('[data-tk-ph]'), code = $<HTMLInputElement>('[data-tk-code]');
   let phone = '';
   let timer: ReturnType<typeof setInterval> | null = null;
-  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
   const say = (t: string, ok = false) => { msg.textContent = t; msg.className = 'tk-msg' + (t ? (ok ? ' ok' : ' err') : ''); };
   const post = (url: string, body: unknown) => fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' })
     .then(async (r) => ({ status: r.status, ...(await r.json().catch(() => ({}))) }));
@@ -100,108 +106,15 @@ export const prerender = false;
   $('[data-tk-back]').addEventListener('click', showLogin);
   $('[data-tk-out]').addEventListener('click', async () => {
     await fetch('/api/my-orders', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+    window.dispatchEvent(new CustomEvent('danat-account', { detail: null }));   // the header's account button
     showLogin();
   });
 
-  const hm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-  // The technician's visit (doorstep orders): who, live position, ETA and the arrival code.
-  function visitBlock(v: any) {
-    if (!v || v.state === 'cancelled') return '';
-    const tech = v.technician;
-    const live = v.live;
-    const slot = v.slot ? new Date(v.slot.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
-    const facts = [
-      v.eta_minutes ? `<b>About ${esc(String(v.eta_minutes))} min away</b>${v.eta_at ? ` · by ${esc(hm(v.eta_at))}` : ''}` : '',
-      v.distance_km ? `${esc(Number(v.distance_km).toFixed(1))} km from you` : '',
-      live ? (live.stale ? 'Signal lost, showing the last known place' : `Updated ${esc(hm(live.fix_on))}`) : '',
-    ].filter(Boolean);
-    return `
-      <div class="tk-visit">
-        <div class="tk-vhead">
-          ${tech?.photo ? `<img src="${esc(tech.photo)}" alt="" width="44" height="44" />` : '<span class="tk-vav" aria-hidden="true"></span>'}
-          <div>
-            <b>${esc(v.state_label)}</b>
-            <span>${tech ? esc(tech.name) : 'We are choosing your technician'}${slot ? ` · ${esc(slot)}` : ''}</span>
-          </div>
-          ${tech?.phone ? `<a class="tk-vcall" href="tel:+${esc(String(tech.phone).replace(/\D/g, ''))}">Call</a>` : ''}
-        </div>
-        ${facts.length ? `<p class="tk-vfacts">${facts.join(' · ')}</p>` : ''}
-        ${live ? `<a class="tk-vmap" href="https://www.google.com/maps/search/?api=1&query=${live.lat},${live.lng}" target="_blank" rel="noopener">See the technician on the map →</a>` : ''}
-        ${v.arrival_code ? `<p class="tk-vcode">Arrival code <b>${esc(String(v.arrival_code))}</b><small>Give this code to the technician when they reach your door. Don't share it before.</small></p>` : ''}
-        ${v.safety ? `<div class="tk-safe">
-          ${v.safety.photo ? `<img src="${esc(v.safety.photo)}" alt="Your technician, ready for work" width="64" height="64" />` : ''}
-          <div><b>Safety check done ✅</b><span>${(v.safety.items || []).map((x: string) => esc(x)).join(' · ')}</span>
-          ${v.safety.at ? `<small>Before starting, at ${esc(hm(v.safety.at))}</small>` : ''}</div></div>` : ''}
-        ${track(v.steps, ' tk-vtrack')}
-      </div>`;
-  }
-
-  // what is happening now, in a line under the tracker (as on a shop's order page)
-  const NOW: Record<string, string> = {
-    received: "We've got your booking and will confirm it shortly.",
-    confirmed: 'Your booking is confirmed. We are arranging the technician visit.',
-    inspection: 'Our technician is checking your device.',
-    quotation: 'We sent you the price. Please approve or decline it.',
-    repair: 'Your device is being repaired.',
-    completed: 'Repair completed. Thank you for choosing us!',
-  };
-  // a simple picture of the device, from its type
-  const ICONS: [RegExp, string][] = [
-    [/tablet|ipad/i, '<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M11 18.5h2"/>'],
-    [/phone|mobile|iphone/i, '<rect x="7" y="2.5" width="10" height="19" rx="2"/><path d="M11 18.5h2"/>'],
-    [/laptop|macbook|notebook/i, '<rect x="4" y="4.5" width="16" height="11" rx="1.5"/><path d="M2 19.5h20"/>'],
-    [/desktop|monitor|all-in-one|computer/i, '<rect x="3" y="3.5" width="18" height="13" rx="1.5"/><path d="M9 20.5h6M12 16.5v4"/>'],
-    [/print/i, '<path d="M7 8.5v-5h10v5"/><rect x="3" y="8.5" width="18" height="8" rx="1.5"/><path d="M7 14.5h10v6H7z"/>'],
-    [/watch/i, '<rect x="7" y="6.5" width="10" height="11" rx="2.5"/><path d="M9 6.5l1-4h4l1 4M9 17.5l1 4h4l1-4"/>'],
-  ];
-  const WRENCH = '<path d="M14.5 6.5a4 4 0 0 0 5 5l-8.5 8.5a2.1 2.1 0 0 1-3-3l8.5-8.5a4 4 0 0 0-2-2z"/>';
-  const icon = (text: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.find(([re]) => re.test(text))?.[1] ?? WRENCH}</svg>`;
-  const when = (s: string) => new Date(s.replace(' ', 'T') + 'Z').toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-  const day = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
-
-  function track(steps: any[], cls = '') {
-    return `<ol class="tk-track${cls}">${steps.map((s: any) => `<li class="${s.done ? 'done' : ''}${s.current ? ' cur' : ''}">
-      <i aria-hidden="true"></i><span>${esc(s.label)}${s.at && s.done ? `<small>${esc(hm(s.at))}</small>` : ''}</span></li>`).join('')}</ol>`;
-  }
-
-  function order(o: any) {
-    const lines = (o.lines || []).filter((l: any) => l.issue || l.model || l.device);
-    const cur = (o.steps || []).find((s: any) => s.current);
-    const tone = o.cancelled ? 'x' : cur?.key === 'completed' ? 'ok' : cur?.key === 'received' ? 'new' : cur?.key === 'quotation' ? 'ask' : 'on';
-    const items = lines.length ? lines.map((l: any) => `<li>
-        <b>${esc(l.issue || 'Repair')}${l.qty > 1 ? ` <small>×${esc(String(l.qty))}</small>` : ''}</b>
-        <span>${esc([l.model, l.device].filter(Boolean).join(' · '))}</span></li>`).join('')
-      : `<li><b>${esc(o.summary || 'Repair')}</b></li>`;
-    const notes = o.cancelled ? [`<p class="tk-note x">This booking was cancelled${o.reason ? `: ${esc(o.reason)}` : ''}. Chat with us on WhatsApp if you need help.</p>`]
-      : [
-        cur && NOW[cur.key] ? `<p class="tk-note">${esc(NOW[cur.key])}</p>` : '',
-        o.slot ? `<p class="tk-fact"><b>Visit</b>${esc(o.slot)}</p>` : '',
-        o.parts?.waiting ? `<p class="tk-fact"><b>Parts</b>Waiting for a part${o.parts.expected ? `, expected by ${esc(day(o.parts.expected))}` : ''}</p>` : '',
-      ];
-    return `
-      <article class="tk-order ${tone}">
-        <header>
-          <span class="tk-ico">${icon(lines.map((l: any) => `${l.device} ${l.model}`).join(' ') || o.summary || '')}</span>
-          <ul class="tk-items">${items}</ul>
-          <span class="tk-status">${esc(o.status)}</span>
-        </header>
-        <div class="tk-meta"><span>${esc(o.ref)}</span><span>${esc(o.mode_label)}</span></div>
-        ${o.cancelled ? '' : track(o.steps || [])}
-        ${notes.join('')}
-        ${o.cancelled ? '' : visitBlock(o.visit)}
-        <footer>${o.job_card ? `Job card ${esc(o.job_card)} · ` : ''}Booked ${esc(when(o.created))}</footer>
-      </article>`;
-  }
-
+  // the list, and an order's own page at #order/<ref>
+  const orderView = ordersView($('[data-tk-list]'), { prefix: 'order/', back: '' });
   function render(data: any) {
     $('[data-tk-who]').textContent = '+' + data.phone;
-    const list = $('[data-tk-list]');
-    if (!data.orders.length) {
-      list.innerHTML = '<div class="tk-empty">No bookings for this number yet. <a href="/services">Book a repair →</a></div>';
-      return;
-    }
-    list.innerHTML = data.orders.map(order).join('');
+    orderView.set(data.orders);
   }
 
   async function load(first = false) {
@@ -214,6 +127,8 @@ export const prerender = false;
     render(data);
     if (!timer) timer = setInterval(() => { if (!document.hidden) load(); }, 15000);
   }
+  // a time just picked (components/SlotPicker.astro): the order shows it at once
+  window.addEventListener('danat-orders-refresh', () => load());
   load(true);
 </script>
 
@@ -239,88 +154,5 @@ export const prerender = false;
   @keyframes tkp { 50% { opacity: .25; } }
   @media (max-width: 560px) {
     .tk-row select { width: 100px; }
-  }
-</style>
-
-<!-- the order cards are drawn by the script, so their styles are global (kept under [data-tk-list]) -->
-<style is:global>
-  [data-tk-list] .tk-order { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius, 18px);
-    padding: 18px 20px 14px; margin-bottom: 16px; box-shadow: var(--shadow); overflow: hidden; }
-  [data-tk-list] .tk-order::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--grad, var(--violet)); }
-  [data-tk-list] .tk-order.ok::before { background: var(--lime, #12a150); }
-  [data-tk-list] .tk-order.new::before { background: #e0a100; }
-  [data-tk-list] .tk-order.ask::before { background: #e07b00; }
-  [data-tk-list] .tk-order.x::before { background: #d63a3a; }
-  [data-tk-list] .tk-order header { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; }
-  [data-tk-list] .tk-ico { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: var(--accent-soft, var(--tint)); color: var(--violet); }
-  [data-tk-list] .tk-ico svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-  [data-tk-list] .tk-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
-  [data-tk-list] .tk-items li { display: grid; gap: 1px; min-width: 0; }
-  [data-tk-list] .tk-items b { font-family: var(--display, inherit); font-size: 16px; color: var(--ink); line-height: 1.3; }
-  [data-tk-list] .tk-items b small { font-family: var(--body, inherit); font-weight: 600; color: var(--ink-3); }
-  [data-tk-list] .tk-items span { font-size: 13.5px; color: var(--ink-2); overflow-wrap: anywhere; }
-  [data-tk-list] .tk-status { justify-self: end; padding: 5px 11px; border-radius: 99px; font-size: 12.5px; font-weight: 700; white-space: nowrap;
-    background: var(--accent-soft, var(--tint)); color: var(--violet); }
-  [data-tk-list] .ok .tk-status { background: rgba(18, 161, 80, .12); color: var(--lime, #12a150); }
-  [data-tk-list] .new .tk-status { background: rgba(224, 161, 0, .14); color: #a87400; }
-  [data-tk-list] .ask .tk-status { background: rgba(224, 123, 0, .14); color: #b35f00; }
-  [data-tk-list] .x .tk-status { background: rgba(214, 58, 58, .12); color: #d63a3a; }
-  [data-tk-list] .tk-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0 58px; }
-  [data-tk-list] .tk-meta span { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 8px; background: var(--tint); color: var(--ink-2); border: 1px solid var(--line); }
-
-  /* the tracker: dots on a line, the done part coloured, the current dot ringed */
-  [data-tk-list] .tk-track { list-style: none; padding: 0; margin: 18px 0 4px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
-  [data-tk-list] .tk-track li { position: relative; display: grid; justify-items: center; align-content: start; gap: 8px; text-align: center; font-size: 12px; color: var(--ink-3); min-width: 0; }
-  [data-tk-list] .tk-track li::before { content: ''; position: absolute; top: 8px; right: 50%; width: 100%; height: 3px; background: var(--line); }
-  [data-tk-list] .tk-track li:first-child::before { display: none; }
-  [data-tk-list] .tk-track li.done::before { background: var(--violet); }
-  [data-tk-list] .tk-track i { position: relative; z-index: 1; width: 19px; height: 19px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); box-sizing: border-box; }
-  [data-tk-list] .tk-track li.done i { background: var(--violet); border-color: var(--violet); }
-  [data-tk-list] .tk-track li.done i::after { content: ''; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid var(--on-accent, #fff); border-width: 0 2px 2px 0; transform: rotate(45deg); }
-  [data-tk-list] .tk-track li.cur i { box-shadow: 0 0 0 5px var(--accent-soft, rgba(0, 0, 0, .08)); }
-  [data-tk-list] .tk-track li.done span { color: var(--ink-2); }
-  [data-tk-list] .tk-track li.cur span { color: var(--ink); font-weight: 700; }
-  [data-tk-list] .tk-track span { line-height: 1.25; }
-  [data-tk-list] .tk-track small { display: block; color: var(--ink-3); font-weight: 400; }
-  [data-tk-list] .ok .tk-track li.done::before, [data-tk-list] .ok .tk-track li.done i { background: var(--lime, #12a150); border-color: var(--lime, #12a150); }
-
-  [data-tk-list] .tk-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--tint); color: var(--ink); font-size: 14px; }
-  [data-tk-list] .tk-note.x { background: rgba(214, 58, 58, .08); color: #d63a3a; margin-top: 14px; }
-  [data-tk-list] .tk-fact { display: flex; gap: 10px; margin: 8px 0 0; font-size: 14px; color: var(--ink-2); }
-  [data-tk-list] .tk-fact b { min-width: 46px; color: var(--ink); }
-  [data-tk-list] .tk-order footer { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 12.5px; color: var(--ink-3); }
-
-  /* the technician's visit inside an order */
-  [data-tk-list] .tk-visit { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 12px 0 0; background: var(--tint); }
-  [data-tk-list] .tk-vhead { display: flex; align-items: center; gap: 12px; }
-  [data-tk-list] .tk-vhead img, [data-tk-list] .tk-vav { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; background: var(--line); }
-  [data-tk-list] .tk-vhead div { display: grid; flex: 1; min-width: 0; }
-  [data-tk-list] .tk-vhead b { color: var(--ink); }
-  [data-tk-list] .tk-vhead span { font-size: 14px; color: var(--ink-2); }
-  [data-tk-list] .tk-vcall { padding: 8px 14px; border-radius: 10px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font-weight: 700; text-decoration: none; }
-  [data-tk-list] .tk-vfacts { margin: 10px 0 0; font-size: 14px; color: var(--ink-2); }
-  [data-tk-list] .tk-vmap { display: inline-block; margin-top: 6px; font-size: 14px; font-weight: 600; color: var(--violet); }
-  [data-tk-list] .tk-vcode { display: grid; gap: 2px; margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--surface); border: 1px dashed var(--line); }
-  [data-tk-list] .tk-vcode b { font-size: 24px; letter-spacing: .3em; color: var(--ink); }
-  [data-tk-list] .tk-vcode small { color: var(--ink-3); font-size: 13px; }
-  [data-tk-list] .tk-vtrack { margin-top: 16px; }
-  [data-tk-list] .tk-safe { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; padding: 10px 12px; border-radius: 12px;
-    background: rgba(18, 161, 80, .08); border: 1px solid rgba(18, 161, 80, .25); }
-  [data-tk-list] .tk-safe img { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; flex: none; }
-  [data-tk-list] .tk-safe div { display: grid; gap: 2px; min-width: 0; }
-  [data-tk-list] .tk-safe b { color: var(--lime, #12a150); }
-  [data-tk-list] .tk-safe span { font-size: 13.5px; color: var(--ink); }
-  [data-tk-list] .tk-safe small { font-size: 12px; color: var(--ink-3); }
-  [data-tk-list] .tk-empty { padding: 24px; border: 1px dashed var(--line); border-radius: 14px; text-align: center; color: var(--ink-2); }
-  @media (max-width: 560px) {
-    [data-tk-list] .tk-order { padding: 16px 14px 12px 16px; }
-    [data-tk-list] .tk-order header { grid-template-columns: auto 1fr; }
-    [data-tk-list] .tk-status { grid-column: 2; justify-self: start; }
-    [data-tk-list] .tk-ico { width: 40px; height: 40px; border-radius: 12px; }
-    [data-tk-list] .tk-meta { margin-left: 52px; }
-    [data-tk-list] .tk-track li { font-size: 10.5px; gap: 6px; }
-    [data-tk-list] .tk-track i { width: 17px; height: 17px; }
-    [data-tk-list] .tk-track li::before { top: 7px; }
-    [data-tk-list] .tk-track li.done i::after { left: 4px; top: 1px; }
   }
 </style>
