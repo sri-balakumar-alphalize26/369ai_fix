@@ -7,3 +7,8 @@ from . import test_visit_result
 from . import test_screen
 from . import test_screen_ui
 from . import test_tech
+from . import test_visit_closeout
+from . import test_spin_win
+from . import test_demo_phone
+from . import test_pick_time
+from . import test_slot_places

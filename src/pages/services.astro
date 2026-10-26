@@ -324,6 +324,8 @@ const payload = JSON.stringify({
           </div>
           <div class="wz-xbox">
             <h4>Coupon code</h4>
+            <!-- Spin & Win: the signed-in customer's prize goes on this booking by itself -->
+            <p class="wz-prize" data-wz-prize hidden></p>
             <form class="wz-cpf" data-wz-cpf>
               <input data-wz-cp maxlength="30" autocomplete="off" placeholder="Enter coupon code" aria-label="Coupon code" />
               <button type="submit">Apply</button>
@@ -439,7 +441,7 @@ const payload = JSON.stringify({
               <h4>Booking received ✅</h4>
               <p>Your booking <b data-acc-ref></b> is with our team. We'll check it and send you the price and a link to pick a time on WhatsApp.</p>
               <p class="wz-acc-msg" data-acc-upmsg hidden></p>
-              <a class="wz-skip" href="/track">Follow it on My Orders →</a>
+              <a class="wz-skip" href="/account#orders" data-acc-follow>Follow it on My Orders →</a>
             </div>
           </div>
 
@@ -489,7 +491,7 @@ const payload = JSON.stringify({
             <button type="button" class="wz-scgo" data-wz-viewcart hidden>View cart →</button>
           </div>
           <div class="wz-promise">
-            <b>Danat Promise</b>
+            <b>Our promise</b>
             <ul><li>Verified technicians</li><li>Estimate before any work</li><li>Updates on WhatsApp</li></ul>
           </div>
         </aside>
@@ -538,7 +540,8 @@ const payload = JSON.stringify({
   type Svc = { id: number | null; name: string; price: number | null; b: number | null; s: number | null; m: number | null };
   type Cat = {
     id: string; odooId: number | null; name: string; onsiteOnly: boolean; issues: string[]; services: Svc[];
-    brands: { id: string; odooId: number | null; name: string; models: string[] }[];
+    brands: { id: string; odooId: number | null; name: string; models: string[];
+      items: { id: number | null; name: string; series: string; seriesId: number | null }[] }[];
   };
   type Data = {
     odoo: boolean;
@@ -707,7 +710,41 @@ const payload = JSON.stringify({
   const devTitle = (it: CartItem) => it.model || 'Model not chosen';
 
   // The brand is required (the job card needs it); the model may be skipped once the brand is known.
-  const noBrand = () => cartItems().filter((it) => !it.ids?.brand_id && !it.brand);
+  // With Odoo, it has to be Odoo's brand (its id): a brand name alone makes no job card.
+  const noBrand = () => cartItems().filter((it) => !it.ids?.brand_id && (data.odoo || !it.brand));
+
+  // A cart line saved while the site showed its own list (Odoo unreachable) has names but no Odoo
+  // ids, and Odoo may spell the model differently ('iPad Pro 13" (M4)' / 'iPad Pro 13-inch (M4)').
+  // Once Odoo's catalogue is here, match them up again - brand, model and the repair's own product
+  // and price for that device. A line whose brand isn't found asks for it in the cart (noBrand).
+  const modelKey = (s: string) => norm(s).replace(/["”″]|-?\s*inch(es)?\b/g, '').replace(/[^a-z0-9]/g, '');
+  /** The repair as Odoo has it for this device: the model's own, else the series', the brand's, the general one. */
+  const svcForIds = (c: Cat, issue: string, b: number, s: number, m: number) =>
+    c.services.filter((x) => x.name === issue && (!x.b || x.b === b) && (!x.s || x.s === s) && (!x.m || x.m === m))
+      .sort((x, y) => (y.m ? 4 : y.s ? 2 : y.b ? 1 : 0) - (x.m ? 4 : x.s ? 2 : x.b ? 1 : 0))[0];
+  function relinkCart() {
+    if (!data.odoo || !cartApi()) return;
+    for (const it of [...cartItems()]) {
+      if (it.ids?.brand_id) continue;
+      const c = catFor(it);
+      if (!c?.odooId) continue;
+      const model = norm(it.model);
+      const b = c.brands.find((x) => x.id === it.brand)
+        ?? c.brands.find((x) => model === norm(x.name) || model.startsWith(norm(x.name) + ' '));
+      if (!b?.odooId) continue;
+      const typed = model.startsWith(norm(b.name)) ? it.model.trim().slice(b.name.length).trim() : it.model.trim();
+      const m = typed ? b.items.find((x) => modelKey(x.name) === modelKey(typed)) : undefined;
+      const d = { device: c.name, model: [b.name, m?.name ?? typed].filter(Boolean).join(' '), cat: c.id, brand: b.id,
+        ids: { category_id: c.odooId, brand_id: b.odooId, series_id: m?.seriesId || undefined, model_id: m?.id || undefined } };
+      const issues = [...it.issues];
+      cartApi().retarget(it.id, d);
+      for (const s of issues) {
+        const svc = svcForIds(c, s, b.odooId, m?.seriesId || 0, m?.id || 0);
+        if (svc?.id) cartApi().set(d, s, cartApi().qty(d, s) || 1, { pid: svc.id, px: svc.price });
+      }
+    }
+  }
+  relinkCart();
   const canNext = () => (wzState.step === 1 ? !!wzState.cat : wzState.step === 2 ? !!wzState.brand
     : wzState.step === 4 ? cartCount() > 0 && !noBrand().length : cartCount() > 0);
   const wzGo = (n: number) => {
@@ -897,7 +934,7 @@ const payload = JSON.stringify({
       const c = catFor(it);
       return `<div class="wz-grp">
         <div class="wz-gh"><span class="wz-gi">${catIcon(it)}</span><span class="wz-gt"><b>${esc(devTitle(it))}</b><small>${esc(c?.name ?? it.device)}</small></span>
-          ${!it.model && c ? `<button type="button" class="wz-fix" data-fix="${esc(it.id)}">${!it.ids?.brand_id && !it.brand ? '+ Choose brand & model' : '+ Add model'}</button>` : ''}</div>
+          ${(!it.model || noBrand().includes(it)) && c ? `<button type="button" class="wz-fix" data-fix="${esc(it.id)}">${noBrand().includes(it) ? '+ Choose brand & model' : '+ Add model'}</button>` : ''}</div>
         ${it.issues.map((s) => {
           const p = pxOf(it, s), q = qtyIn(it, s), k = `${esc(it.id)}::${esc(s)}`;
           return `<div class="wz-gl"><b>${esc(s)}</b>
@@ -947,10 +984,26 @@ const payload = JSON.stringify({
   const cpOk = $('[data-wz-cpok]', wz);
   function paintCoupon() {
     const c = cartApi()?.coupon() || '';
+    const ci = cartApi()?.couponInfo?.();
     cpOk.hidden = !c;
-    cpOk.innerHTML = c ? `Code <b>${esc(c)}</b> goes with your booking — our team confirms it. <button type="button" data-wz-cpx>Remove</button>` : '';
+    cpOk.innerHTML = !c ? ''
+      : ci?.known && ci.valid ? `🎁 <b>${esc(ci.prize)}</b> — your Spin &amp; Win prize goes on this booking. <button type="button" data-wz-cpx>Remove</button>`
+      : ci?.known ? `Code <b>${esc(c)}</b> can't be used: ${esc(ci.reason || 'not valid')}. <button type="button" data-wz-cpx>Remove</button>`
+      : `Code <b>${esc(c)}</b> goes with your booking — our team confirms it. <button type="button" data-wz-cpx>Remove</button>`;
+    cpOk.classList.toggle('bad', !!(ci?.known && !ci.valid));
     $('[data-wz-cpf]', wz).hidden = !!c;
+    // the prize the customer already holds (Spin & Win): on this booking, unless they keep it
+    const p = cartApi()?.prize?.(), using = !!cartApi()?.usingPrize?.();
+    const pz = $('[data-wz-prize]', wz);
+    pz.hidden = !p;
+    pz.innerHTML = !p ? ''
+      : using ? `🎁 <b>Your prize: ${esc(p.prize)}</b> — added to this booking by itself. <button type="button" data-wz-prizex="skip">Keep it for later</button>`
+      : `🎁 Your prize <b>${esc(p.prize)}</b> is waiting, not on this booking. <button type="button" data-wz-prizex="use">Add it</button>`;
   }
+  $('[data-wz-prize]', wz).addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-wz-prizex]');
+    if (b) cartApi()?.usePrize?.(b.dataset.wzPrizex === 'use');
+  });
   $<HTMLFormElement>('[data-wz-cpf]', wz).addEventListener('submit', (e) => {
     e.preventDefault();
     const inp = $<HTMLInputElement>('[data-wz-cp]', wz);
@@ -1205,10 +1258,12 @@ const payload = JSON.stringify({
     say(accMsg, '', false);
     const who = await api('/api/account/me');
     accWho = who.ok ? who : r;
+    window.dispatchEvent(new CustomEvent('danat-account', { detail: accWho }));   // the header's account button
     showAddresses();
   });
   $('[data-acc-out]', wz).addEventListener('click', async () => {
     await api('/api/account/logout', {});
+    window.dispatchEvent(new CustomEvent('danat-account', { detail: null }));
     accWho = null; accAddrs = []; accPicked = 0; accPurpose = 'signin';
     showSignin();
   });
@@ -1344,6 +1399,7 @@ const payload = JSON.stringify({
     say(accAMsg, '', false);
     $('[data-acc-form]', wz).hidden = true;
     accPicked = r.address?.id || 0;
+    window.dispatchEvent(new CustomEvent('danat-addresses'));   // the header's location chip
     await showAddresses();
   });
 
@@ -1356,7 +1412,7 @@ const payload = JSON.stringify({
     if (!accPicked) { say(accAMsg, 'Choose the address for the visit.'); return; }
     btn.disabled = true; btn.textContent = 'Booking…';
     const body = { mode: 'doorstep', source: 'wizard', address_id: accPicked, problem: problemIn.value.trim(), page: location.pathname,
-      coupon: cartApi()?.coupon() || '', lines: odooLines() };
+      coupon: cartApi()?.coupon() || '', spin_win_id: cartApi()?.prizeId?.() || 0, lines: odooLines() };
     const sig = JSON.stringify(body);
     if (!bookRef || sig !== bookSig) {
       bookRef = 'W-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -1369,6 +1425,7 @@ const payload = JSON.stringify({
     $('[data-acc-addrbox]', wz).hidden = true;
     $('[data-acc-done]', wz).hidden = false;
     $('[data-acc-ref]', wz).textContent = r.ref;
+    $<HTMLAnchorElement>('[data-acc-follow]', wz).href = `/account#orders/${encodeURIComponent(r.ref)}`;   // straight to this order's page
     bookedRef = r.ref;
     cartApi()?.setCoupon('');
     cartApi()?.clear();   // everything in the cart is in this one booking
@@ -1552,7 +1609,11 @@ const payload = JSON.stringify({
         problem: problemIn.value.trim(), coupon, page: location.pathname,
         lines: odooLines(),
       }),
-    }).catch(() => {});
+    }).then((r) => { if (!r.ok) throw new Error(String(r.status)); }).catch(() => {
+      // not saved in Odoo: the WhatsApp message is now the only copy, so say so
+      $('[data-wz-warn]', wz).hidden = false;
+      $('[data-wz-warntx]', wz).textContent = "We couldn't save this booking on our system. Please send the WhatsApp message that just opened — that's how our team gets it.";
+    });
     const msg = [
       `Hi Danat Fix, I'd like to book ${cartCount() === 1 ? 'a repair' : 'these repairs'}.`,
       `Booking ref: ${ref}`,
@@ -1972,6 +2033,10 @@ const payload = JSON.stringify({
   .wz-cpok[hidden] { display: none; }
   .wz-cpok :global(button) { border: 0; background: none; padding: 0 0 0 4px; color: #be123c; font: inherit; text-decoration: underline; cursor: pointer; }
   .wz-cpnote { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+  .wz-cpok.bad { background: #FDECEC; color: #991B1B; }
+  .wz-prize { margin: 0; padding: 10px 12px; border-radius: 10px; border: 1.5px dashed #f5b400; background: color-mix(in srgb, #f5b400 12%, var(--surface)); font-size: 13px; }
+  .wz-prize[hidden] { display: none; }
+  .wz-prize :global(button) { border: 0; background: none; padding: 0; color: var(--violet); font-size: 12.5px; font-weight: 700; text-decoration: underline; }
 
   /* step 5 · receipt with more than one device */
   .wz-sum ul :global(li.wz-sdev) { display: grid; gap: 0; margin-top: 4px; font-weight: 800; color: var(--ink); animation: none; }

@@ -1,0 +1,372 @@
+---
+// "Pick a time" from My orders: one tap on a [data-pick-time="<order ref>"] button opens this on
+// the same page (a sheet from the bottom on phones, a window in the middle on a computer). The
+// days are chips, the times are tiles with the places left, and one button books the chosen
+// time ("Book Mon 27 Oct · 13:00-16:00"). The same booking as the WhatsApp link's /slot page,
+// through /api/my-slot for the signed-in customer: a part to order first is asked here too.
+// After booking, `danat-orders-refresh` tells My orders to load again.
+---
+
+<div class="pt" data-pt hidden>
+  <div class="pt-bg" data-pt-x></div>
+  <section class="pt-sheet" role="dialog" aria-modal="true" aria-labelledby="pt-title">
+    <span class="pt-grip" aria-hidden="true"></span>
+    <header class="pt-head">
+      <div>
+        <small data-pt-ref></small>
+        <h2 id="pt-title" data-pt-title>Pick a time</h2>
+      </div>
+      <button type="button" class="pt-x" data-pt-x aria-label="Close">×</button>
+    </header>
+
+    <div class="pt-body" data-pt-body>
+      <!-- loading -->
+      <div class="pt-load" data-pt-view="load"><i></i><i></i><i></i><span>Loading the free times…</span></div>
+
+      <!-- days and times -->
+      <div data-pt-view="pick" hidden>
+        <p class="pt-booked" data-pt-booked hidden></p>
+        <h3 class="pt-h">Choose a day</h3>
+        <div class="pt-days" data-pt-days role="tablist" aria-label="Days"></div>
+        <h3 class="pt-h">Choose a time <small data-pt-dayname></small></h3>
+        <div class="pt-wins" data-pt-wins role="radiogroup" aria-label="Times"></div>
+        <p class="pt-none" data-pt-none hidden></p>
+        <details class="pt-est" data-pt-est>
+          <summary><span>Your estimate</span><b data-pt-total></b></summary>
+          <ul data-pt-lines></ul>
+          <p>The technician confirms the price after checking the device, before any work starts.</p>
+        </details>
+      </div>
+
+      <!-- a part must be ordered first -->
+      <div class="pt-card" data-pt-view="parts" hidden>
+        <span class="pt-ico" aria-hidden="true">📦</span>
+        <h3>A part must be ordered</h3>
+        <p><b data-pt-parts></b> is not in stock. It takes about <b data-pt-pdays></b> days to arrive.</p>
+        <p>Shall we order it? We only order with your OK, and you pick the visit time once it's here.</p>
+        <div class="pt-two">
+          <button type="button" class="pt-btn" data-pt-yes>Yes, order it</button>
+          <button type="button" class="pt-btn ghost" data-pt-no>No thanks</button>
+        </div>
+      </div>
+
+      <!-- waiting for the part -->
+      <div class="pt-card" data-pt-view="wait" hidden>
+        <span class="pt-ico" aria-hidden="true">🚚</span>
+        <h3>We're getting your part</h3>
+        <p>As soon as it arrives you can pick your visit time here, and we'll message you on WhatsApp.</p>
+      </div>
+
+      <!-- too close to change -->
+      <div class="pt-card" data-pt-view="locked" hidden>
+        <span class="pt-ico" aria-hidden="true">🗓️</span>
+        <h3>Your visit time</h3>
+        <p class="pt-big" data-pt-locked></p>
+        <p>It's too close to the visit to change it here. Please call or WhatsApp us if you need another time.</p>
+      </div>
+
+      <!-- booked -->
+      <div class="pt-card pt-done" data-pt-view="done" hidden>
+        <span class="pt-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span>
+        <h3 data-pt-donetitle>You're booked!</h3>
+        <p class="pt-big" data-pt-donetime></p>
+        <p>Your technician gets the visit now. We'll remind you on WhatsApp.</p>
+      </div>
+
+      <!-- the customer said no to the part -->
+      <div class="pt-card" data-pt-view="bye" hidden>
+        <span class="pt-ico" aria-hidden="true">👋</span>
+        <h3>Booking closed</h3>
+        <p>Nothing was ordered. We're here whenever you need us.</p>
+      </div>
+
+      <p class="pt-msg" data-pt-msg role="alert" hidden></p>
+    </div>
+
+    <footer class="pt-foot" data-pt-foot hidden>
+      <p>Booking a time accepts the estimate. Nothing is charged before the technician checks your device.</p>
+      <button type="button" class="pt-btn pt-go" data-pt-go disabled>Choose a time</button>
+    </footer>
+    <footer class="pt-foot" data-pt-close hidden>
+      <button type="button" class="pt-btn pt-go" data-pt-x>Done</button>
+    </footer>
+  </section>
+</div>
+
+<script>
+  const sp = document.querySelector<HTMLElement>('[data-pt]');
+  if (sp) {
+    const $ = <T extends HTMLElement>(s: string) => sp.querySelector<T>(s)!;
+    const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    const ERR: Record<string, string> = {
+      unknown: "We couldn't find this booking. Please refresh the page.",
+      'sign in': 'Please sign in again to pick a time.',
+      cancelled: 'This booking is closed.',
+      expired: 'Please refresh the page and try again.',
+      full: 'Sorry, that time just filled up. Please choose another.',
+      'too late to change': "It's too close to your visit to change it now. Please call us.",
+      'parts not ready': "The part hasn't arrived yet. We'll message you.",
+      'slot not available': 'That time is no longer available. Please choose another.',
+      unavailable: "Can't reach our system right now. Please try again in a moment.",
+    };
+    let ref = '', data: any = null, day = '', pick: { slot: number; date: string; label: string } | null = null;
+    let opener: HTMLElement | null = null;
+
+    const view = (k: string) => {
+      sp.querySelectorAll<HTMLElement>('[data-pt-view]').forEach((el) => (el.hidden = el.dataset.ptView !== k));
+      $('[data-pt-foot]').hidden = k !== 'pick' || !canPick();
+      $('[data-pt-close]').hidden = !['done', 'bye', 'wait', 'locked'].includes(k);
+    };
+    const say = (m: string) => { const el = $('[data-pt-msg]'); el.textContent = m; el.hidden = !m; };
+    const canPick = () => !!data && (!data.booked || data.can_change);
+    const api = async (body?: unknown) => {
+      try {
+        const r = await fetch(body ? '/api/my-slot' : `/api/my-slot?ref=${encodeURIComponent(ref)}`, body
+          ? { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref, ...(body as object) }) }
+          : { credentials: 'same-origin', cache: 'no-store' });
+        let j: any = {}; try { j = await r.json(); } catch {}
+        return r.status === 401 ? { ok: false, error: 'sign in' } : j;
+      } catch { return { ok: false, error: 'unavailable' }; }
+    };
+    // "Mon 27 Oct" -> the chip's three lines
+    const parts = (label: string) => { const [wd = '', d = '', m = ''] = String(label).split(' '); return { wd, d, m }; };
+    const free = (d: any) => d.windows.reduce((n: number, w: any) => n + (w.free > 0 ? 1 : 0), 0);
+
+    function drawPick() {
+      const booked = $('[data-pt-booked]');
+      booked.hidden = !data.booked;
+      if (data.booked) booked.innerHTML = `Now booked: <b>${esc(data.booked.label)}</b>. Choose another time to change it.`;
+      $('[data-pt-title]').textContent = data.booked ? 'Change your time' : 'Pick a time';
+      // the estimate, its last line is the total
+      const lines: string[] = (data.estimate || []).map((l: string) => l.replace(/^•\s*/, '').trim()).filter(Boolean);
+      const total = lines.length && /^total/i.test(lines[lines.length - 1]) ? lines[lines.length - 1] : '';
+      const items = total ? lines.slice(0, -1) : lines;
+      $('[data-pt-total]').textContent = Number(data.total) > 0 ? total.replace(/^[^:]*:\s*/, '') : 'Price after check';
+      $('[data-pt-lines]').innerHTML = items.map((l) => `<li>${esc(l)}</li>`).join('');
+      $('[data-pt-est]').hidden = !items.length;
+      // the days: the booked one, else the first with a free time
+      const days: any[] = data.days || [];
+      if (!days.some((d) => d.date === day)) {
+        day = (days.find((d) => d.windows.some((w: any) => w.mine)) || days.find((d) => free(d)) || days[0] || {}).date || '';
+      }
+      $('[data-pt-days]').innerHTML = days.map((d) => {
+        const p = parts(d.label), n = free(d);
+        return `<button type="button" role="tab" class="pt-day${d.date === day ? ' on' : ''}${n ? '' : ' full'}" data-day="${esc(d.date)}" aria-selected="${d.date === day}">
+          <small>${esc(p.wd)}</small><b>${esc(p.d)}</b><small>${esc(p.m)}</small><em>${n ? `${n} free` : 'Full'}</em></button>`;
+      }).join('');
+      drawWins();
+      const none = $('[data-pt-none]');
+      none.hidden = days.length > 0;
+      none.textContent = 'No free times in the next days. Please call or WhatsApp us and we will fit you in.';
+      sp.querySelector('.pt-day.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }
+    function drawWins() {
+      const d = (data.days || []).find((x: any) => x.date === day);
+      $('[data-pt-dayname]').textContent = d ? `· ${d.label}` : '';
+      $('[data-pt-wins]').innerHTML = d ? d.windows.map((w: any) => {
+        const on = pick && pick.slot === w.slot_id && pick.date === d.date;
+        const left = w.mine ? 'Your time' : w.free > 0 ? (w.free === 1 ? 'Last place' : `${w.free} left`) : 'Full';
+        return `<button type="button" role="radio" aria-checked="${!!on}" class="pt-win${on ? ' on' : ''}${w.mine ? ' mine' : ''}${w.free === 1 && !w.mine ? ' last' : ''}"
+          data-slot="${w.slot_id}" data-date="${esc(d.date)}" data-label="${esc(d.label)} · ${esc(w.label)}" ${w.free > 0 && !w.mine ? '' : 'disabled'}>
+          <b>${esc(w.label)}</b><small>${left}</small></button>`;
+      }).join('') : '';
+      const go = $<HTMLButtonElement>('[data-pt-go]');
+      go.disabled = !pick;
+      go.textContent = pick ? `Book ${pick.label}` : 'Choose a time';
+    }
+
+    async function load() {
+      view('load'); say('');
+      const r = await api();
+      if (!r.ok) { view(''); say(ERR[r.error] || ERR.unavailable); return; }
+      data = r;
+      if (r.state === 'ask_parts') {
+        $('[data-pt-parts]').textContent = (r.parts || []).join(', ');
+        $('[data-pt-pdays]').textContent = String(r.parts_days || '?');
+        $('[data-pt-title]').textContent = 'A part first';
+        view('parts'); return;
+      }
+      if (r.state === 'waiting_parts') { $('[data-pt-title]').textContent = 'Waiting for the part'; view('wait'); return; }
+      if (r.booked && !r.can_change) {
+        $('[data-pt-title]').textContent = 'Your visit time';
+        $('[data-pt-locked]').textContent = r.booked.label;
+        view('locked'); return;
+      }
+      drawPick(); view('pick');
+    }
+
+    function open(r: string, from?: HTMLElement | null) {
+      ref = r; data = null; day = ''; pick = null; opener = from || null;
+      $('[data-pt-ref]').textContent = `Booking ${r}`;
+      $('[data-pt-title]').textContent = 'Pick a time';
+      sp.hidden = false;
+      requestAnimationFrame(() => sp.classList.add('in'));
+      document.documentElement.style.overflow = 'hidden';
+      load().then(() => sp.querySelector<HTMLElement>('.pt-day.on, .pt-btn, .pt-x')?.focus({ preventScroll: true }));
+    }
+    function close() {
+      sp.classList.remove('in');
+      document.documentElement.style.overflow = '';
+      setTimeout(() => { sp.hidden = true; }, 300);
+      opener?.focus({ preventScroll: true });
+    }
+    (window as any).__pickTime = open;
+    document.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-pick-time]');
+      if (b) { e.preventDefault(); e.stopPropagation(); open(b.dataset.pickTime!, b); }
+    }, true);
+    sp.querySelectorAll('[data-pt-x]').forEach((b) => b.addEventListener('click', close));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sp.hidden) close(); });
+
+    $('[data-pt-days]').addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-day]');
+      if (!b) return;
+      day = b.dataset.day!;
+      sp.querySelectorAll('.pt-day').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', String(x === b)); });
+      b.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      drawWins();
+    });
+    $('[data-pt-wins]').addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-slot]');
+      if (!b || b.disabled) return;
+      pick = { slot: Number(b.dataset.slot), date: b.dataset.date!, label: b.dataset.label! };
+      say('');
+      drawWins();
+    });
+    $('[data-pt-go]').addEventListener('click', async () => {
+      if (!pick) return;
+      const go = $<HTMLButtonElement>('[data-pt-go]');
+      go.disabled = true; go.textContent = 'Booking…';
+      const changed = !!data?.booked;
+      const r = await api({ action: 'book', slot_id: pick.slot, date: pick.date });
+      if (!r.ok) {
+        pick = null;
+        await load();
+        say(ERR[r.error] || 'That did not work. Please try again.');
+        return;
+      }
+      $('[data-pt-donetitle]').textContent = changed ? 'Time changed!' : "You're booked!";
+      $('[data-pt-donetime]').textContent = r.booked?.label || pick.label;
+      $('[data-pt-title]').textContent = changed ? 'Time changed' : 'Visit booked';
+      view('done');
+      window.dispatchEvent(new CustomEvent('danat-orders-refresh'));
+    });
+    const answer = async (yes: boolean) => {
+      const r = await api({ action: 'parts', yes });
+      if (!r.ok) { say(ERR[r.error] || 'That did not work. Please try again.'); return; }
+      window.dispatchEvent(new CustomEvent('danat-orders-refresh'));
+      if (r.state === 'declined') { $('[data-pt-title]').textContent = 'Booking closed'; view('bye'); return; }
+      await load();
+    };
+    $('[data-pt-yes]').addEventListener('click', () => answer(true));
+    $('[data-pt-no]').addEventListener('click', () => answer(false));
+  }
+</script>
+
+<style>
+  .pt { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; }
+  .pt[hidden] { display: none; }
+  .pt-bg { position: absolute; inset: 0; background: rgba(8, 14, 12, .55); backdrop-filter: blur(4px); opacity: 0; transition: opacity .3s; }
+  .pt.in .pt-bg { opacity: 1; }
+  .pt-sheet {
+    position: relative; width: min(560px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--surface); color: var(--ink); border-radius: 24px; box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .55);
+    transform: translateY(24px) scale(.97); opacity: 0; transition: transform .35s cubic-bezier(.2, 1, .3, 1), opacity .25s;
+  }
+  .pt.in .pt-sheet { transform: none; opacity: 1; }
+  .pt-grip { display: none; }
+  .pt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px 12px; border-bottom: 1px solid var(--line); }
+  .pt-head small { font-size: 12.5px; font-weight: 700; letter-spacing: .04em; color: var(--ink-3); }
+  .pt-head h2 { margin: 2px 0 0; font-family: var(--display, inherit); font-size: 22px; letter-spacing: -.02em; }
+  .pt-x { flex: none; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--tint); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; }
+  .pt-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 22px 18px; display: grid; gap: 14px; align-content: start; }
+  .pt-body > [data-pt-view="pick"] { display: grid; gap: 12px; }
+  .pt-h { margin: 4px 0 0; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+  .pt-h small { font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .pt-booked { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft, var(--tint)); font-size: 14px; }
+  .pt-booked[hidden], .pt-none[hidden], .pt-msg[hidden], .pt-est[hidden], [data-pt-view][hidden], .pt-foot[hidden] { display: none; }
+
+  /* the days: chips in a row that scrolls sideways */
+  .pt-days { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: thin; }
+  .pt-days :global(.pt-day) {
+    flex: none; scroll-snap-align: center; display: grid; justify-items: center; gap: 1px; width: 74px; padding: 10px 6px 9px;
+    border: 1.5px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer;
+    transition: border-color .15s, background .15s, transform .15s;
+  }
+  .pt-days :global(.pt-day small) { font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  .pt-days :global(.pt-day b) { font-family: var(--display, inherit); font-size: 22px; line-height: 1.1; }
+  .pt-days :global(.pt-day em) { margin-top: 4px; padding: 2px 7px; border-radius: 99px; background: rgba(18, 161, 80, .12); color: #12804a; font-style: normal; font-size: 11px; font-weight: 700; }
+  .pt-days :global(.pt-day.full em) { background: var(--tint); color: var(--ink-3); }
+  .pt-days :global(.pt-day.full) { opacity: .6; }
+  .pt-days :global(.pt-day:hover) { border-color: var(--violet); }
+  .pt-days :global(.pt-day.on) { border-color: var(--violet); background: var(--violet); color: var(--on-accent, #fff); transform: translateY(-1px); box-shadow: 0 10px 22px -12px var(--violet); }
+  .pt-days :global(.pt-day.on small) { color: color-mix(in srgb, var(--on-accent, #fff) 80%, transparent); }
+  .pt-days :global(.pt-day.on em) { background: rgba(255, 255, 255, .22); color: var(--on-accent, #fff); }
+
+  /* the times: tiles with the places left */
+  .pt-wins { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .pt-wins :global(.pt-win) {
+    display: grid; gap: 3px; padding: 14px 14px 12px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface);
+    color: var(--ink); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  }
+  .pt-wins :global(.pt-win b) { font-size: 16px; }
+  .pt-wins :global(.pt-win small) { font-size: 12.5px; font-weight: 600; color: #12804a; }
+  .pt-wins :global(.pt-win.last small) { color: #b35f00; }
+  .pt-wins :global(.pt-win:hover:not(:disabled)) { border-color: var(--violet); }
+  .pt-wins :global(.pt-win.on) { border-color: var(--violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--violet) 22%, transparent); background: var(--accent-soft, var(--tint)); }
+  .pt-wins :global(.pt-win:disabled) { cursor: not-allowed; opacity: .5; }
+  .pt-wins :global(.pt-win:disabled small) { color: var(--ink-3); }
+  .pt-wins :global(.pt-win.mine) { opacity: 1; border-style: dashed; border-color: var(--violet); }
+  .pt-wins :global(.pt-win.mine small) { color: var(--violet); }
+  .pt-none { margin: 0; color: var(--ink-2); font-size: 14px; }
+
+  /* the estimate, folded */
+  .pt-est { border: 1px solid var(--line); border-radius: 14px; padding: 0 14px; }
+  .pt-est summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; font-size: 14px; font-weight: 700; list-style: none; }
+  .pt-est summary::-webkit-details-marker { display: none; }
+  .pt-est summary span::after { content: ' ▾'; color: var(--ink-3); }
+  .pt-est[open] summary span::after { content: ' ▴'; }
+  .pt-est ul { margin: 0 0 8px; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; color: var(--ink-2); }
+  .pt-est p { margin: 0 0 12px; font-size: 12.5px; color: var(--ink-3); }
+
+  /* the one-message cards: part, waiting, too late, booked */
+  .pt-card { display: grid; justify-items: center; gap: 8px; padding: 10px 6px; text-align: center; }
+  .pt-card h3 { margin: 0; font-size: 20px; }
+  .pt-card p { margin: 0; color: var(--ink-2); font-size: 14.5px; max-width: 420px; }
+  .pt-ico { font-size: 38px; }
+  .pt-big { font-family: var(--display, inherit); font-size: 20px !important; font-weight: 800; color: var(--ink) !important; }
+  .pt-two { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+  .pt-check { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: rgba(18, 161, 80, .12); animation: spPop .45s cubic-bezier(.2, 1.4, .3, 1); }
+  .pt-check svg { width: 40px; height: 40px; fill: none; stroke: #12a150; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; animation: spTick .5s .15s forwards; }
+  @keyframes spPop { from { transform: scale(.4); opacity: 0; } }
+  @keyframes spTick { to { stroke-dashoffset: 0; } }
+
+  .pt-load { display: flex; align-items: center; gap: 6px; padding: 24px 0; color: var(--ink-3); font-size: 14px; }
+  .pt-load i { width: 8px; height: 8px; border-radius: 50%; background: var(--violet); animation: spDot 1s infinite; }
+  .pt-load i:nth-child(2) { animation-delay: .15s; } .pt-load i:nth-child(3) { animation-delay: .3s; margin-right: 6px; }
+  @keyframes spDot { 50% { opacity: .25; transform: translateY(-3px); } }
+  .pt-msg { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(214, 58, 58, .08); color: #b42318; font-size: 14px; font-weight: 600; }
+
+  /* the button that books: always in reach at the bottom */
+  .pt-foot { display: grid; gap: 8px; padding: 12px 22px 18px; border-top: 1px solid var(--line); background: var(--surface); }
+  .pt-foot p { margin: 0; font-size: 12.5px; color: var(--ink-3); text-align: center; }
+  .pt-btn { height: 48px; padding: 0 20px; border: 0; border-radius: 14px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+  .pt-btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .pt-btn:disabled { background: var(--tint); color: var(--ink-3); cursor: not-allowed; }
+  .pt-go { width: 100%; }
+
+  /* phones: a sheet from the bottom */
+  @media (max-width: 640px) {
+    .pt { padding: 0; place-items: end stretch; }
+    .pt-sheet { width: 100%; max-height: 92vh; max-height: 92dvh; border-radius: 24px 24px 0 0; transform: translateY(100%); }
+    .pt.in .pt-sheet { transform: none; }
+    .pt-grip { display: block; justify-self: center; width: 42px; height: 5px; margin-top: 8px; border-radius: 99px; background: var(--line); }
+    .pt-head { padding: 10px 16px 10px; }
+    .pt-head h2 { font-size: 20px; }
+    .pt-body { padding: 14px 16px 16px; }
+    .pt-foot { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); }
+    .pt-wins { grid-template-columns: 1fr 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { .pt-sheet, .pt-bg { transition: none; } .pt-check, .pt-check svg, .pt-load i { animation: none; stroke-dashoffset: 0; } }
+</style>

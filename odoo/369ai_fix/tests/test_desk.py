@@ -25,7 +25,8 @@ class TestBookingDesk(TransactionCase):
             cls.env, login='desk_recep',
             groups='base.group_user,mobile_repair.group_mobile_repair_receptionist')
         cls.employee = cls.env['hr.employee'].create({
-            'name': 'Arjun Tech', 'user_id': cls.tech_user.id, 'mobile_phone': '+96890000001'})
+            'name': 'Arjun Tech', 'user_id': cls.tech_user.id, 'mobile_phone': '+96890000001',
+            'fix_takes_visits': True})   # a place in every time window
         cls.env.company.write({'fs_speed_kmh': 30.0, 'fs_arrival_otp': True,
                                'fs_show_tech_phone': True, 'fs_stale_after_s': 120})
         # any slot does for the label; a one-off far ahead when the database has none

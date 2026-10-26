@@ -4,6 +4,9 @@
 A slot is a weekday window (every Monday 09:00-12:00) or a one-off window on a date.
 Two active slots for the same day and the same kind of visit may not overlap or repeat,
 and a one-off slot may not overlap the weekday windows of its date.
+
+Places in a window follow the technicians: one per employee ticked "Takes doorstep visits"
+who is not off that day (technician_day_off.py). The slot's "At most" caps a window (0 = no cap).
 """
 from datetime import datetime, time, timedelta
 
@@ -35,7 +38,9 @@ class BookingSlot(models.Model):
     date = fields.Date('On date', help="A one-off slot on this date only (leave Every empty).")
     start = fields.Float('From', required=True, default=9.0)
     end = fields.Float('Until', required=True, default=12.0)
-    capacity = fields.Integer('Bookings allowed', required=True, default=2)
+    capacity = fields.Integer('At most (0 = all technicians)', required=True, default=0,
+                              help="Places follow the technicians who take visits and are not off that day. "
+                                   "A number here caps this window; 0 = no cap.")
     mode = fields.Selection(MODES, string='For', required=True, default='both')
     active = fields.Boolean(default=True)
     company_id = fields.Many2one('res.company', required=True, default=lambda self: self.env.company)
@@ -59,8 +64,8 @@ class BookingSlot(models.Model):
                 raise ValidationError(_("Times must be within the day (00:00 to 24:00)."))
             if slot.end <= slot.start:
                 raise ValidationError(_("%s: the end time must be after the start time.", slot.name))
-            if slot.capacity < 1:
-                raise ValidationError(_("%s: allow at least one booking.", slot.name))
+            if slot.capacity < 0:
+                raise ValidationError(_("%s: \"At most\" can't be below 0 (0 = all technicians).", slot.name))
             if not slot.active:
                 continue
             others = self.search([('id', '!=', slot.id), ('company_id', '=', slot.company_id.id)])
@@ -106,6 +111,25 @@ class BookingSlot(models.Model):
             ('slot_start', '>=', start),
             ('slot_start', '<', end),
         ])
+
+    @api.model
+    def _technicians(self, company, day):
+        """Employees who can take a visit on `day`: ticked "Takes doorstep visits", in the
+        company, not the website's placeholder, and without a day off then."""
+        Employee = self.env['hr.employee'].sudo()
+        techs = Employee.search([('fix_takes_visits', '=', True), ('company_id', '=', company.id)])
+        techs -= company.sudo().wb_unassigned_employee_id
+        if not techs or not day:
+            return techs
+        off = self.env['fix.technician.day.off'].sudo().search([
+            ('employee_id', 'in', techs.ids), ('date_from', '<=', day), ('date_to', '>=', day)])
+        return techs - off.employee_id
+
+    def _places(self, day):
+        """How many visits this window holds on `day`: its technicians, capped by "At most"."""
+        self.ensure_one()
+        places = len(self._technicians(self.company_id, day))
+        return min(places, self.capacity) if self.capacity > 0 else places
 
     @api.model
     def _days(self, company, mode, first_day=None):

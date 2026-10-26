@@ -17,3 +17,4 @@ def post_init_hook(env):
     repair.post_init_hook(env)
     website.post_init_hook(env)
     website.seed.load_starter_content(env)   # the website's texts, as they were in code
+    booking.models.technician_day_off.tick_technicians(env)   # who takes visits: the time windows' places

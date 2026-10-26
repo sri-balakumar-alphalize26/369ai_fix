@@ -103,8 +103,10 @@ class OnlineServiceOrder(models.Model):
     # ------------------------------------------------------------------
     # Estimate, links and messages
     # ------------------------------------------------------------------
-    def _wb_estimate(self):
-        """(text, total) of all job cards: repairs and parts with prices."""
+    def _wb_estimate(self, skip_options=False):
+        """(text, total) of all job cards: repairs and parts with prices. A part offered in two
+        grades shows both ("or ..."); the total counts the one chosen so far. `skip_options`
+        leaves both grades out of the lines (the quote page shows them as a choice)."""
         self.ensure_one()
         currency = (self.company_id or self.env.company).currency_id
         lines, total = [], 0.0
@@ -115,16 +117,39 @@ class OnlineServiceOrder(models.Model):
                 lines.append('• %s — %s' % (line.description or line.product_id.name, _money(currency, amount)))
             for line in card.spare_part_line_ids:
                 amount = line.unit_price * line.quantity
+                name = line.description or line.product_id.name
+                if skip_options and line.fix_alt_key:
+                    total += 0.0 if line.fix_alt_off else amount
+                    continue
+                if line.fix_alt_off:
+                    if not skip_options:
+                        lines.append('   %s' % _("or %(name)s — %(amount)s (you choose)", name=name,
+                                                  amount=_money(currency, amount)))
+                    continue
                 total += amount
-                lines.append('• %s — %s' % (line.description or line.product_id.name, _money(currency, amount)))
+                lines.append('• %s — %s' % (name, _money(currency, amount)))
         lines.append(_("Total: %s", _money(currency, total)))
         return '\n'.join(lines), total
+
+    def _wb_choices(self, cards):
+        """The parts offered in two grades, for the quote page: [{key, options: [...]}]."""
+        self.ensure_one()
+        grades = dict(self.env['product.template']._fields['fix_part_grade'].selection)
+        out = []
+        for card in cards:
+            for key, lines in card._wb_alt_groups().items():
+                out.append({'key': key, 'options': [{
+                    'line_id': l.id, 'name': l.description or l.product_id.name,
+                    'grade': grades.get(l.product_id.fix_part_grade, ''),
+                    'amount': l.unit_price * l.quantity, 'chosen': not l.fix_alt_off,
+                } for l in lines.sorted(lambda l: (l.fix_alt_off, l.id))]})
+        return out
 
     def _wb_missing_parts(self):
         """Spare lines whose part is not in stock in the quantity needed."""
         self.ensure_one()
         return self.sudo().job_card_ids.filtered(lambda c: c.state != 'cancelled').spare_part_line_ids.filtered(
-            lambda l: l.product_id.qty_available < (l.quantity or 1))
+            lambda l: not l.fix_alt_off and l.product_id.qty_available < (l.quantity or 1))
 
     def _wb_site_base(self):
         self.ensure_one()
@@ -272,7 +297,7 @@ class OnlineServiceOrder(models.Model):
             for day, slots in Slot._days(company, order.mode, first_day=order._wb_first_slot_day()):
                 windows = []
                 for slot in slots:
-                    free = slot.capacity - slot._booked(day)
+                    free = slot._places(day) - slot._booked(day)
                     mine = slot == order.slot_id and day == order.slot_date
                     windows.append({'slot_id': slot.id, 'label': slot._label(),
                                     'free': max(free, 0) + (1 if mine else 0), 'mine': mine})
@@ -334,7 +359,7 @@ class OnlineServiceOrder(models.Model):
             return {'ok': False, 'error': 'slot not available'}
         self.env.cr.execute('SELECT id FROM fix_booking_slot WHERE id = %s FOR UPDATE', [slot.id])
         same = slot == order.slot_id and day == order.slot_date
-        if not same and slot._booked(day) >= slot.capacity:
+        if not same and slot._booked(day) >= slot._places(day):
             return {'ok': False, 'error': 'full'}
         start, end = slot._window(day)
         visit = order._fs_current_visit()
@@ -342,12 +367,18 @@ class OnlineServiceOrder(models.Model):
             visit = self.env['fix.service.visit'].sudo().create(order._fs_visit_vals())
         visit.write({'slot_start': start, 'slot_end': end})
         changed = bool(order.slot_id)
-        order.write({'slot_id': slot.id, 'slot_date': day, 'slot_booked_on': fields.Datetime.now(),
-                     'slot_seen_by_id': False, 'slot_seen_on': False})
+        by = self.env.context.get('fix_slot_by')      # staff booking it on the desk (desk_slot)
+        now = fields.Datetime.now()
+        order.write({'slot_id': slot.id, 'slot_date': day, 'slot_booked_on': now,
+                     # staff who book it have seen it: no "time booked" alarm for their own booking
+                     'slot_seen_by_id': self.env.uid if by else False, 'slot_seen_on': now if by else False})
         order._wb_accept_estimate()
         order._wb_notify('slot_booked', slot=order.slot_label)
-        order.message_post(body=(_("Customer changed the time to %s.", order.slot_label) if changed
-                                 else _("Customer booked %s (and accepted the estimate).", order.slot_label)))
+        if by:
+            order.message_post(body=_("Time booked by %(who)s (on the phone): %(slot)s.", who=by, slot=order.slot_label))
+        else:
+            order.message_post(body=(_("Customer changed the time to %s.", order.slot_label) if changed
+                                     else _("Customer booked %s (and accepted the estimate).", order.slot_label)))
         order._wb_auto_assign(visit, changed)
         order._ring()
         return {'ok': True, 'booked': {'date': fields.Date.to_string(day), 'label': order.slot_label}}
@@ -367,7 +398,12 @@ class OnlineServiceOrder(models.Model):
                         and chosen and chosen != placeholder:
                     visit.technician_id = chosen
                 tech = visit.technician_id
-                if visit.state == 'draft' and tech and tech != placeholder:
+                day = self.slot_date
+                if visit.state == 'draft' and tech and tech != placeholder and tech._fix_off_on(day):
+                    # off that day: the visit waits on the desk for someone else
+                    self.message_post(body=_("%(tech)s is off on %(day)s: choose another technician on the "
+                                             "Booking Desk.", tech=tech.name, day=day.strftime('%a %d %b')))
+                elif visit.state == 'draft' and tech and tech != placeholder:
                     visit.action_assign()
                     self.message_post(body=_("%s has the visit (chosen at approval): the link went out "
                                              "with the time.", tech.name))
@@ -408,26 +444,32 @@ class OnlineServiceOrder(models.Model):
         if error:
             return {'ok': False, 'error': error}
         cards = order.job_card_ids.filtered(lambda c: c.quote_state in ('waiting', 'accepted', 'declined'))
-        estimate, total = order._wb_estimate()
         waiting = cards.filtered(lambda c: c.quote_state == 'waiting')
+        choices = order._wb_choices(waiting)
+        estimate, total = order._wb_estimate(skip_options=bool(choices))
+        lines = estimate.split('\n')
+        currency = (order.company_id or self.env.company).currency_id
         return {
             'ok': True,
             'ref': order.name,
             'customer': order.customer_name or '',
             'state': 'waiting' if waiting else (cards[:1].quote_state or 'none'),
             'old_total': sum(cards.mapped('estimate_total')),
-            'lines': estimate.split('\n'),
+            'lines': lines,
             'total': total,
-            'currency': (order.company_id or self.env.company).currency_id.name,
+            'currency': currency.name,
+            'decimals': currency.decimal_places,
+            'choices': choices,
             'parts': [l.description or l.product_id.name for l in waiting.spare_part_line_ids
-                      if l.product_id.qty_available < (l.quantity or 1)],
+                      if not l.fix_alt_off and l.product_id.qty_available < (l.quantity or 1)],
             'found': (waiting or cards).issue_type_ids.mapped('name'),
             'at_office': any(cards.mapped('wb_at_office')),
         }
 
     @api.model
-    def quote_answer(self, host, ref, token, yes):
-        """Approve / Decline of a changed price."""
+    def quote_answer(self, host, ref, token, yes, choice=None):
+        """Approve / Decline of a changed price. `choice`: the spare lines the customer picked
+        where a part was offered in two grades (the other grade is removed)."""
         self._check_website_caller()
         order, error = self._wb_from_link(host, ref, token)
         if error:
@@ -437,6 +479,7 @@ class OnlineServiceOrder(models.Model):
             return {'ok': True, 'state': 'done'}
         for card in waiting:
             if yes:
+                card._wb_choose_alts(choice or [])
                 card._wb_quote_approved()
             else:
                 card.quote_state = 'declined'
@@ -521,7 +564,30 @@ class OnlineServiceOrder(models.Model):
                             'expected': order._wb_parts_expected()}
             if order.rejected:
                 row['reason'] = order.reject_reason or ''
+            # the order's own page (My orders > an order): where, when, and the bill once it is the customer's
+            row['address'] = ', '.join(x for x in (order.address, order.area) if x)
+            row['times'] = {k: fields.Datetime.to_string(v) if v else '' for k, v in
+                            (('confirmed', order.confirmed_on), ('done', order.done_on))}
+            row['bill'] = order._wb_customer_bill()
         return result
+
+    def _wb_customer_bill(self):
+        """The repairs and parts with their price, as the customer was told them: only once the
+        price was sent (or agreed) or the job is done. Draft prices on the job card stay inside."""
+        self.ensure_one()
+        card = self.job_card_id.sudo()
+        if not card or not (card.quote_state in ('waiting', 'accepted') or self.state == 'done'):
+            return None
+        lines = [{'name': l.description or l.product_id.name or '', 'qty': l.quantity, 'amount': l.unit_price * l.quantity, 'kind': 'repair'}
+                 for l in card.service_line_ids] + \
+                [{'name': l.description or l.product_id.name or '', 'qty': l.quantity, 'amount': l.unit_price * l.quantity, 'kind': 'part'}
+                 for l in card.spare_part_line_ids.filtered(lambda l: not l.fix_alt_off)]
+        currency = card.company_id.currency_id or self.env.company.currency_id
+        if not lines or currency.compare_amounts(card._wb_lines_total(), 0.0) <= 0:
+            return None     # no price on it yet: the page says the price comes after the check
+        return {'lines': lines, 'total': card._wb_lines_total(), 'currency': currency.name,
+                'decimals': currency.decimal_places,
+                'state': 'waiting' if card.quote_state == 'waiting' else 'agreed'}
 
     def _wb_parts_expected(self):
         self.ensure_one()
