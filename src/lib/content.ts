@@ -54,8 +54,10 @@ export type Popups = {
   cookie: { show: boolean; title: string; text: string; decline: string; accept: string; delay_ms: number };
 };
 export type WheelIcon = 'diag' | 'pick' | 'clean' | 'fast' | 'data' | 'guard';
-export type WheelSlice = { top: string; label: string; full: string; code: string; icon: WheelIcon; color: string; text_color: string };
+// A slice's `id` is Odoo's prize row: Odoo picks the prize, the wheel lands on that id (0 = the site's own slices)
+export type WheelSlice = { id: number; top: string; label: string; full: string; code: string; icon: WheelIcon; color: string; text_color: string };
 export type Wheel = {
+  show: boolean; every_days: number;
   tab: string; eyebrow: string; title: string; title2: string; subtitle: string; spin: string; later: string; won: string; note: string;
   book: string; wa: string; wa_msg: string; slices: WheelSlice[];
 };
@@ -142,7 +144,7 @@ function popupsFromOdoo(st: any) {
   const popups: Popups = merge(p, STATIC_POPUPS);
   popups.welcome.type = wt === 'slot' || wt === 'spin' || wt === 'flash' || wt === 'none' ? wt : STATIC_POPUPS.welcome.type;
   const wheel: Wheel = { ...merge(w, STATIC_WHEEL), slices: rows(w.slices, STATIC_WHEEL.slices, (r, i) => ({
-    top: s(r.top), label: s(r.label), full: s(r.full) || `${s(r.top)} ${s(r.label)}`.trim(), code: s(r.code),
+    id: idOf(r.id) ?? 0, top: s(r.top), label: s(r.label), full: s(r.full) || `${s(r.top)} ${s(r.label)}`.trim(), code: s(r.code),
     icon: WHEEL_ICONS.includes(r.icon) ? r.icon : WHEEL_ICONS[i % WHEEL_ICONS.length],
     color: s(r.color) || STATIC_WHEEL.slices[i % STATIC_WHEEL.slices.length].color,
     text_color: s(r.text_color) || STATIC_WHEEL.slices[i % STATIC_WHEEL.slices.length].text_color })) };
@@ -216,7 +218,7 @@ export function staticContent(): Content {
         { label: 'Get an estimate', link: '/services#catalog' }, { label: 'Check location', link: '/#check-location' },
         { label: 'Book on WhatsApp', link: `https://wa.me/${site.whatsapp}` }],
       branches: site.branchInfo.map((b) => ({ name: b.name, lines: b.lines, phones: b.phones, map: b.map, hours: '' })),
-      footer: { about: `${site.tagline}. Phones, laptops, printers, CCTV and Wi-Fi — repaired at your door or picked up and brought back, across ${site.country} since ${site.since}.`,
+      footer: { about: `${site.tagline}, across ${site.country} since ${site.since}.`,
         copyright: `© {year} ${site.name}. All rights reserved.`, credit: '' },
     },
     sections: [
@@ -280,7 +282,10 @@ function fromOdoo(raw: any): Content {
     geo: { ...staticGeo, ...odooGeo },
   };
   const faq = (st.faq || []).map((f: any) => ({ q: s(f.q), a: fill(s(f.a), fl) })).filter((f: { q: string }) => f.q);
-  const pages: InfoPage[] = (st.pages || []).map((p: any) => ({ title: s(p.title), slug: s(p.slug), column: p.column || 'none', kind: p.kind || 'text', body: s(p.body) }));
+  // a text page Odoo has no text for yet (e.g. the policies) shows the site's own copy until it does
+  const ownBody = (slug: string) => staticPages.find((x) => x.slug === slug)?.body || '';
+  const pages: InfoPage[] = (st.pages || []).map((p: any) => ({ title: s(p.title), slug: s(p.slug), column: p.column || 'none', kind: p.kind || 'text',
+    body: s(p.body).replace(/<[^>]*>/g, '').trim() ? s(p.body) : (p.kind || 'text') === 'text' ? ownBody(s(p.slug)) : s(p.body) }));
   return {
     services, modes, coverage,
     faq: Array.isArray(st.faq) ? faq : staticFaqs,

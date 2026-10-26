@@ -1,8 +1,13 @@
 ---
 // "Spin & Win" offer popup. The prizes (slices), their colours and every text come from Odoo
 // (Fix Website ▸ Pop-ups & chat ▸ Spin & Win), else the site's own (src/data/popups.ts).
-// Every slice wins; the result is remembered (?offer=spin resets it).
+// Odoo decides the rest (/api/spin): the customer signs in with their mobile and a WhatsApp code
+// once (the site's own sign-in, so booking needs no second code), spins once in `every_days`,
+// Odoo picks the slice by its chance and gives the winner their own code; the wheel only turns
+// to that slice. The prize goes on their next booking by itself. Opening the wheel again shows
+// the prize they already have.
 import { staticContent, contactOf, type Contact, type Wheel, type WheelIcon } from '../lib/content';
+import { DIAL } from '../lib/phone';
 // WhatsApp number and the wheel from Odoo (passed by Popups), else the site's own.
 const { contact = contactOf(), wheel = staticContent().wheel } = Astro.props as { contact?: Contact; wheel?: Wheel };
 
@@ -25,7 +30,7 @@ const pt = (deg: number, r = R) => {
 const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURIComponent(msg)}`;
 ---
 
-<div class="sw" data-sw hidden data-prizes={JSON.stringify(prizes.map(({ full, code }) => ({ full, code })))}>
+<div class="sw" data-sw hidden data-prizes={JSON.stringify(prizes.map(({ id, full, code }) => ({ id, full, code })))}>
   <div class="sw-bg" data-sw-x></div>
   <div class="sw-card" role="dialog" aria-modal="true" aria-labelledby="sw-title">
     <button type="button" class="sw-x" data-sw-x aria-label="Close">×</button>
@@ -67,20 +72,40 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
     </div>
 
     <div class="sw-foot" data-sw-before>
+      <!-- not signed in: the mobile and a WhatsApp code, once (the site's own sign-in); signed in: just spin -->
+      <div class="sw-signin" data-sw-signin hidden>
+        <p class="sw-why">Sign in with your mobile to spin — one spin per customer every {wheel.every_days} days.</p>
+        <div class="sw-ph">
+          <select data-sw-cc aria-label="Country code">{DIAL.map((d) => <option value={d.cc} selected={d.cc === 'om'}>{d.code} {d.name}</option>)}</select>
+          <input data-sw-phone inputmode="tel" maxlength="16" autocomplete="tel-national" placeholder="9123 4567" aria-label="Mobile number" />
+        </div>
+        <input data-sw-name data-sw-new hidden autocomplete="name" maxlength="60" placeholder="Your name" aria-label="Your name" />
+        <input data-sw-code data-sw-codebox hidden inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code from WhatsApp" aria-label="Code from WhatsApp" />
+        <!-- an existing account whose number isn't proven yet confirms its password once (369 Mart's rule) -->
+        <input data-sw-pass data-sw-passbox hidden type="password" autocomplete="current-password" maxlength="128" placeholder="Your password (once, to confirm it's you)" aria-label="Password" />
+        <div class="sw-sbtns">
+          <button type="button" class="btn sw-send" data-sw-send>Send code on WhatsApp</button>
+          <button type="button" class="btn btn-primary" data-sw-verify hidden>Sign in</button>
+        </div>
+      </div>
+      <p class="sw-as" data-sw-as hidden></p>
+      <p class="sw-msg" data-sw-msg role="status" hidden></p>
       <button type="button" class="btn btn-primary sw-go" data-sw-spin>{wheel.spin}</button>
       <button type="button" class="sw-later" data-sw-x>{wheel.later}</button>
     </div>
 
-    <!-- result sheet -->
+    <!-- result sheet: the prize Odoo gave, its code and how long it lasts -->
     <div class="sw-win" data-sw-after hidden>
       <div class="win-ico" data-sw-wico></div>
-      <span class="win-k">{wheel.won}</span>
+      <span class="win-k" data-sw-wonk>{wheel.won}</span>
       <h3 data-sw-prize>—</h3>
       <button type="button" class="ticket" data-sw-code>
         <span class="t-l"><small>Your code</small><b data-sw-codetext>—</b></span>
         <span class="t-r" data-sw-copied>Copy</span>
       </button>
-      <p>{wheel.note}</p>
+      <p class="sw-valid" data-sw-valid hidden></p>
+      <!-- Odoo's own line above says how the prize is used; this note is only for a wheel without it -->
+      <p data-sw-note>{wheel.note}</p>
       <div class="sw-btns">
         <a href="/services#catalog" class="btn btn-primary" data-sw-book>{wheel.book}</a>
         <a href="#" target="_blank" rel="noopener" class="btn" data-sw-wa data-base={wa(wheel.wa_msg.includes('{code}') ? wheel.wa_msg : `${wheel.wa_msg} {code}`)}>{wheel.wa}</a>
@@ -93,31 +118,77 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
 <template data-sw-icons>{prizes.map((p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={p.icon} />)}</template>
 
 <script>
+  import { bindPhone, checkPhone } from '../lib/phone';
   const sw = document.querySelector<HTMLElement>('[data-sw]');
   if (sw) {
-    const prizes: { full: string; code: string }[] = JSON.parse(sw.dataset.prizes!);
+    const prizes: { id: number; full: string; code: string }[] = JSON.parse(sw.dataset.prizes!);
     const icons = [...(document.querySelector<HTMLTemplateElement>('[data-sw-icons]')!.content.children)];
     const wheel = sw.querySelector<SVGElement>('[data-sw-wheel]')!;
-    const get = (k: string) => { try { return sessionStorage.getItem(k); } catch { return null; } };
-    const put = (k: string, v: string) => { try { sessionStorage.setItem(k, v); } catch {} };
+    const $ = <T extends HTMLElement>(s: string) => sw.querySelector<T>(s)!;
+    const api = async (url: string, body?: unknown) => {
+      try {
+        const r = await fetch(url, body === undefined ? { credentials: 'same-origin', cache: 'no-store' } : {
+          method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+        let j: any = {}; try { j = await r.json(); } catch {}
+        return { status: r.status, ...j };
+      } catch { return { status: 0, ok: false, error: 'unavailable' }; }
+    };
     let spinning = false;
+    let who: any = null;          // null = not asked yet, false = signed out, else the customer
     const seg = 360 / prizes.length;
     const angleFor = (i: number) => 360 - (i * seg + seg / 2);
-    if (new URLSearchParams(location.search).get('offer') === 'spin') { try { sessionStorage.removeItem('spin-won'); } catch {} }
+    const say = (m: string, bad = true) => { const el = $('[data-sw-msg]'); el.textContent = m; el.hidden = !m; el.classList.toggle('bad', bad); };
+    const ERR: Record<string, string> = {
+      off: 'Spin & Win is taking a short break. Back soon!',
+      paused: 'All the prizes for now are gone — try again next month!',
+      'too many': 'Too many spins from this connection. Try again later.',
+      'sign in': 'Sign in with your mobile first.',
+      unavailable: "Can't reach our system right now. Try again in a moment.",
+    };
+    const dayText = (d: string) => (d ? new Date(d + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' }) : '');
+    type Win = { id: number; item_id: number; prize: string; code: string; valid_until: string; state: string; order: string };
 
-    const show = (i: number, instant = false) => {
-      const p = prizes[i];
+    // the prize Odoo gave: the wheel on its slice, the sheet with the prize, its code and validity
+    const show = (w: Win, instant = false) => {
+      let i = prizes.findIndex((p) => p.id && p.id === w.item_id);
+      if (i < 0) i = 0;
       if (instant) { wheel.style.transition = 'none'; wheel.style.transform = `rotate(${angleFor(i)}deg)`; }
-      sw.querySelector('[data-sw-before]')!.setAttribute('hidden', '');
-      const win = sw.querySelector<HTMLElement>('[data-sw-after]')!;
+      $('[data-sw-before]').setAttribute('hidden', '');
+      const win = $('[data-sw-after]');
       win.removeAttribute('hidden');
       requestAnimationFrame(() => win.classList.add('up'));
-      sw.querySelector('[data-sw-prize]')!.textContent = p.full;
-      sw.querySelector('[data-sw-codetext]')!.textContent = p.code;
-      sw.querySelector('[data-sw-wico]')!.replaceChildren(icons[i].cloneNode(true));
-      const wa = sw.querySelector<HTMLAnchorElement>('[data-sw-wa]')!;
-      wa.href = wa.dataset.base!.replace('%7Bcode%7D', encodeURIComponent(p.code));   // the message's {code}
+      $('[data-sw-wonk]').textContent = instant ? 'Your prize' : $('[data-sw-wonk]').dataset.won || $('[data-sw-wonk]').textContent;
+      $('[data-sw-prize]').textContent = w.prize || prizes[i].full;
+      $('[data-sw-codetext]').textContent = w.code;
+      $('[data-sw-wico]').replaceChildren(icons[i].cloneNode(true));
+      const valid = $('[data-sw-valid]');
+      valid.hidden = false;
+      $('[data-sw-note]').hidden = true;   // the line below says the same thing, with the date
+      valid.textContent = w.state === 'given' ? 'Already given to you — enjoy!'
+        : w.state === 'used' ? `On your booking ${w.order}.`
+        : w.state === 'expired' ? 'This prize has expired.'
+        : w.valid_until ? `Goes on your next booking by itself. Valid till ${dayText(w.valid_until)}.` : 'Goes on your next booking by itself.';
+      const wa = $<HTMLAnchorElement>('[data-sw-wa]');
+      wa.href = wa.dataset.base!.replace('%7Bcode%7D', encodeURIComponent(w.code));   // the message's {code}
       sw.classList.add('won');
+      window.dispatchEvent(new CustomEvent('danat-prize', { detail: w }));           // the cart's prize banner
+    };
+    $('[data-sw-wonk]').dataset.won = $('[data-sw-wonk]').textContent || '';
+
+    // who is spinning: signed in = their number; signed out = the sign-in fields
+    const mask = (p: string) => { const d = String(p || '').replace(/\D/g, ''); return d ? `+${d.slice(0, d.length - 4)} •••• ${d.slice(-4)}`.replace(/^\+(\d{1,3})(\d+)/, '+$1 $2') : ''; };
+    const paintWho = () => {
+      $('[data-sw-signin]').hidden = !!who;
+      const as = $('[data-sw-as]');
+      as.hidden = !who;
+      as.textContent = who ? `Spinning as ${who.name || 'you'}${who.phone ? ' · ' + mask(who.phone) : ''}` : '';
+      $<HTMLButtonElement>('.sw-go').disabled = !who;
+    };
+    const loadCurrent = async () => {
+      if (!who) return;
+      const r = await api('/api/spin');
+      if (r.ok && r.win) show(r.win, true);
+      else if (!r.ok && r.error === 'off') say(ERR.off);
     };
     const confetti = () => {
       const box = sw.querySelector<HTMLElement>('[data-confetti]')!;
@@ -133,18 +204,25 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
     const reset = () => {
       if (spinning) return;
       wheel.style.transition = 'none'; wheel.style.transform = 'rotate(0deg)';
-      const win = sw.querySelector<HTMLElement>('[data-sw-after]')!;
+      const win = $('[data-sw-after]');
       win.classList.remove('up'); win.setAttribute('hidden', '');
-      sw.querySelector('[data-sw-before]')!.removeAttribute('hidden');
-      sw.querySelector('[data-sw-copied]')!.textContent = 'Copy';
+      $('[data-sw-before]').removeAttribute('hidden');
+      $('[data-sw-copied]').textContent = 'Copy';
+      $('[data-sw-valid]').hidden = true;
+      $('[data-sw-note]').hidden = false;
+      say('');
       sw.classList.remove('won');
     };
-    (window as any).__openSpin = () => {
-      reset(); // always open on a fresh wheel, ready to spin
+    (window as any).__openSpin = async () => {
+      reset(); // a fresh wheel; the prize they already have comes back from Odoo
       sw.hidden = false;
       requestAnimationFrame(() => sw.classList.add('in'));
       document.documentElement.style.overflow = 'hidden';
+      if (who === null) { const m = await api('/api/account/me'); who = m.ok ? m : false; }
+      paintWho();
+      await loadCurrent();
     };
+    window.addEventListener('danat-account', (e) => { who = (e as CustomEvent).detail || false; paintWho(); });
     const close = () => {
       sw.classList.remove('in');
       document.documentElement.style.overflow = '';
@@ -154,18 +232,81 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
     sw.querySelectorAll('[data-sw-x]').forEach((b) => b.addEventListener('click', close));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !sw.hidden) close(); });
 
-    sw.querySelectorAll('[data-sw-spin]').forEach((btn) => btn.addEventListener('click', () => {
+    // ---- sign in: mobile + WhatsApp code (the same steps as My account and the booking) ----
+    const cc = $<HTMLSelectElement>('[data-sw-cc]'), phone = $<HTMLInputElement>('[data-sw-phone]');
+    const name = $<HTMLInputElement>('[data-sw-name]'), code = $<HTMLInputElement>('[data-sw-code]'), pass = $<HTMLInputElement>('[data-sw-pass]');
+    let purpose: 'signin' | 'signup' = 'signin';
+    bindPhone(phone, () => cc.value, (m) => say(m));
+    $('[data-sw-send]').addEventListener('click', async () => {
+      const ph = checkPhone(cc.value, phone.value);
+      if (!ph.ok) { say(phone.value.trim() ? ph.msg : 'Please enter your mobile number.'); phone.focus(); return; }
+      if (purpose === 'signup' && name.value.trim().length < 2) { say('Please enter your name.'); name.focus(); return; }
+      const btn = $<HTMLButtonElement>('[data-sw-send]');
+      btn.disabled = true;
+      const r = await api('/api/account/phone-start', { phone: phone.value, country: cc.value.toUpperCase(), purpose, name: name.value.trim() });
+      btn.disabled = false;
+      if (r.signup) {          // no account with this number yet: sign up with a name
+        purpose = 'signup';
+        name.hidden = false;
+        say("New here? Add your name, then we'll send the code.", false);
+        name.focus(); return;
+      }
+      if (r.signin) purpose = 'signin';
+      if (!r.ok) { say(r.error || "We couldn't send the code. Try again in a moment."); return; }
+      code.hidden = false;
+      $('[data-sw-verify]').hidden = false;
+      btn.textContent = 'Send again';
+      say('Code sent on WhatsApp — it expires in 10 minutes.', false);
+      code.focus();
+    });
+    const verify = async () => {
+      const c = code.value.replace(/\D/g, '');
+      if (c.length !== 6) { say('Enter the 6-digit code from WhatsApp.'); code.focus(); return; }
+      const r = await api('/api/account/phone-verify', { phone: phone.value, country: cc.value.toUpperCase(), code: c,
+        purpose, name: name.value.trim(), email: '', ...(pass.hidden ? {} : { password: pass.value }) });
+      if (r.needPassword) {   // the code was right; this account must confirm its password once
+        pass.hidden = false; say(r.error || 'Enter your password once to confirm this is your account.'); pass.focus(); return;
+      }
+      if (!r.ok) { say(r.error || 'That code did not work.'); return; }
+      pass.hidden = true; pass.value = ''; code.value = '';
+      say('');
+      const m = await api('/api/account/me');
+      who = m.ok ? m : r;
+      window.dispatchEvent(new CustomEvent('danat-account', { detail: who }));   // the header's account button
+      paintWho();
+      await loadCurrent();
+    };
+    $('[data-sw-verify]').addEventListener('click', verify);
+    code.addEventListener('keydown', (e) => { if (e.key === 'Enter') verify(); });
+
+    // ---- the spin: Odoo picks, the wheel turns to that slice ----
+    sw.querySelectorAll('[data-sw-spin]').forEach((btn) => btn.addEventListener('click', async () => {
       if (spinning || sw.classList.contains('won')) return;
+      if (!who) { say(ERR['sign in']); phone.focus(); return; }
       spinning = true;
-      const i = Math.floor(Math.random() * prizes.length);
+      say('');
+      sw.classList.add('spinning');
+      const r = await api('/api/spin', {});
+      if (!r.ok) {
+        spinning = false; sw.classList.remove('spinning');
+        if (r.status === 401) { who = false; paintWho(); }
+        say(ERR[r.error] || ERR.unavailable);
+        return;
+      }
+      if (r.again) {           // spun already in the window: the same prize, no new spin
+        spinning = false; sw.classList.remove('spinning');
+        show(r.win, true);
+        return;
+      }
+      let i = prizes.findIndex((p) => p.id && p.id === r.win.item_id);
+      if (i < 0) i = 0;
       const target = 360 * 7 + angleFor(i) + (Math.random() * seg * .5 - seg * .25);
       wheel.style.transition = 'transform 5s cubic-bezier(.1,.75,.08,1)';
       wheel.style.transform = `rotate(${target}deg)`;
-      sw.classList.add('spinning');
       setTimeout(() => {
+        spinning = false;
         sw.classList.remove('spinning');
-        put('spin-won', String(i));
-        show(i);
+        show(r.win);
         confetti();
       }, 5100);
     }));
@@ -183,8 +324,10 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
   .sw-bg { position: absolute; inset: 0; background: rgba(6, 10, 9, .7); backdrop-filter: blur(6px); opacity: 0; transition: opacity .35s; }
   .sw.in .sw-bg { opacity: 1; }
   .sw-card {
-    position: relative; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: hidden;
-    display: grid; justify-items: center; gap: 6px; padding: 30px 28px 26px; text-align: center; color: #fff;
+    /* everything stays inside the panel: it fits the screen, and on a very short one it scrolls inside */
+    position: relative; width: min(460px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+    overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    display: grid; justify-items: center; align-content: start; gap: 6px; padding: 30px 28px 26px; text-align: center; color: #fff;
     border-radius: 32px;
     background:
       radial-gradient(420px circle at 50% 0%, color-mix(in srgb, var(--violet) 55%, transparent), transparent 70%),
@@ -204,8 +347,12 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
 
   /* stage */
   .sw-stage { position: relative; width: min(330px, 78vw, 44vh); aspect-ratio: 1; margin: 14px 0 8px; transition: width .6s cubic-bezier(.2,.8,.2,1), margin .6s; }
-  .won .sw-stage { width: min(190px, 50vw, 26vh); margin: 18px 0 4px; }
+  .sw-card::-webkit-scrollbar { display: none; }
+  /* after the spin the result is what matters: a smaller title and wheel make room for it */
+  .won .sw-stage { width: min(150px, 40vw, 18vh); margin: 14px 0 0; }
   .won .sw-head p { display: none; }
+  .won.sw-card, .won .sw-card { padding-top: 22px; padding-bottom: 20px; }
+  .won .sw-head h2 { font-size: 30px; }
   .sw-halo { position: absolute; inset: -12%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--violet) 60%, transparent), transparent); filter: blur(16px); animation: halo 3s ease-in-out infinite; }
   @keyframes halo { 50% { opacity: .55; transform: scale(.94); } }
   .sw-ring { position: absolute; inset: -9px; border-radius: 50%; background: conic-gradient(from 0deg, #f5b400, #fff3c4, var(--violet), #f5b400, #fff3c4, var(--violet), #f5b400); animation: ring 6s linear infinite; }
@@ -242,15 +389,34 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
   .spinning .sw-hub::before, .won .sw-hub::before { display: none; }
   .won .sw-hub { font-size: 10px; box-shadow: 0 0 0 3px #0c1712, 0 6px 14px rgba(0,0,0,.5); }
 
-  .sw-foot { display: grid; justify-items: center; gap: 10px; margin-top: 6px; }
+  .sw-foot { display: grid; justify-items: center; gap: 10px; margin-top: 6px; width: 100%; }
   .sw-foot[hidden] { display: none; }
   .sw-go { padding: 15px 34px; font-size: 16px; background: linear-gradient(120deg, #ffd96a, #f5b400); color: #0c1712; box-shadow: 0 14px 30px -10px rgba(245,180,0,.7); }
+  .sw-go:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+  /* sign in before the spin: the fields in the dark card */
+  .sw-signin { display: grid; gap: 8px; width: 100%; max-width: 330px; }
+  .sw-signin[hidden], .sw-signin [hidden], .sw-as[hidden], .sw-msg[hidden] { display: none; }
+  .sw-why { font-size: 13px; color: rgba(255,255,255,.7); }
+  .sw-ph { display: flex; gap: 8px; }
+  .sw-ph select { width: 118px; flex: none; }
+  .sw-ph input { flex: 1; min-width: 0; }
+  .sw-signin select, .sw-signin input { height: 44px; padding: 0 12px; border: 1px solid rgba(255,255,255,.18); border-radius: 12px; background: rgba(255,255,255,.08); color: #fff; font: inherit; font-size: 15px; }
+  .sw-signin select option { color: #0c1712; }
+  .sw-signin input::placeholder { color: rgba(255,255,255,.45); }
+  .sw-sbtns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .sw-sbtns .btn { padding: 11px 18px; font-size: 14px; }
+  .sw-send { background: rgba(255,255,255,.12); color: #fff; }
+  .sw-as { font-size: 13px; color: rgba(255,255,255,.7); }
+  .sw-msg { font-size: 13px; color: #ffd96a; max-width: 330px; }
+  .sw-msg.bad { color: #ff9a8a; }
+  .sw-valid { font-size: 13px; font-weight: 700; color: var(--violet); }
+  .sw-valid[hidden] { display: none; }
   .sw-later { border: 0; background: none; padding: 0; font-size: 13px; color: rgba(255,255,255,.55); text-decoration: underline; }
 
   /* result sheet */
   .sw-win {
-    position: relative; width: 100%; margin-top: 30px;
-    display: grid; justify-items: center; gap: 10px; padding: 44px 20px 20px;
+    position: relative; width: 100%; margin-top: 26px;
+    display: grid; justify-items: center; gap: 8px; padding: 40px 18px 18px;
     background: var(--surface); color: var(--ink); border-radius: 24px;
     box-shadow: 0 20px 50px -20px rgba(0,0,0,.6);
     opacity: 0; transform: translateY(30px); transition: transform .6s cubic-bezier(.2,1.1,.3,1), opacity .4s;
@@ -260,7 +426,7 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
   .win-ico { position: absolute; top: -34px; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(140deg, #ffd96a, #f5b400); color: #0c1712; box-shadow: 0 0 0 6px var(--surface), 0 12px 24px rgba(0,0,0,.3); }
   .win-ico :global(svg) { width: 32px; height: 32px; }
   .win-k { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #b47d00; }
-  .sw-win h3 { font-size: 28px; line-height: 1.1; }
+  .sw-win h3 { font-size: 26px; line-height: 1.1; }
   .ticket {
     position: relative; display: flex; align-items: stretch; width: 100%; max-width: 330px; padding: 0; border: 0; border-radius: 14px; overflow: hidden;
     background: var(--accent-soft); color: var(--ink); text-align: left;
@@ -269,8 +435,19 @@ const wa = (msg: string) => `https://wa.me/${contact.wa}?text=${encodeURICompone
   .ticket::before { left: -9px; } .ticket::after { right: -9px; }
   .t-l { flex: 1; display: grid; padding: 10px 18px; border-right: 2px dashed color-mix(in srgb, var(--violet) 40%, transparent); }
   .t-l small { font-size: 11px; color: var(--ink-3); letter-spacing: .08em; text-transform: uppercase; }
-  .t-l b { font-family: var(--display); font-size: 22px; letter-spacing: .08em; color: var(--violet); }
-  .t-r { display: grid; place-items: center; padding: 0 20px; font-size: 13px; font-weight: 800; color: var(--violet); }
+  /* the winner's own code (SPIN-GUARD-62R2) on one line */
+  .t-l b { font-family: var(--display); font-size: clamp(15px, 4.6vw, 20px); letter-spacing: .04em; white-space: nowrap; color: var(--violet); }
+  .t-r { display: grid; place-items: center; padding: 0 16px; font-size: 13px; font-weight: 800; color: var(--violet); }
+  .t-l { min-width: 0; }
+  /* small phones: less padding, so the code and Copy both fit in the ticket */
+  @media (max-width: 420px) {
+    .sw-card { padding-left: 16px; padding-right: 16px; }
+    .sw-win { padding-left: 12px; padding-right: 12px; }
+    .t-l { padding: 10px 12px; }
+    .t-r { padding: 0 12px; }
+    .t-l b { font-size: clamp(14px, 4.2vw, 18px); }
+    .sw-kicker { padding: 0 38px; }   /* clear of the × */
+  }
   .sw-win p { font-size: 13px; color: var(--ink-3); }
   .sw-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
   .sw-btns .btn { padding: 12px 22px; font-size: 14px; }

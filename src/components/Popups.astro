@@ -75,17 +75,19 @@ const code = (t: string) => t.replaceAll('{code}', flash.code);
   </div>
 </div>
 
-<SpinWheel contact={contact} wheel={wheel} />
+{/* Spin & Win, only while Odoo's switch is on: off = no wheel, no gift tab, nothing to spin */}
+{wheel.show && <SpinWheel contact={contact} wheel={wheel} />}
 
 <!-- Always-available entry to the wheel -->
-<button type="button" class="gift" data-gift aria-label="Spin and win">
+{wheel.show && <button type="button" class="gift" data-gift aria-label="Spin and win">
   <span class="gift-ico" aria-hidden="true">🎁</span>
   <span class="gift-t">{wheel.tab}</span>
-</button>
+</button>}
 
 <!-- Which welcome pop-up opens on arrival and when (Odoo: Pop-ups & chat ▸ Welcome pop-up) -->
-<script define:vars={{ welcome }} is:inline>
+<script define:vars={{ welcome, wheelOn: wheel.show }} is:inline>
   window.__welcome = welcome;
+  window.__wheelOn = wheelOn;
   window.__poDelay = welcome.flash_delay_ms;
 </script>
 
@@ -127,9 +129,12 @@ const code = (t: string) => t.replaceAll('{code}', flash.code);
   const close = () => { po.classList.remove('in'); document.documentElement.style.overflow = ''; setTimeout(() => (po.hidden = true), 350); markClosed(); };
   // Which welcome pop-up: Odoo's choice ('slot', 'spin', 'flash' or 'none' = never on its own);
   // ?offer=slot|spin|flash opens that one on this visit regardless
+  // (the wheel switched off in Odoo: 'spin' falls back to the slider, ?offer=spin too)
+  const wheelOn = (window as any).__wheelOn !== false;
+  const noSpin = (t: string) => (t === 'spin' && !wheelOn ? 'slot' : t);
   const qOffer = new URLSearchParams(location.search).get('offer');
-  const picked = qOffer === 'slot' || qOffer === 'spin' || qOffer === 'flash' ? qOffer : null;
-  const offerType = () => picked || (['slot', 'spin', 'flash', 'none'].includes(W.type) ? W.type : 'slot');
+  const picked = qOffer === 'slot' || qOffer === 'spin' || qOffer === 'flash' ? noSpin(qOffer) : null;
+  const offerType = () => picked || noSpin(['slot', 'spin', 'flash', 'none'].includes(W.type) ? W.type : 'slot');
   (window as any).__offerClosed = markClosed;
   (window as any).__openOffer = () => { const t = offerType(); if (t === 'slot') (window as any).__openSlot?.(); else if (t === 'spin') (window as any).__openSpin?.(); else if (t === 'flash') open(); };
   const adminGate = new URLSearchParams(location.search).has('admin'); // ?admin= pop-up gets the screen to itself
@@ -141,8 +146,8 @@ const code = (t: string) => t.replaceAll('{code}', flash.code);
   po.querySelectorAll('[data-po-go]').forEach((b) => b.addEventListener('click', () => sput('offer-seen', today)));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !po.hidden) close(); });
 
-  // side tab: opens the wheel any time
-  document.querySelector('[data-gift]')!.addEventListener('click', () => (window as any).__openSpin?.());
+  // side tab: opens the wheel any time (there is none while the wheel is switched off)
+  document.querySelector('[data-gift]')?.addEventListener('click', () => (window as any).__openSpin?.());
 
   // countdown to the end of today
   const pad = (n: number) => String(n).padStart(2, '0');

@@ -42,6 +42,8 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
       </div>
 
       <div class="cd-more" data-cd-more hidden>
+        <!-- Spin & Win: the signed-in customer's prize goes on this booking by itself (they can keep it for later) -->
+        <div class="cd-prize" data-cd-prize hidden></div>
         <form class="cd-coupon" data-cd-coupon>
           <svg class="cd-tagic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
           <div>
@@ -121,6 +123,32 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
   const save = (v: Item[]) => { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} };
   let items = load();
   let coupon = ''; try { coupon = localStorage.getItem(CKEY) || ''; } catch {}
+  // a typed code checked with Odoo: a Spin & Win prize code says so (and whether it still works)
+  let couponInfo: any = null;
+  // Spin & Win: the signed-in customer's prize still to be used (Odoo, /api/spin); `skip` = "keep it for later"
+  const PKEY = 'danat-prize-skip';
+  let prize: any = null;
+  let skip = ''; try { skip = sessionStorage.getItem(PKEY) || ''; } catch {}
+  const usingPrize = () => !!prize && skip !== String(prize.id);
+  const loadPrize = async () => {
+    try {
+      const r = await fetch('/api/spin', { credentials: 'same-origin', cache: 'no-store' });
+      const d = r.ok ? await r.json() : null;
+      prize = d?.ok && d.win && d.win.state === 'won' ? d.win : null;
+    } catch { prize = null; }
+    render();
+  };
+  const checkCoupon = async () => {
+    couponInfo = null;
+    if (!coupon) { render(); return; }
+    try {
+      const r = await fetch(`/api/coupon?code=${encodeURIComponent(coupon)}`, { credentials: 'same-origin', cache: 'no-store' });
+      const d = r.ok ? await r.json() : null;
+      couponInfo = d?.ok ? d : null;
+    } catch { couponInfo = null; }
+    render();
+  };
+  const dayText = (d: string) => (d ? new Date(d + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' }) : '');
 
   // Which category an item belongs to (device can be a category name, a short tab label or a brand)
   const catOf = (it: Item) => {
@@ -180,15 +208,27 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
       const tpl = root.querySelector<HTMLTemplateElement>(`template[data-cd-art="${th.dataset.art}"]`);
       if (th.dataset.art && tpl) th.append(tpl.content.cloneNode(true));
     });
-    const msg = `Hi Danat Fix, I want to book these repairs:\n${items.map((it) => `• ${it.issues.map((s) => qtyOf(it, s) > 1 ? `${s} ×${qtyOf(it, s)}` : s).join(', ')} — ${it.model || it.device}`).join('\n')}${coupon ? `\nCoupon code: ${coupon}` : ''}`;
+    const msg = `Hi Danat Fix, I want to book these repairs:\n${items.map((it) => `• ${it.issues.map((s) => qtyOf(it, s) > 1 ? `${s} ×${qtyOf(it, s)}` : s).join(', ')} — ${it.model || it.device}`).join('\n')}${coupon ? `\nCoupon code: ${coupon}` : ''}${usingPrize() ? `\nSpin & Win prize: ${prize.prize} (${prize.code})` : ''}`;
     root.querySelector<HTMLAnchorElement>('[data-cd-go]')!.href = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
     const cm = root.querySelector<HTMLElement>('[data-cd-cmsg]')!;
     cm.hidden = !coupon;
-    cm.innerHTML = coupon ? `Code <b>${esc(coupon)}</b> will be sent with your booking — our team confirms it on WhatsApp. <button type="button" data-cd-cx>Remove</button>` : '';
+    const ci = couponInfo;
+    cm.innerHTML = !coupon ? ''
+      : ci?.known && ci.valid ? `🎁 <b>${esc(ci.prize)}</b> — your Spin &amp; Win prize${ci.valid_until ? `, valid till ${esc(dayText(ci.valid_until))}` : ''}. It goes on this booking. <button type="button" data-cd-cx>Remove</button>`
+      : ci?.known ? `Code <b>${esc(coupon)}</b> can't be used: ${esc(ci.reason || 'not valid')}. <button type="button" data-cd-cx>Remove</button>`
+      : `Code <b>${esc(coupon)}</b> will be sent with your booking — our team confirms it on WhatsApp. <button type="button" data-cd-cx>Remove</button>`;
+    const pz = root.querySelector<HTMLElement>('[data-cd-prize]')!;
+    pz.hidden = !prize;
+    pz.innerHTML = !prize ? ''
+      : usingPrize() ? `<span class="cd-prize-ico" aria-hidden="true">🎁</span><div><b>Your prize: ${esc(prize.prize)}</b><small>Added to this booking by itself${prize.valid_until ? ` · valid till ${esc(dayText(prize.valid_until))}` : ''}.</small></div><button type="button" data-cd-pz="skip">Keep it for later</button>`
+      : `<span class="cd-prize-ico" aria-hidden="true">🎁</span><div><b>Your prize ${esc(prize.prize)} is waiting</b><small>Not on this booking${prize.valid_until ? ` · valid till ${esc(dayText(prize.valid_until))}` : ''}.</small></div><button type="button" data-cd-pz="use">Add it</button>`;
     window.dispatchEvent(new CustomEvent('danat-cart'));
   };
 
   const open = () => { root.hidden = false; requestAnimationFrame(() => root.classList.add('in')); document.documentElement.style.overflow = 'hidden'; };
+  // signed in or out, or a prize just won on the wheel: the banner follows
+  window.addEventListener('danat-account', () => loadPrize());
+  window.addEventListener('danat-prize', (e) => { const w = (e as CustomEvent).detail; prize = w && w.state === 'won' ? w : null; render(); });
   const close = () => { root.classList.remove('in'); document.documentElement.style.overflow = ''; setTimeout(() => (root.hidden = true), 320); };
   let tt = 0;
   const toast = (t: string) => { const el = document.querySelector<HTMLElement>('[data-cd-toast]')!; el.textContent = t; el.classList.add('on'); clearTimeout(tt); tt = window.setTimeout(() => el.classList.remove('on'), 2200); };
@@ -283,14 +323,26 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
       } else { it.device = d.device; it.model = d.model; learn(it, d); }
       save(items); render();
     },
-    clear() { items = []; save(items); render(); },
+    clear() { items = []; save(items); render(); loadPrize(); },   // booked: the prize is on it now, Odoo says so
     count: countAll,
     coupon: () => coupon,
+    couponInfo: () => couponInfo,
     setCoupon(v: string) {
       coupon = v.trim().toUpperCase().slice(0, 30);
       try { if (coupon) localStorage.setItem(CKEY, coupon); else localStorage.removeItem(CKEY); } catch {}
+      checkCoupon();
+    },
+    // Spin & Win: the prize (if any), whether it goes on this booking, and its id for the booking
+    prize: () => prize,
+    prizeId: () => (usingPrize() ? prize.id : 0),
+    usingPrize,
+    usePrize(on: boolean) {
+      if (!prize) return;
+      skip = on ? '' : String(prize.id);
+      try { if (skip) sessionStorage.setItem(PKEY, skip); else sessionStorage.removeItem(PKEY); } catch {}
       render();
     },
+    loadPrize,
     open, close, items: () => items,
   };
 
@@ -311,15 +363,21 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
       if (n < 1) removeLine(i, k); else { it.qty = { ...(it.qty ?? {}), [s]: Math.min(n, 20) }; }
       save(items); render();
     }
-    if (t.closest('[data-cd-cx]')) { coupon = ''; try { localStorage.removeItem(CKEY); } catch {} render(); }
+    if (t.closest('[data-cd-cx]')) { coupon = ''; couponInfo = null; try { localStorage.removeItem(CKEY); } catch {} render(); }
+    const pz = t.closest<HTMLElement>('[data-cd-pz]');
+    if (pz) (window as any).danatCart.usePrize(pz.dataset.cdPz === 'use');
   });
   root.querySelector<HTMLFormElement>('[data-cd-coupon]')!.addEventListener('submit', (e) => {
     e.preventDefault();
     const inp = (e.currentTarget as HTMLFormElement).elements.namedItem('code') as HTMLInputElement;
     const v = inp.value.trim().toUpperCase().slice(0, 30);
     if (!v) { inp.focus(); return; }
-    coupon = v; inp.value = ''; try { localStorage.setItem(CKEY, v); } catch {} render();
+    inp.value = '';
+    (window as any).danatCart.setCoupon(v);
   });
+  if (coupon) checkCoupon();
+  // the prize is known as the page opens, so the booking wizard sends it even if the drawer was never opened
+  loadPrize();
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !root.hidden) close(); });
   document.querySelectorAll('[data-cart-open]').forEach((b) => b.addEventListener('click', open));
   addEventListener('storage', (e) => { if (e.key === KEY) { items = load(); render(); } });
@@ -381,6 +439,13 @@ categories.forEach((c) => new Set([...c.issues, ...c.services.map((s) => s.name)
   .cd-empty b { font-size: 17px; color: var(--ink); }
   .cd-shop { margin-top: 10px; padding: 12px 22px; border-radius: 999px; background: var(--violet); color: var(--on-accent); font-weight: 700; }
 
+  /* Spin & Win: the customer's prize on this booking */
+  .cd-prize { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; margin-top: 14px; padding: 14px 16px; border-radius: 16px; border: 1.5px dashed #f5b400; background: color-mix(in srgb, #f5b400 12%, var(--surface)); }
+  .cd-prize[hidden] { display: none; }
+  .cd-prize :global(.cd-prize-ico) { font-size: 24px; }
+  .cd-prize :global(b) { display: block; font-size: 14px; }
+  .cd-prize :global(small) { display: block; margin-top: 2px; font-size: 12.5px; color: var(--ink-2); }
+  .cd-prize :global(button) { border: 0; background: none; padding: 0; color: var(--violet); font-size: 12.5px; font-weight: 700; text-decoration: underline; white-space: nowrap; }
   .cd-coupon { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px; margin-top: 14px; padding: 16px; border-radius: 16px; background: var(--accent-soft); }
   .cd-tagic { width: 30px; height: 30px; color: var(--violet); }
   .cd-coupon label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 700; }

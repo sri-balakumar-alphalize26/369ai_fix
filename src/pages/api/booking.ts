@@ -46,6 +46,7 @@ export const POST: APIRoute = async ({ request, clientAddress, cookies }) => {
   if (who?.partner_id) {
     payload.partner_id = who.partner_id;            // checked by the session, not by the browser
     payload.address_id = id(b.address_id);          // Odoo checks it is this customer's address
+    payload.spin_win_id = id(b.spin_win_id);        // their Spin & Win prize; Odoo checks it is theirs and still valid
   }
   try {
     // 30 s: Odoo also makes the job cards and WhatsApps the customer before it answers, and a

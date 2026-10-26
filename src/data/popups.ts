@@ -22,19 +22,23 @@ export const STATIC_POPUPS: Popups = {
   },
 };
 
+// The wheel is a picture of what Odoo decides: who may spin (a signed-in customer, once in
+// `every_days`), which slice wins and the winner's own code. Without Odoo (`id` 0) it only
+// shows; `show` false (Odoo's switch) hides the wheel and the gift tab everywhere.
 export const STATIC_WHEEL: Wheel = {
+  show: true, every_days: 30,
   tab: 'Spin & Win', eyebrow: '✦ {site} rewards ✦', title: 'Spin &', title2: 'Win',
   subtitle: 'Every slice is a free extra on your next repair.',
   spin: 'Spin the wheel', later: 'Maybe later', won: '🎉 You won',
-  note: 'Show this code when you book. Valid on your next repair.',
+  note: 'It goes on your next booking by itself — or show this code. Valid on your next repair.',
   book: 'Book now', wa: 'WhatsApp us', wa_msg: 'Hello {site} — I won on the spin wheel, code: {code}',
   slices: [
-    { top: 'Free', label: 'Diagnosis', full: 'Free diagnosis', code: 'SPIN-DIAG', icon: 'diag', color: 'var(--violet)', text_color: '#fff' },
-    { top: 'Free', label: 'Pickup', full: 'Free pickup & drop', code: 'SPIN-PICK', icon: 'pick', color: '#f5b400', text_color: '#10241a' },
-    { top: 'Free', label: 'Cleaning', full: 'Free device cleaning', code: 'SPIN-CLEAN', icon: 'clean', color: '#16241d', text_color: '#fff' },
-    { top: 'Priority', label: 'Slot', full: 'Priority same-day slot', code: 'SPIN-FAST', icon: 'fast', color: '#ff7a45', text_color: '#fff' },
-    { top: 'Free', label: 'Backup', full: 'Free data backup', code: 'SPIN-DATA', icon: 'data', color: 'color-mix(in srgb, var(--violet) 55%, #fff)', text_color: '#10241a' },
-    { top: 'Free', label: 'Guard', full: 'Free screen guard', code: 'SPIN-GUARD', icon: 'guard', color: '#fff', text_color: '#10241a' },
+    { id: 0, top: 'Free', label: 'Diagnosis', full: 'Free diagnosis', code: 'SPIN-DIAG', icon: 'diag', color: 'var(--violet)', text_color: '#fff' },
+    { id: 0, top: 'Free', label: 'Pickup', full: 'Free pickup & drop', code: 'SPIN-PICK', icon: 'pick', color: '#f5b400', text_color: '#10241a' },
+    { id: 0, top: 'Free', label: 'Cleaning', full: 'Free device cleaning', code: 'SPIN-CLEAN', icon: 'clean', color: '#16241d', text_color: '#fff' },
+    { id: 0, top: 'Priority', label: 'Slot', full: 'Priority same-day slot', code: 'SPIN-FAST', icon: 'fast', color: '#ff7a45', text_color: '#fff' },
+    { id: 0, top: 'Free', label: 'Backup', full: 'Free data backup', code: 'SPIN-DATA', icon: 'data', color: 'color-mix(in srgb, var(--violet) 55%, #fff)', text_color: '#10241a' },
+    { id: 0, top: 'Free', label: 'Guard', full: 'Free screen guard', code: 'SPIN-GUARD', icon: 'guard', color: '#fff', text_color: '#10241a' },
   ],
 };
 
