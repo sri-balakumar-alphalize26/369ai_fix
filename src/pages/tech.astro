@@ -16,17 +16,27 @@ export const prerender = false;
         <div class="tv-top">
           <span class="eyebrow" data-tv-ref></span>
           <h1 class="h-lg" data-tv-state></h1>
+          <ol class="tv-steps" data-tv-steps hidden></ol>
         </div>
 
         <div class="tv-card">
           <h3 data-tv-name></h3>
           <p class="tv-sum" data-tv-sum></p>
+          <p class="tv-said" data-tv-said hidden></p>
           <p class="tv-addr" data-tv-addr></p>
           <p class="tv-slot" data-tv-slot hidden></p>
           <div class="tv-acts">
             <a class="tv-btn ghost" data-tv-call href="#" hidden>Call customer</a>
             <a class="tv-btn ghost" data-tv-dir href="#" target="_blank" rel="noopener" hidden>Directions</a>
           </div>
+        </div>
+
+        <!-- Spin & Win: the prize on this booking, free for the customer; tap Given when handed over -->
+        <div class="tv-card tv-prize" data-tv-prize hidden>
+          <h3>🎁 Spin &amp; Win prize</h3>
+          <p class="tv-prize-t"><b data-tv-prizename></b> <small data-tv-prizecode></small></p>
+          <p class="tv-hint" data-tv-prizehint></p>
+          <button type="button" class="tv-btn big" data-tv-prizego hidden>Given ✓</button>
         </div>
 
         <!-- after arriving: the safety check and the device photos; Start work waits for them -->
@@ -67,17 +77,54 @@ export const prerender = false;
             <input class="vr-ifind" data-vr-ifind type="search" placeholder="Find a problem" hidden />
             <div class="vr-issues" data-vr-issues></div>
             <button type="button" class="vc-link" data-vr-more hidden></button>
-            <textarea class="vr-note" data-vr-note rows="2" maxlength="2000" placeholder="Anything else you found (optional)"></textarea>
+            <textarea class="vr-note" data-vr-note rows="2" maxlength="2000" placeholder="What you checked and found (the customer may read it)"></textarea>
 
-            <h4>Parts needed <small>(skip when no part is needed)</small></h4>
-            <div class="vc-list" data-vr-lines></div>
-            <p class="tv-hint" data-vr-sughint></p>
-            <div class="vc-list" data-vr-suggest></div>
-            <form class="vr-search" data-vr-search>
-              <input data-vr-q type="search" placeholder="Not listed? Search a part" />
-              <button type="submit" class="tv-btn ghost sm">Search</button>
-            </form>
-            <div class="vc-list" data-vr-found></div>
+            <!-- can it be fixed? -->
+            <h4>Can it be fixed?</h4>
+            <div class="vr-outcomes" data-vr-outcomes></div>
+            <div class="vr-sub" data-vr-lab hidden>
+              <div class="vr-field">
+                <span>Price ready within</span>
+                <div class="vr-span">
+                  <input data-vr-labdays type="number" inputmode="numeric" min="1" max="60" value="3" />
+                  <span class="vr-seg" data-vr-labunit data-value="days" role="group" aria-label="Days or weeks"><button type="button" data-v="days" aria-pressed="true">days</button><button type="button" data-v="weeks" aria-pressed="false">weeks</button></span>
+                </div>
+              </div>
+              <p class="tv-hint">Next you tick what you take with the device. The customer is told the price follows.</p>
+              <button type="button" class="tv-btn big" data-vr-labgo>Take to the lab</button>
+            </div>
+            <div class="vr-sub" data-vr-close hidden>
+              <p class="tv-hint">Write above what you checked and why. The customer gets it on WhatsApp and the visit closes.</p>
+              <button type="button" class="tv-btn big ghost" data-vr-nogo>Close without a repair</button>
+            </div>
+
+            <div data-vr-priced hidden>
+              <h4>Repair price <small>(type it when it is “price after check” or not right)</small></h4>
+              <div class="vc-list" data-vr-services></div>
+
+              <div data-vr-partsbox>
+                <h4>Parts</h4>
+                <div class="vc-list" data-vr-lines></div>
+                <p class="tv-hint" data-vr-sughint></p>
+                <div class="vc-list" data-vr-suggest></div>
+                <form class="vr-search" data-vr-search>
+                  <input data-vr-q type="search" placeholder="Not listed? Search a part" />
+                  <button type="submit" class="tv-btn ghost sm">Search</button>
+                </form>
+                <div class="vc-list" data-vr-found></div>
+                <button type="button" class="vc-link" data-vr-reqtoggle>No matching part? Ask the office</button>
+                <div class="vr-sub" data-vr-req hidden>
+                  <label class="vr-field">Part name<input data-vr-reqname maxlength="120" placeholder="e.g. iPad 10 charging flex" /></label>
+                  <label class="vr-field">Rough price (if you know it)<input data-vr-reqprice type="number" inputmode="decimal" min="0" step="any" /></label>
+                  <div class="vc-row">
+                    <span class="vc-st" data-vr-reqph>A photo of the part helps the office.</span>
+                    <label class="tv-btn ghost sm">Take photo<input type="file" accept="image/*" capture="environment" data-vr-reqpin hidden /></label>
+                  </div>
+                  <button type="button" class="tv-btn big" data-vr-reqgo>Ask the office (closes the visit)</button>
+                </div>
+              </div>
+
+              <p class="vr-total" data-vr-total></p>
 
             <div data-vr-plan hidden>
               <h4>After the customer approves</h4>
@@ -89,19 +136,22 @@ export const prerender = false;
                 <span data-vr-dayslabel>Fixed within</span>
                 <div class="vr-span">
                   <input data-vr-days type="number" inputmode="numeric" min="1" max="60" value="3" />
-                  <select data-vr-unit><option value="days">days</option><option value="weeks">weeks</option></select>
+                  <span class="vr-seg" data-vr-unit data-value="days" role="group" aria-label="Days or weeks"><button type="button" data-v="days" aria-pressed="true">days</button><button type="button" data-v="weeks" aria-pressed="false">weeks</button></span>
                 </div>
               </div>
               <p class="tv-hint">The customer gets the parts and the price to approve first. Nothing is repaired, taken or ordered before.</p>
               <button type="button" class="tv-btn big" data-vr-quote>Send the quotation</button>
             </div>
             <button type="button" class="tv-btn big" data-vr-fixed>Fixed on the spot</button>
+            </div>
+            <p class="tv-hint" data-vr-pick>Choose one to go on.</p>
           </div>
 
           <div data-vr-waiting hidden>
             <h3>Waiting for the customer's OK</h3>
             <p class="tv-hint">The quotation is on their WhatsApp. If they tell you, tap their answer.</p>
             <p class="vr-plan" data-vr-planlabel></p>
+            <div class="vc-list" data-vr-grades></div>
             <button type="button" class="tv-btn big" data-vr-yes>Customer approved</button>
             <button type="button" class="tv-btn big ghost" data-vr-no>Customer declined</button>
             <button type="button" class="vc-link" data-vr-later>Customer decides later (close the visit)</button>
@@ -109,11 +159,12 @@ export const prerender = false;
 
           <div data-vr-repairing hidden>
             <h3>Approved: repair it now</h3>
+            <p class="tv-hint">Next: a photo of the repaired device, the payment and the customer's finish code.</p>
             <button type="button" class="tv-btn big" data-vr-done>Repair done</button>
           </div>
 
           <div data-vr-totake hidden>
-            <h3>Approved: take the device to the office</h3>
+            <h3 data-vr-taketitle>Approved: take the device to the office</h3>
             <p class="tv-hint" data-vr-backby></p>
             <p class="tv-hint">Tick what you take with the device:</p>
             <label class="vc-item"><input type="checkbox" data-vr-noacc /> <span>Device only (no accessories)</span></label>
@@ -121,6 +172,38 @@ export const prerender = false;
             <button type="button" class="tv-btn big" data-vr-take>Take the device</button>
           </div>
         </div>
+        <!-- finish: the photo of the repaired device -> the payment -> the customer's finish code -->
+        <div class="tv-card tv-ck" data-co hidden>
+          <h3>Finish the visit</h3>
+          <p class="tv-hint">The customer got a 4-digit finish code on WhatsApp. They give it to you when they are happy with the repair.</p>
+          <h4>1. Photo of the repaired device <small>(1 to 3)</small></h4>
+          <div class="vc-row">
+            <span class="vc-st" data-co-ph></span>
+            <label class="tv-btn ghost sm" data-co-phbtn>Take photo<input type="file" accept="image/*" capture="environment" data-co-pin hidden /></label>
+            <button type="button" class="vc-link" data-co-clear hidden>Take again</button>
+          </div>
+          <h4>2. Payment</h4>
+          <p class="co-paid" data-co-paid hidden></p>
+          <div data-co-pay hidden>
+            <p class="vr-total" data-co-due></p>
+            <div class="vr-outcomes" data-co-methods></div>
+            <label class="vr-field">Amount received <small>(empty: the full amount)</small>
+              <input data-co-amt type="number" inputmode="decimal" min="0" step="any" />
+            </label>
+            <button type="button" class="tv-btn big" data-co-paygo>Record the payment</button>
+          </div>
+          <div class="vc-row" data-co-free hidden>
+            <span class="vc-st">Nothing to pay for this repair.</span>
+            <button type="button" class="tv-btn ghost sm" data-co-freego>No charge</button>
+          </div>
+          <h4>3. The customer's finish code</h4>
+          <div class="tv-code">
+            <input data-co-code inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" aria-label="Finish code" />
+          </div>
+          <button type="button" class="tv-btn big" data-co-go>Finish the visit</button>
+          <p class="tv-hint" data-co-miss></p>
+        </div>
+
         <div class="tv-card" data-tv-step hidden>
           <div class="tv-code" data-tv-codebox hidden>
             <label for="tv-code">Ask the customer for their 4-digit arrival code</label>
@@ -144,9 +227,26 @@ export const prerender = false;
 
 <script>
   const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  // days | weeks buttons: the chosen one is the group's data-value
+  document.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.vr-seg button');
+    if (!b) return;
+    const seg = b.parentElement!;
+    seg.dataset.value = b.dataset.v;
+    seg.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  });
+  // a number box selects what is in it when tapped: typing replaces the value
+  document.addEventListener('focusin', (e) => {
+    const el = e.target;
+    if (el instanceof HTMLInputElement && el.type === 'number') setTimeout(() => el.select());
+  });
   const q = new URLSearchParams(location.search);
   const v = q.get('v') || '', t = q.get('t') || '';
-  const msg = (m: string) => { const el = $('[data-tv-msg]'); el.textContent = m; el.hidden = !m; };
+  // a warning shows at the top: bring it into view, the technician is often scrolled down at the button
+  const msg = (m: string) => {
+    const el = $('[data-tv-msg]'); el.textContent = m; el.hidden = !m;
+    if (m) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
   const ERR: Record<string, string> = {
     unknown: 'This link does not work. Ask the office to send you a new one.',
     expired: 'This link has expired. Ask the office to send you a new one.',
@@ -177,11 +277,17 @@ export const prerender = false;
   function render(d: any) {
     view = d;
     $('[data-tv-load]').hidden = true; $('[data-tv-main]').hidden = false;
-    $('[data-tv-ref]').textContent = `Visit ${d.ref}${d.order ? ' · order ' + d.order : ''}`;
-    $('[data-tv-state]').textContent = d.state_label;
+    $('[data-tv-ref]').textContent = `Visit ${d.ref}${d.order ? ' · order ' + d.order : ''}${d.device ? ' · ' + d.device : ''}`;
+    $('[data-tv-state]').textContent = d.close ? 'Finishing' : d.state_label;
+    const steps = $('[data-tv-steps]');
+    steps.hidden = !d.steps || d.state === 'cancelled';
+    steps.innerHTML = (d.steps || []).map((s: any) => `<li class="${s.done ? 'done' : ''}${s.current ? ' cur' : ''}"><i></i><span>${esc(s.label)}${s.at ? `<small>${esc(hm(s.at))}</small>` : ''}</span></li>`).join('');
     const c = d.customer || {};
     $('[data-tv-name]').textContent = c.name || 'Customer';
     $('[data-tv-sum]').textContent = d.summary || '';
+    const said = $('[data-tv-said]');
+    said.hidden = !d.problem;
+    said.textContent = d.problem ? `“${d.problem}”` : '';
     $('[data-tv-addr]').textContent = [c.building, c.floor_flat, c.address, c.area, c.landmark && `near ${c.landmark}`].filter(Boolean).join(', ');
     const slot = $('[data-tv-slot]');
     slot.hidden = !d.slot;
@@ -191,6 +297,16 @@ export const prerender = false;
     call.hidden = !c.phone; if (c.phone) call.href = 'tel:+' + String(c.phone).replace(/\D/g, '');
     dir.hidden = !d.directions_url; if (d.directions_url) dir.href = d.directions_url;
 
+    const pz = d.prize;
+    $('[data-tv-prize]').hidden = !pz;
+    if (pz) {
+      $('[data-tv-prizename]').textContent = pz.prize;
+      $('[data-tv-prizecode]').textContent = `· code ${pz.code}`;
+      $('[data-tv-prizehint]').textContent = pz.given ? `Given to the customer${pz.given_by ? ' by ' + pz.given_by : ''}.`
+        : d.state === 'in_progress' ? 'Free for the customer — it is on the job card. Tap when you hand it over.'
+        : 'Free for the customer — it is on the job card. Hand it over during the visit.';
+      $('[data-tv-prizego]').hidden = pz.given || d.state !== 'in_progress';
+    }
     const step = STEP[d.state];
     $('[data-tv-step]').hidden = !step;
     renderChecks(d.checks);
@@ -202,16 +318,24 @@ export const prerender = false;
       $('[data-tv-codebox]').hidden = !(step[1] === 'arrive' && d.need_code);
     }
     renderResult(d.result);
+    renderClose(d.close);
     const end = $('[data-tv-end]');
-    end.hidden = !!step || !!d.result;
-    if (!step) end.textContent = d.state === 'done' ? `Visit completed${d.result_label ? ' · ' + d.result_label : ''}. Thank you! You can close this page.`
-      : d.state === 'cancelled' ? 'This visit was cancelled. Ask the office if you have questions.'
-      : 'The office has not assigned this visit yet.';
+    end.hidden = !!step || !!d.result || !!d.close;
+    if (!step) {
+      const closed = d.closed || {};
+      const facts = [closed.paid_text && `Paid: ${closed.paid_text}`, closed.warranty_until && `Warranty until ${day(closed.warranty_until)}`,
+        closed.rating && `Customer's rating: ${'★'.repeat(closed.rating)}`].filter(Boolean);
+      end.textContent = (d.state === 'done' ? `Visit completed${d.result_label ? ' · ' + d.result_label : ''}. Thank you! You can close this page.`
+        : d.state === 'cancelled' ? 'This visit was cancelled. Ask the office if you have questions.'
+        : 'The office has not assigned this visit yet.') + (facts.length ? ` ${facts.join(' · ')}.` : '');
+    }
     if (d.share) startGps(); else stopGps();
   }
 
   // ---- before work: safety ticks, photos and the video ----
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const day = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   const OK = '<b class="vc-ok">✓</b>';
   function renderChecks(c: any) {
     const box = $('[data-vc]');
@@ -312,6 +436,12 @@ export const prerender = false;
         : 'No parts linked to these problems yet. Search below.';
   }
 
+  // "Can it be fixed?": lab / no repair are chosen here, then confirmed; parts / labour are saved at once
+  const NO_REPAIR = ['no_fault', 'not_worth', 'warranty'];
+  let outcome = '', savedOutcome = '', altsFor = 0, alts: any[] = [], reqPhoto = '';
+  const prices: Record<string, string> = {};
+  const svcKey = (s: any) => String(s.line_id || `p${s.product_id}`);
+
   function renderResult(r: any) {
     show('[data-vr]', !!r);
     if (!r) return;
@@ -319,8 +449,17 @@ export const prerender = false;
     show('[data-vr-waiting]', r.stage === 'waiting');
     show('[data-vr-repairing]', r.stage === 'repairing');
     show('[data-vr-totake]', r.stage === 'to_take');
-    $('[data-vr-planlabel]').textContent = r.plan_label ? `Proposed: ${r.plan_label}` : '';
-    $('[data-vr-backby]').textContent = r.timeline_date ? `Back by ${r.timeline_date}.` : '';
+    $('[data-vr-planlabel]').textContent = r.plan_label ? `Proposed: ${r.plan_label} · ${money(r, r.total)}` : '';
+    $('[data-vr-taketitle]').textContent = r.outcome === 'lab' ? 'Take the device to the lab' : 'Approved: take the device to the office';
+    $('[data-vr-backby]').textContent = r.timeline_date ? `${r.outcome === 'lab' ? 'Price by' : 'Back by'} ${r.timeline_date}.` : '';
+    // the outcome saved on the visit wins when it changes; a choice not confirmed yet stays
+    if (r.outcome && (r.outcome !== savedOutcome || !outcome)) outcome = r.outcome;
+    savedOutcome = r.outcome || '';
+    renderOutcome(r);
+    // two grades offered: at the door the customer may choose one
+    $('[data-vr-grades]').innerHTML = r.choices ? '<p class="tv-hint">Two grades offered. If the customer chooses here, tap the one they keep:</p>'
+      + r.lines.filter((l: any) => l.alt_key).map((l: any) => `<div class="vc-row"><span class="vc-st">${esc(l.name)}${gradeTag(l)} <small>· ${money(r, l.price)}</small></span>
+        <button type="button" class="tv-btn ghost sm" data-vr-keep="${l.line_id}" data-name="${esc(l.name)}">Keeps this</button></div>`).join('') : '';
     const note = $<HTMLTextAreaElement>('[data-vr-note]');
     if (document.activeElement !== note) note.value = r.found || '';
     show('[data-vr-device]', !!r.need_device);
@@ -328,17 +467,34 @@ export const prerender = false;
       $('[data-vr-brand]').innerHTML = '<option value="">Choose…</option>' + r.brands.map((b: any) => `<option value="${b.id}">${esc(b.name)}</option>`).join('');
       brandsDrawn = true;
     }
-    $('[data-vr-lines]').innerHTML = r.lines.map((l: any) => `<div class="vc-row">
-      <span class="vc-st">${esc(l.name)}${l.qty > 1 ? ` ×${l.qty}` : ''}<br /><small>${WHERE[l.status](l)}</small></span>
-      <button type="button" class="vc-link" data-vr-del="${l.line_id}">Remove</button></div>`).join('')
+    $('[data-vr-lines]').innerHTML = r.lines.map((l: any) => `<div class="vc-row${l.alt_key ? ' vr-alt' : ''}">
+      <span class="vc-st">${esc(l.name)}${l.qty > 1 ? ` ×${l.qty}` : ''}${gradeTag(l)} <small>· ${money(r, l.price)}</small><br /><small>${WHERE[l.status](l)}</small>
+        ${l.alt_key && !l.alt_off ? '<br /><small class="vr-or">Customer chooses this or the one below</small>' : ''}</span>
+      <span class="vr-acts">
+        ${l.can_alt ? `<button type="button" class="vc-link" data-vr-alts="${l.line_id}">Other grade</button>` : ''}
+        ${l.alt_key ? `<button type="button" class="vc-link" data-vr-keep="${l.line_id}" data-name="${esc(l.name)}">Keeps this</button>` : ''}
+        <button type="button" class="vc-link" data-vr-del="${l.line_id}">Remove</button></span></div>
+      ${altsFor === l.line_id && alts.length ? `<div class="vr-alts">${alts.map((p: any) => `<div class="vc-row">
+        <span class="vc-st">${esc(p.name)}${gradeTag(p)} <small>· ${money(r, p.price)}</small><br /><small>${WHERE[p.status](p)}</small></span>
+        <button type="button" class="tv-btn ghost sm" data-vr-altadd="${p.product_id}">Offer too</button></div>`).join('')}</div>` : ''}`).join('')
       || '<p class="tv-hint">No parts added.</p>';
     renderIssues(r);
     renderSuggest(r);
-    const hasParts = r.lines.length > 0;
-    show('[data-vr-plan]', hasParts);
-    show('[data-vr-fixed]', !hasParts);
+    const services: any[] = r.services || [];
+    $('[data-vr-services]').innerHTML = services.map((s: any) => `<div class="vc-row">
+      <span class="vc-st">${esc(s.name)}${s.qty > 1 ? ` ×${s.qty}` : ''}</span>
+      <span class="vr-price"><small>${esc(r.currency || '')}</small><input type="number" min="0" step="any" inputmode="decimal"
+        data-vr-price="${svcKey(s)}" data-line="${s.line_id || 0}" data-product="${s.product_id || 0}" data-was="${s.price}"
+        value="${esc(svcKey(s) in prices ? prices[svcKey(s)] : String(s.price))}" aria-label="Price of ${esc(s.name)}" /></span></div>`).join('')
+      || `<div class="vc-row"><span class="vc-st"><small>No repair on the job card yet. Add the labour:</small></span>
+        <span class="vr-price"><small>${esc(r.currency || '')}</small><input type="number" min="0" step="any" inputmode="decimal" data-vr-labour placeholder="0" aria-label="Labour price" />
+        <button type="button" class="tv-btn ghost sm" data-vr-labouradd>Add</button></span></div>`;
+    $('[data-vr-total]').innerHTML = `<span>Total${r.approved ? ` <small>· customer agreed ${esc(money(r, r.approved))}</small>` : ''}</span><b>${esc(money(r, r.total))}</b>`;
+    const quoted = r.lines.length > 0 || !!r.needs_quote;
+    show('[data-vr-plan]', quoted);
+    show('[data-vr-fixed]', !quoted || (!r.needs_quote && !r.to_order && !r.choices));
     const kind = r.to_order ? 'order' : 'here';
-    if (hasParts && plansFor !== kind) {
+    if (quoted && plansFor !== kind) {
       const list = r.to_order ? PLANS_ORDER : PLANS_HERE;
       $('[data-vr-plans]').innerHTML = list.map(([k, label], i) => `<label><input type="radio" name="vr-plan" value="${k}" ${i === 0 ? 'checked' : ''} /> ${esc(label)}</label>`).join('');
       plansFor = kind;
@@ -360,6 +516,83 @@ export const prerender = false;
     $('[data-vr-acc]').hidden = $<HTMLInputElement>('[data-vr-noacc]').checked;
   }
   const noteArg = () => ({ note: $<HTMLTextAreaElement>('[data-vr-note]').value });
+  const brandArg = () => Number($<HTMLSelectElement>('[data-vr-brand]').value) || null;
+  const needBrand = () => { if (view?.result?.need_device && !brandArg()) { msg('Choose the device brand first.'); return true; } return false; };
+  const gradeTag = (p: any) => p.grade ? ` <small class="vr-grade">${esc(p.grade)}</small>` : '';
+
+  function renderOutcome(r: any) {
+    $('[data-vr-outcomes]').innerHTML = (r.outcomes || []).map((o: any) => `<button type="button" role="radio" aria-checked="${outcome === o.key}"
+      class="vr-out${outcome === o.key ? ' on' : ''}" data-vr-outcome="${o.key}">${esc(o.label)}</button>`).join('');
+    show('[data-vr-lab]', outcome === 'lab');
+    show('[data-vr-close]', NO_REPAIR.includes(outcome));
+    show('[data-vr-priced]', ['parts', 'labour'].includes(outcome));
+    show('[data-vr-partsbox]', outcome === 'parts');
+    show('[data-vr-pick]', !outcome);
+  }
+
+  // ---- finish: the photo of the repaired device, the payment, the customer's finish code ----
+  let payMethod = 0;
+  function renderClose(c: any) {
+    show('[data-co]', !!c);
+    if (!c) return;
+    const n = c.photos;
+    $('[data-co-ph]').innerHTML = n ? `${OK} ${n} photo${n > 1 ? 's' : ''}` : '<span class="vc-no">No photo yet</span>';
+    $('[data-co-phbtn]').hidden = n >= c.photos_max;
+    $('[data-co-clear]').hidden = !n;
+    const paid = $('[data-co-paid]');
+    paid.hidden = !c.paid;
+    paid.textContent = c.paid ? `✓ ${c.paid_text}` : '';
+    show('[data-co-pay]', !c.paid && c.to_pay);
+    show('[data-co-free]', !c.paid && !c.to_pay);
+    const cur = { currency: c.currency, decimals: c.decimals };
+    $('[data-co-due]').innerHTML = `<span>To pay</span><b>${esc(money(cur, c.due))}</b>`;
+    if (!payMethod && c.methods.length) payMethod = (c.methods.find((m: any) => m.default) || c.methods[0]).id;
+    $('[data-co-methods]').innerHTML = c.methods.map((m: any) => `<button type="button" role="radio" aria-checked="${m.id === payMethod}"
+      class="vr-out${m.id === payMethod ? ' on' : ''}" data-co-m="${m.id}">${esc(m.name)}</button>`).join('');
+    $<HTMLInputElement>('[data-co-amt]').placeholder = String(c.due);
+    $<HTMLButtonElement>('[data-co-go]').disabled = c.missing.length > 0;
+    $('[data-co-miss]').textContent = c.missing.length ? `Still to do: ${c.missing.join(', ')}.` : `${c.tries_left} tries left.`;
+  }
+  async function closeAct(body: Record<string, unknown>) {
+    $('[data-vc-busy]').hidden = false; msg('');
+    const d = await api(body);
+    $('[data-vc-busy]').hidden = true;
+    if (d.ref) render(d);
+    if (!d.ok) msg(d.message || ERR[d.error] || 'That did not work. Try again.');
+    return d;
+  }
+  $('[data-co]').addEventListener('click', async (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-co-m],[data-co-clear],[data-co-paygo],[data-co-freego],[data-co-go]');
+    if (!el) return;
+    const c = view?.close;
+    if (el.dataset.coM) { payMethod = Number(el.dataset.coM); if (c) renderClose(c); return; }
+    if (el.hasAttribute('data-co-clear')) { await closeAct({ action: 'close_clear' }); return; }
+    if (el.hasAttribute('data-co-freego')) { if (confirm('No charge for this repair?')) await closeAct({ action: 'close_free' }); return; }
+    if (el.hasAttribute('data-co-paygo') && c) {
+      const typed = $<HTMLInputElement>('[data-co-amt]').value;
+      const amount = typed === '' ? c.due : Number(typed);
+      if (!payMethod) { msg('Choose how the customer paid.'); return; }
+      if (!(amount > 0) || amount > c.due + 1e-6) { msg(`The amount must be more than 0 and at most ${money(c, c.due)}.`); return; }
+      const method = (c.methods.find((m: any) => m.id === payMethod) || {}).name || '';
+      if (confirm(`${money(c, amount)} paid by ${method}?`)) {
+        const d = await closeAct({ action: 'close_pay', method_id: payMethod, amount });
+        if (d.ok) $<HTMLInputElement>('[data-co-amt]').value = '';
+      }
+      return;
+    }
+    if (el.hasAttribute('data-co-go')) {
+      const code = $<HTMLInputElement>('[data-co-code]').value.replace(/\D/g, '');
+      if (code.length !== 4) { msg("Enter the customer's 4-digit finish code."); return; }
+      const d = await closeAct({ action: 'close_code', code });
+      if (d.ok) $<HTMLInputElement>('[data-co-code]').value = '';
+    }
+  });
+  $('[data-co-pin]').addEventListener('change', async (e) => {
+    const el = e.target as HTMLInputElement;
+    const file = el.files?.[0];
+    el.value = '';
+    if (file) await closeAct({ action: 'close_photo', data: await photoData(file) });
+  });
 
   async function result(body: Record<string, unknown>) {
     $('[data-vc-busy]').hidden = false; msg('');
@@ -377,8 +610,71 @@ export const prerender = false;
       || (d.ok ? '<p class="tv-hint">No part found. Try another word.</p>' : '');
   });
   $('[data-vr]').addEventListener('click', async (e) => {
-    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vr-add],[data-vr-del],[data-vr-issue],[data-vr-more]');
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vr-add],[data-vr-del],[data-vr-issue],[data-vr-more],'
+      + '[data-vr-outcome],[data-vr-labgo],[data-vr-nogo],[data-vr-alts],[data-vr-altadd],[data-vr-keep],[data-vr-labouradd],'
+      + '[data-vr-reqtoggle],[data-vr-reqgo]');
     if (!el) return;
+    if (el.dataset.vrOutcome) {
+      if (needBrand()) return;
+      outcome = el.dataset.vrOutcome;
+      if (view?.result) renderOutcome(view.result);
+      if (['parts', 'labour'].includes(outcome)) await result({ action: 'result_outcome', outcome, brand_id: brandArg(), ...noteArg() });
+      return;
+    }
+    if (el.hasAttribute('data-vr-labgo')) {
+      const days = Number($<HTMLInputElement>('[data-vr-labdays]').value);
+      const unit = $('[data-vr-labunit]').dataset.value;
+      if (!(unit === 'weeks' ? days >= 1 && days <= 8 : days >= 1 && days <= 60)) { msg('When will the price be ready? 1 to 60 days, or 1 to 8 weeks.'); return; }
+      if (confirm('Take the device to the lab? The customer is told the price follows.')) {
+        await result({ action: 'result_outcome', outcome: 'lab', days, unit, brand_id: brandArg(), ...noteArg() });
+      }
+      return;
+    }
+    if (el.hasAttribute('data-vr-nogo')) {
+      if (!$<HTMLTextAreaElement>('[data-vr-note]').value.trim()) { msg('Write what you checked and why it is not repaired: the customer reads it.'); return; }
+      if (confirm('Close the visit without a repair? The customer gets your reason on WhatsApp.')) {
+        await result({ action: 'result_outcome', outcome, ...noteArg() });
+      }
+      return;
+    }
+    if (el.dataset.vrAlts) {
+      const id = Number(el.dataset.vrAlts);
+      if (altsFor === id) { altsFor = 0; alts = []; if (view?.result) renderResult(view.result); return; }
+      const d = await result({ action: 'result_alts', line_id: id });
+      altsFor = id; alts = d.alts || [];
+      if (d.ok !== false && !alts.length) msg('No other grade of this part fits this device.');
+      if (view?.result) renderResult(view.result);
+      return;
+    }
+    if (el.dataset.vrAltadd) {
+      const d = await result({ action: 'result_add_part', product_id: Number(el.dataset.vrAltadd), line_id: altsFor });
+      if (d.ok !== false) { altsFor = 0; alts = []; if (view?.result) renderResult(view.result); }
+      return;
+    }
+    if (el.dataset.vrKeep) {
+      if (confirm(`The customer keeps ${el.dataset.name || 'this part'}? The other grade is removed.`)) {
+        await result({ action: 'result_choose', line_id: Number(el.dataset.vrKeep) });
+      }
+      return;
+    }
+    if (el.hasAttribute('data-vr-labouradd')) {
+      if (needBrand()) return;
+      const typed = $<HTMLInputElement>('[data-vr-labour]').value;
+      if (typed === '' || !(Number(typed) >= 0)) { msg('Type the labour price.'); return; }
+      await result({ action: 'result_price', price: Number(typed), brand_id: brandArg() });
+      return;
+    }
+    if (el.hasAttribute('data-vr-reqtoggle')) { $('[data-vr-req]').hidden = !$('[data-vr-req]').hidden; return; }
+    if (el.hasAttribute('data-vr-reqgo')) {
+      if (needBrand()) return;
+      const name = $<HTMLInputElement>('[data-vr-reqname]').value.trim();
+      if (name.length < 2) { msg("Type the part's name."); return; }
+      if (confirm('Ask the office for this part? The visit closes; the customer is told the price follows.')) {
+        await result({ action: 'result_request', name, price: Number($<HTMLInputElement>('[data-vr-reqprice]').value) || 0,
+                       data: reqPhoto, brand_id: brandArg(), ...noteArg() });
+      }
+      return;
+    }
     if (el.hasAttribute('data-vr-more')) {
       issuesOpen = !issuesOpen;
       if (!issuesOpen) $<HTMLInputElement>('[data-vr-ifind]').value = '';
@@ -396,21 +692,41 @@ export const prerender = false;
       await result({ action: 'result_remove_part', line_id: Number(el.dataset.vrDel) });
     }
   });
-  $('[data-vr]').addEventListener('change', (e) => {
+  $('[data-vr]').addEventListener('change', async (e) => {
     const el = e.target as HTMLInputElement;
     if (el.name === 'vr-plan' || el.hasAttribute('data-vr-noacc')) syncPlan();
     if (el.hasAttribute('data-vr-partdays')) el.dataset.set = '1';
+    if (el.dataset.vrPrice) {
+      // the repair's price, saved when the technician leaves the box
+      const key = el.dataset.vrPrice;
+      if (el.value === '' || Number(el.value) === Number(el.dataset.was)) return;
+      if (!(Number(el.value) >= 0)) { msg('Type a price of 0 or more.'); return; }
+      if (needBrand()) return;
+      prices[key] = el.value;
+      const line = Number(el.dataset.line) || null;
+      const d = await result({ action: 'result_price', price: Number(el.value), line_id: line,
+                               product_id: line ? null : Number(el.dataset.product) || null, brand_id: brandArg() });
+      if (d.ok !== false) { for (const k of Object.keys(prices)) delete prices[k]; if (view?.result) renderResult(view.result); }
+    }
+    if (el.hasAttribute('data-vr-reqpin')) {
+      const file = el.files?.[0];
+      el.value = '';
+      if (file) { reqPhoto = await photoData(file); $('[data-vr-reqph]').innerHTML = `${OK} Photo added`; }
+    }
   });
   $('[data-vr-ifind]').addEventListener('input', () => { if (view?.result) renderIssues(view.result); });
   $('[data-vr-note]').addEventListener('blur', () => { if (view?.result?.stage === 'find') result({ action: 'result_note', ...noteArg() }); });
+  $('[data-tv-prizego]').addEventListener('click', () => {
+    if (confirm('The customer got the prize?')) result({ action: 'prize_given' });
+  });
   $('[data-vr-fixed]').addEventListener('click', () => {
-    if (confirm('Fixed on the spot? The visit will be closed.')) result({ action: 'result_fixed', ...noteArg() });
+    if (confirm('Fixed on the spot? Next: a photo of the repaired device, the payment and the customer\'s finish code.')) result({ action: 'result_fixed', ...noteArg() });
   });
   $('[data-vr-quote]').addEventListener('click', () => {
     const p = plan();
     if (!p) { msg('Choose what happens after the customer approves.'); return; }
     const days = Number($<HTMLInputElement>('[data-vr-days]').value);
-    const unit = $<HTMLSelectElement>('[data-vr-unit]').value;
+    const unit = $('[data-vr-unit]').dataset.value;
     const partDays = Number($<HTMLInputElement>('[data-vr-partdays]').value);
     if (['take', 'come_back', 'order_take'].includes(p) && !(unit === 'weeks' ? days >= 1 && days <= 8 : days >= 1 && days <= 60)) {
       msg('How long to fix? 1 to 60 days, or 1 to 8 weeks.'); return;
@@ -423,7 +739,7 @@ export const prerender = false;
   $('[data-vr-yes]').addEventListener('click', () => { if (confirm('The customer approved the price?')) result({ action: 'result_approved_here' }); });
   $('[data-vr-no]').addEventListener('click', () => { if (confirm('The customer declined? Nothing is repaired or ordered.')) result({ action: 'result_declined_here' }); });
   $('[data-vr-later]').addEventListener('click', () => { if (confirm('Close the visit? The customer answers the quotation later.')) result({ action: 'result_later' }); });
-  $('[data-vr-done]').addEventListener('click', () => { if (confirm('Repair done? The visit will be closed.')) result({ action: 'result_fixed' }); });
+  $('[data-vr-done]').addEventListener('click', () => { if (confirm('Repair done?')) result({ action: 'result_fixed' }); });
   $('[data-vr-take]').addEventListener('click', () => {
     const only = $<HTMLInputElement>('[data-vr-noacc]').checked;
     const ids = [...document.querySelectorAll<HTMLInputElement>('[data-vr-accid]:checked')].map((x) => Number(x.value));
@@ -528,6 +844,10 @@ export const prerender = false;
   .tv-code input { height: 54px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 26px; letter-spacing: .5em; text-align: center; }
   .tv-hint { margin: 10px 0 0; font-size: 14px; color: var(--ink-3); }
   .tv-end { font-weight: 600; color: var(--ink); }
+  .tv-prize { border: 1.5px dashed #f5b400; background: color-mix(in srgb, #f5b400 10%, var(--surface)); }
+  .tv-prize-t { margin: 0; font-size: 17px; }
+  .tv-prize-t small { color: var(--ink-3); font-size: 13px; }
+  .tv-prize .tv-btn { margin-top: 12px; }
   .tv-gps { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; background: var(--tint); color: var(--ink-2); font-size: 14px; }
   .tv-gps i { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #d63a3a; }
   .tv-gps i.ok { background: #1a9a52; animation: tvp 1.6s infinite; }
@@ -557,7 +877,10 @@ export const prerender = false;
   .vr-field[hidden] { display: none; }
   .vr-span { display: flex; gap: 8px; }
   .vr-span input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
-  .vr-span select { height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
+  /* days | weeks: two buttons in the site colour instead of the browser's own dropdown */
+  .vr-seg { display: inline-flex; flex: none; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  .vr-seg button { height: 36px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--ink-2); font: inherit; font-weight: 700; cursor: pointer; }
+  .vr-seg button[aria-pressed="true"] { background: var(--grad, var(--violet)); color: var(--on-accent, #fff); }
   .vr-search { display: flex; gap: 8px; margin: 10px 0 6px; }
   .vr-search input { flex: 1; min-width: 0; }
   .vr-choice { display: grid; gap: 8px; margin: 12px 0; font-weight: 600; color: var(--ink); }
@@ -577,4 +900,38 @@ export const prerender = false;
   .tv-ck :global(.tv-btn.big) { width: 100%; height: 54px; margin-top: 10px; font-size: 17px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); }
   .tv-ck :global(.tv-btn.big.ghost) { background: var(--tint); color: var(--ink); }
   .vc-busy { margin: 12px 0 0; color: var(--ink-2); font-weight: 600; }
+
+  /* progress: assigned -> on the way -> arrived -> working -> finish -> done (drawn by the script) */
+  .tv-steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+  .tv-steps[hidden] { display: none; }
+  .tv-steps :global(li) { position: relative; display: grid; justify-items: center; gap: 6px; text-align: center; font-size: 11px; color: var(--ink-3); min-width: 0; }
+  .tv-steps :global(li::before) { content: ''; position: absolute; top: 7px; right: 50%; width: 100%; height: 3px; background: var(--line); }
+  .tv-steps :global(li:first-child::before) { display: none; }
+  .tv-steps :global(li.done::before) { background: var(--violet); }
+  .tv-steps :global(i) { position: relative; z-index: 1; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); border: 2px solid var(--line); box-sizing: border-box; }
+  .tv-steps :global(li.done i) { background: var(--violet); border-color: var(--violet); }
+  .tv-steps :global(li.cur i) { box-shadow: 0 0 0 4px var(--accent-soft, rgba(0, 0, 0, .08)); }
+  .tv-steps :global(li.cur span) { color: var(--ink); font-weight: 700; }
+  .tv-steps :global(small) { display: block; }
+  .tv-said { margin: 0 0 8px; padding: 8px 12px; border-left: 3px solid var(--violet); border-radius: 0 10px 10px 0; background: var(--tint); color: var(--ink); }
+  .tv-said[hidden] { display: none; }
+
+  /* can it be fixed? and the payment methods: big choice buttons */
+  .tv-ck :global(.vr-outcomes) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 8px; }
+  .tv-ck :global(.vr-out) { min-height: 46px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 700; text-align: left; cursor: pointer; }
+  .tv-ck :global(.vr-out.on) { border-color: var(--violet); background: var(--violet); color: var(--on-accent, #fff); }
+  .vr-sub { display: grid; gap: 8px; margin: 6px 0 4px; padding: 12px; border-radius: 12px; background: var(--tint); }
+  .tv-ck :global(.vr-price) { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .tv-ck :global(.vr-price input) { width: 96px; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; text-align: right; }
+  .tv-ck :global(.vr-price small) { color: var(--ink-3); font-weight: 700; }
+  .tv-ck :global(.vr-total) { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--tint); font-weight: 700; color: var(--ink); }
+  .tv-ck :global(.vr-total small) { font-weight: 500; color: var(--ink-3); }
+  .tv-ck :global(.vr-total b) { font-size: 18px; }
+  .tv-ck :global(.vr-grade) { display: inline-block; margin-left: 4px; padding: 1px 8px; border-radius: 999px; background: var(--tint); color: var(--violet); font-size: 11.5px; font-weight: 700; }
+  .tv-ck :global(.vr-alt) { padding: 4px 10px; border-left: 3px solid var(--violet); border-radius: 0 10px 10px 0; background: var(--tint); }
+  .tv-ck :global(.vr-or) { color: var(--violet); font-weight: 600; }
+  .tv-ck :global(.vr-acts) { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 10px; flex: none; }
+  .tv-ck :global(.vr-alts) { margin: 0 0 4px 12px; padding-left: 10px; border-left: 2px dashed var(--line); }
+  .co-paid { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(26, 154, 82, .1); color: #1a9a52; font-weight: 700; }
+  .co-paid[hidden], [data-co] [hidden] { display: none !important; }
 </style>

@@ -8,14 +8,16 @@
  *   · today's and upcoming  |   customer, address, time, Call / Directions
  *   · done today            |   Start trip -> I have arrived (code) -> Before you start
  *                           |   (safety, photos, video) -> Start work -> What did you find?
- *                           |   -> quotation -> customer's answer -> repair done / take device
+ *                           |   (can it be fixed? parts, labour price, a part from the office,
+ *                           |   two grades) -> quotation -> customer's answer -> repair done /
+ *                           |   take device -> Finish (after photo, payment, finish code)
  *
  * Every step goes through fix.service.visit.fix_tech_act (app/models/fix_tech.py), which checks
  * the visit is the user's own and runs the web page's own step (_fs_tech_do). While a visit is
  * open the screen shares the phone's location, like the web page.
  */
 
-import { Component, onWillStart, onWillUnmount, useState } from "@odoo/owl";
+import { Component, onWillStart, onWillUnmount, useEffect, useExternalListener, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
@@ -42,6 +44,10 @@ const PLANS_HERE = [["now", _t("Fix now (I have the part)")], ["take", _t("Take 
                     ["come_back", _t("Customer keeps it, we come back")]];
 const PLANS_ORDER = [["keep", _t("Customer keeps it until the part arrives")],
                      ["order_take", _t("Take the device to the office until the part arrives")]];
+// "Can it be fixed?": these close the visit with the reason the technician writes
+const NO_REPAIR = ["no_fault", "not_worth", "warranty"];
+const OUTCOME_ICONS = { parts: "fa-cogs", labour: "fa-wrench", lab: "fa-flask", no_fault: "fa-check",
+                        not_worth: "fa-ban", warranty: "fa-certificate" };
 
 export class FixTech extends Component {
     static template = "369ai_fix.Tech";
@@ -79,8 +85,38 @@ export class FixTech extends Component {
             partDaysSet: false,
             accIds: [],
             noAcc: false,
+            // can it be fixed? (lab / no repair are chosen here, then confirmed)
+            outcome: "",
+            labDays: 3,
+            labUnit: "days",
+            prices: {},         // typed labour prices, by repair line
+            labourPrice: "",
+            alts: [],           // other grades offered for one part
+            altsFor: 0,
+            reqOpen: false,
+            reqName: "",
+            reqPrice: "",
+            reqPhoto: "",
+            // finish
+            payMethod: 0,
+            payAmount: "",
+            finishCode: "",
+            today: null,
+            // a photo opened big: its place in the list, its picture once loaded
+            photo: { ix: -1, uri: "", name: "" },
         });
         this.fix = null;
+        this.savedOutcome = "";
+        this.alertRef = useRef("alert");
+        // a warning shows at the top: bring it into view, the technician is often scrolled down at the button
+        useEffect(
+            (message) => {
+                if (message && this.alertRef.el) {
+                    this.alertRef.el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            },
+            () => [this.state.message]
+        );
         this.watchId = null;
         this.pingTimer = null;
         this.pollTimer = null;
@@ -97,6 +133,19 @@ export class FixTech extends Component {
                 this.load();
             }
         }, POLL_MS);
+        // the photo popup's keys: before Odoo's own shortcuts (capture), which take Escape otherwise
+        useExternalListener(window, "keydown", (ev) => {
+            if (this.state.photo.ix < 0 || !["Escape", "ArrowRight", "ArrowLeft"].includes(ev.key)) {
+                return;
+            }
+            ev.preventDefault();
+            ev.stopPropagation();
+            if (ev.key === "Escape") {
+                this.closePhoto();
+            } else {
+                this.stepPhoto(ev.key === "ArrowRight" ? 1 : -1);
+            }
+        }, { capture: true });
         onWillUnmount(() => {
             clearInterval(this.pollTimer);
             this.stopGps();
@@ -108,7 +157,7 @@ export class FixTech extends Component {
         try {
             const data = await this.orm.call(MODEL, "fix_tech_load", []);
             Object.assign(this.state, {
-                visits: data.visits, linked: data.linked, manager: data.manager, me: data.me,
+                visits: data.visits, linked: data.linked, manager: data.manager, me: data.me, today: data.today || null,
             });
         } catch (err) {
             this.notification.add(errorText(err), { type: "danger" });
@@ -129,13 +178,45 @@ export class FixTech extends Component {
         this.state.selectedId = visit.id;
         this.state.showDetail = true;
         Object.assign(this.state, { message: "", code: "", found: [], query: "", plan: "", accIds: [], noAcc: false,
-                                    issuesOpen: false, issueWord: "", brandId: 0, partDaysSet: false });
+                                    issuesOpen: false, issueWord: "", brandId: 0, partDaysSet: false,
+                                    outcome: "", prices: {}, labourPrice: "", alts: [], altsFor: 0, reqOpen: false,
+                                    reqName: "", reqPrice: "", reqPhoto: "", payMethod: 0, payAmount: "", finishCode: "" });
         try {
             this.show(await this.orm.call(MODEL, "fix_tech_view", [[visit.id]]));
         } catch (err) {
             this.state.view = null;
             this.notification.add(errorText(err), { type: "danger" });
         }
+    }
+
+    // ------------------------------------------------------------------ a photo, big
+    async openPhoto(ix) {
+        const photos = (this.state.view && this.state.view.photos) || [];
+        const p = photos[ix];
+        if (!p) {
+            return;
+        }
+        // the thumbnail at once, the full picture as soon as it comes
+        this.state.photo = { ix, uri: p.uri, name: p.name };
+        try {
+            const big = await this.orm.call(MODEL, "fix_tech_photo", [[this.state.selectedId]], { photo_id: p.id });
+            if (big.ok && this.state.photo.ix === ix) {
+                this.state.photo = { ix, uri: big.uri, name: big.name || p.name };
+            }
+        } catch {
+            // the thumbnail stays
+        }
+    }
+
+    stepPhoto(delta) {
+        const n = ((this.state.view && this.state.view.photos) || []).length;
+        if (n > 1) {
+            this.openPhoto((this.state.photo.ix + delta + n) % n);
+        }
+    }
+
+    closePhoto() {
+        this.state.photo = { ix: -1, uri: "", name: "" };
     }
 
     closeDetail() {
@@ -156,6 +237,15 @@ export class FixTech extends Component {
             if (!plans.some(([key]) => key === this.state.plan)) {
                 this.state.plan = plans.length ? plans[0][0] : "";
             }
+            // the outcome saved on the visit wins when it changes; a choice not confirmed yet stays
+            if (r.outcome && (r.outcome !== this.savedOutcome || !this.state.outcome)) {
+                this.state.outcome = r.outcome;
+            }
+            this.savedOutcome = r.outcome || "";
+        }
+        const c = view && view.close;
+        if (c && !this.state.payMethod && c.methods && c.methods.length) {
+            this.state.payMethod = (c.methods.find((m) => m.default) || c.methods[0]).id;
         }
         if (view && view.share) {
             this.startGps(view.ping_every || 20);
@@ -338,8 +428,20 @@ export class FixTech extends Component {
     }
 
     async saveNote() {
-        if (this.result && (this.result.found || "") !== this.state.note) {
-            await this.act("result_note", { note: this.state.note }, { quiet: true });
+        // in the background: leaving the note box for a button must not grey that button out
+        // (the steps that close the visit send the note themselves)
+        const id = this.state.selectedId;
+        const note = this.state.note;
+        if (!id || !this.result || (this.result.found || "") === note) {
+            return;
+        }
+        try {
+            const res = await this.orm.call(MODEL, "fix_tech_act", [[id], "result_note"], { ...this.where(), note });
+            if (res && res.result && this.state.selectedId === id && this.result) {
+                this.result.found = res.result.found;
+            }
+        } catch {
+            // the next step sends the note again
         }
     }
 
@@ -370,7 +472,11 @@ export class FixTech extends Component {
     }
 
     async fixedHere() {
-        if (await this.popup.confirm(_t("Fixed on the spot? The visit will be closed."))) {
+        const r = this.result;
+        const text = r && !Number(r.total)
+            ? _t("Fixed on the spot, with no charge? Next: a photo of the repaired device and the customer's finish code.")
+            : _t("Fixed on the spot? Next: a photo of the repaired device, the payment and the customer's finish code.");
+        if (await this.popup.confirm(text)) {
             await this.act("result_fixed", { note: this.state.note });
         }
     }
@@ -415,6 +521,226 @@ export class FixTech extends Component {
             return;
         }
         await this.act("result_take", { no_accessories: this.state.noAcc, accessory_ids: this.state.noAcc ? [] : this.state.accIds });
+    }
+
+    // ------------------------------------------------------------------ can it be fixed?
+    get outcomeNeedsParts() {
+        return this.state.outcome === "parts";
+    }
+
+    get outcomePriced() {
+        return ["parts", "labour"].includes(this.state.outcome);
+    }
+
+    get outcomeCloses() {
+        return NO_REPAIR.includes(this.state.outcome);
+    }
+
+    outcomeIcon(key) {
+        return OUTCOME_ICONS[key] || "fa-circle";
+    }
+
+    async chooseOutcome(key) {
+        if (this.needBrand()) {
+            return;
+        }
+        this.state.outcome = key;
+        if (["parts", "labour"].includes(key)) {
+            await this.act("result_outcome", { outcome: key, note: this.state.note, brand_id: this.state.brandId || false });
+        }
+    }
+
+    async confirmOutcome() {
+        const key = this.state.outcome;
+        if (this.outcomeCloses) {
+            if (!this.state.note.trim()) {
+                this.state.message = _t("Write what you checked and why it is not repaired: the customer reads it.");
+                return;
+            }
+            if (!(await this.popup.confirm(_t("Close the visit without a repair? The customer gets your reason on WhatsApp.")))) {
+                return;
+            }
+            await this.act("result_outcome", { outcome: key, note: this.state.note });
+        } else if (key === "lab") {
+            const days = Number(this.state.labDays);
+            if (!(this.state.labUnit === "weeks" ? days >= 1 && days <= 8 : days >= 1 && days <= 60)) {
+                this.state.message = _t("When will the price be ready? 1 to 60 days, or 1 to 8 weeks.");
+                return;
+            }
+            if (await this.popup.confirm(_t("Take the device to the lab? The customer is told the price follows."))) {
+                await this.act("result_outcome", { outcome: key, note: this.state.note, days, unit: this.state.labUnit,
+                                                   brand_id: this.state.brandId || false });
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ Spin & Win: the prize handed over
+    async prizeGiven() {
+        if (await this.popup.confirm(_t("The customer got the prize?"))) {
+            await this.act("prize_given");
+        }
+    }
+
+    // ------------------------------------------------------------------ the labour price
+    priceOf(svc) {
+        const key = svc.line_id || `p${svc.product_id}`;
+        return key in this.state.prices ? this.state.prices[key] : svc.price;
+    }
+
+    setPrice(svc, value) {
+        this.state.prices[svc.line_id || `p${svc.product_id}`] = value;
+    }
+
+    async savePrice(svc) {
+        if (this.needBrand()) {
+            return;
+        }
+        const value = this.priceOf(svc);
+        if (value === "" || Number(value) === Number(svc.price)) {
+            return;
+        }
+        const price = Number(value);
+        if (!(price >= 0)) {
+            this.state.message = _t("Type a price of 0 or more.");
+            return;
+        }
+        await this.act("result_price", { price, line_id: svc.line_id || false,
+                                         product_id: svc.line_id ? false : svc.product_id, brand_id: this.state.brandId || false });
+        this.state.prices = {};
+    }
+
+    async addLabour() {
+        if (this.needBrand()) {
+            return;
+        }
+        const price = Number(this.state.labourPrice);
+        if (this.state.labourPrice === "" || !(price >= 0)) {
+            this.state.message = _t("Type the labour price.");
+            return;
+        }
+        const res = await this.act("result_price", { price, brand_id: this.state.brandId || false });
+        if (res && res.ok !== false) {
+            this.state.labourPrice = "";
+        }
+    }
+
+    // ------------------------------------------------------------------ two grades of a part
+    async showAlts(line) {
+        if (this.state.altsFor === line.line_id) {
+            this.state.altsFor = 0;
+            this.state.alts = [];
+            return;
+        }
+        const res = await this.act("result_alts", { line_id: line.line_id });
+        this.state.altsFor = line.line_id;
+        this.state.alts = (res && res.alts) || [];
+        if (res && res.ok !== false && !this.state.alts.length) {
+            this.state.message = _t("No other grade of this part fits this device.");
+        }
+    }
+
+    async addAlt(part) {
+        const res = await this.act("result_add_part", { product_id: part.product_id, line_id: this.state.altsFor });
+        if (res && res.ok !== false) {
+            this.state.altsFor = 0;
+            this.state.alts = [];
+        }
+    }
+
+    async keepGrade(line) {
+        if (await this.popup.confirm(_t("The customer keeps %s? The other grade is removed.", line.name))) {
+            await this.act("result_choose", { line_id: line.line_id });
+        }
+    }
+
+    altPartner(line) {
+        return line.alt_key ? (this.result.lines || []).find((l) => l.alt_key === line.alt_key && l.line_id !== line.line_id) : null;
+    }
+
+    // ------------------------------------------------------------------ a part not in the list
+    async pickReqPhoto(ev) {
+        const file = ev.target.files && ev.target.files[0];
+        ev.target.value = "";
+        if (file) {
+            this.state.reqPhoto = await shrink(file);
+        }
+    }
+
+    async requestPart() {
+        if (this.needBrand()) {
+            return;
+        }
+        if (this.state.reqName.trim().length < 2) {
+            this.state.message = _t("Type the part's name.");
+            return;
+        }
+        if (!(await this.popup.confirm(_t("Ask the office for this part? The visit closes; the customer is told the price follows.")))) {
+            return;
+        }
+        await this.act("result_request", { name: this.state.reqName.trim(), price: Number(this.state.reqPrice) || 0,
+                                           data: this.state.reqPhoto || "", note: this.state.note, brand_id: this.state.brandId || false });
+    }
+
+    // ------------------------------------------------------------------ finish
+    get close() {
+        return (this.state.view && this.state.view.close) || null;
+    }
+
+    closeMoney(value) {
+        const c = this.close || {};
+        return `${c.currency || ""} ${Number(value || 0).toFixed(c.decimals ?? 2)}`.trim();
+    }
+
+    async pay() {
+        const c = this.close;
+        if (!this.state.payMethod) {
+            this.state.message = _t("Choose how the customer paid.");
+            return;
+        }
+        const amount = this.state.payAmount === "" ? c.due : Number(this.state.payAmount);
+        if (!(amount > 0) || amount > c.due + 1e-6) {
+            this.state.message = _t("The amount must be more than 0 and at most %s.", this.closeMoney(c.due));
+            return;
+        }
+        const method = (c.methods.find((m) => m.id === Number(this.state.payMethod)) || {}).name || "";
+        if (await this.popup.confirm(_t("%(amount)s paid by %(method)s?", { amount: this.closeMoney(amount), method }))) {
+            await this.act("close_pay", { method_id: Number(this.state.payMethod), amount });
+        }
+    }
+
+    async noCharge() {
+        if (await this.popup.confirm(_t("No charge for this repair?"))) {
+            await this.act("close_free");
+        }
+    }
+
+    async finish() {
+        const code = this.state.finishCode.trim();
+        if (!/^\d{4}$/.test(code)) {
+            this.state.message = _t("Type the customer's 4-digit finish code.");
+            return;
+        }
+        const res = await this.act("close_code", { code });
+        if (res && res.ok !== false) {
+            this.state.finishCode = "";
+        }
+    }
+
+    stars(n) {
+        return "★".repeat(Math.max(0, Math.min(5, Number(n) || 0)));
+    }
+
+    todayText() {
+        const t = this.state.today;
+        if (!t || !t.done) {
+            return "";
+        }
+        const money = `${t.currency} ${Number(t.collected || 0).toFixed(t.decimals ?? 2)}`;
+        return t.collected ? _t("Done today: %(n)s · collected %(money)s", { n: t.done, money }) : _t("Done today: %s", t.done);
+    }
+
+    stepTime(step) {
+        return step.at ? new Date(step.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
     }
 
     // ------------------------------------------------------------------ words
