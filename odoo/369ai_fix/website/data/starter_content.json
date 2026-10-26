@@ -814,7 +814,7 @@
    "wheel_spin": "Spin the wheel",
    "wheel_later": "Maybe later",
    "wheel_won": "🎉 You won",
-   "wheel_note": "Show this code when you book. Valid on your next repair.",
+   "wheel_note": "It goes on your next booking by itself — or show this code. Valid on your next repair.",
    "wheel_book": "Book now",
    "wheel_wa": "WhatsApp us",
    "wheel_wa_msg": "Hello {site} — I won on the spin wheel, code: {code}",
@@ -870,7 +870,9 @@
     "code": "SPIN-DIAG",
     "icon": "diag",
     "color": "var(--violet)",
-    "color2": "#fff"
+    "color2": "#fff",
+    "chance": 20,
+    "free_visit": true
    },
    {
     "name2": "Free",
@@ -879,7 +881,8 @@
     "code": "SPIN-PICK",
     "icon": "pick",
     "color": "#f5b400",
-    "color2": "#10241a"
+    "color2": "#10241a",
+    "chance": 5
    },
    {
     "name2": "Free",
@@ -888,7 +891,8 @@
     "code": "SPIN-CLEAN",
     "icon": "clean",
     "color": "#16241d",
-    "color2": "#fff"
+    "color2": "#fff",
+    "chance": 35
    },
    {
     "name2": "Priority",
@@ -897,7 +901,8 @@
     "code": "SPIN-FAST",
     "icon": "fast",
     "color": "#ff7a45",
-    "color2": "#fff"
+    "color2": "#fff",
+    "chance": 0
    },
    {
     "name2": "Free",
@@ -906,7 +911,8 @@
     "code": "SPIN-DATA",
     "icon": "data",
     "color": "color-mix(in srgb, var(--violet) 55%, #fff)",
-    "color2": "#10241a"
+    "color2": "#10241a",
+    "chance": 10
    },
    {
     "name2": "Free",
@@ -915,7 +921,8 @@
     "code": "SPIN-GUARD",
     "icon": "guard",
     "color": "#fff",
-    "color2": "#10241a"
+    "color2": "#10241a",
+    "chance": 30
    }
   ],
   "replies": [

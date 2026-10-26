@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Spin & Win winners: every prize won on the website, who won it, its code, and whether it
+         went on a booking and was given. The green screen (fix_screen_configs 'spin_wins') draws
+         the same records; these views stay for the customer's smart button and bookmarks. -->
+    <record id="view_fix_spin_win_list" model="ir.ui.view">
+        <field name="name">fix.spin.win.list</field>
+        <field name="model">fix.spin.win</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state == 'expired'" decoration-success="state == 'given'">
+                <field name="won_on"/>
+                <field name="partner_id"/>
+                <field name="phone" optional="show"/>
+                <field name="prize"/>
+                <field name="code"/>
+                <field name="valid_until"/>
+                <field name="order_id" optional="show"/>
+                <field name="used_on" optional="hide"/>
+                <field name="given_on" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'given'" decoration-info="state == 'used'"
+                       decoration-warning="state == 'won'" decoration-muted="state == 'expired'"/>
+                <field name="site_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_fix_spin_win_form" model="ir.ui.view">
+        <field name="name">fix.spin.win.form</field>
+        <field name="model">fix.spin.win</field>
+        <field name="arch" type="xml">
+            <form string="Spin &amp; Win prize">
+                <header>
+                    <button name="action_mark_given" type="object" string="Mark given" class="btn-primary"
+                            invisible="given_on"/>
+                    <button name="action_open_booking" type="object" string="Open the booking" invisible="not order_id"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><h1><field name="code" readonly="1"/></h1></div>
+                    <group>
+                        <group string="Who and what">
+                            <field name="partner_id"/>
+                            <field name="phone"/>
+                            <field name="item_id"/>
+                            <field name="prize"/>
+                            <field name="site_id"/>
+                        </group>
+                        <group string="When">
+                            <field name="won_on"/>
+                            <field name="valid_until"/>
+                            <field name="order_id"/>
+                            <field name="used_on"/>
+                            <field name="given_on"/>
+                            <field name="given_by_id"/>
+                            <field name="ip" groups="base.group_no_one"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_fix_spin_win_search" model="ir.ui.view">
+        <field name="name">fix.spin.win.search</field>
+        <field name="model">fix.spin.win</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="code"/>
+                <field name="partner_id"/>
+                <field name="phone"/>
+                <field name="prize"/>
+                <filter name="filter_won" string="Not used yet" domain="[('state', '=', 'won')]"/>
+                <filter name="filter_used" string="On a booking" domain="[('state', '=', 'used')]"/>
+                <filter name="filter_given" string="Given" domain="[('state', '=', 'given')]"/>
+                <filter name="filter_expired" string="Expired" domain="[('state', '=', 'expired')]"/>
+                <filter name="filter_all" string="All" domain="[]"/>
+                <group>
+                    <filter name="group_prize" string="Prize" context="{'group_by': 'item_id'}"/>
+                    <filter name="group_month" string="Month" context="{'group_by': 'won_on:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_fix_spin_wins" model="ir.actions.act_window">
+        <field name="name">Spin &amp; Win winners</field>
+        <field name="res_model">fix.spin.win</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nobody has spun yet</p>
+            <p>Every prize won on the website's Spin &amp; Win wheel lands here: who won it, the code, whether it
+               went on a booking and whether the technician gave it. The prizes and their chances are in
+               Pop-ups &amp; chat ▸ Spin &amp; Win.</p>
+        </field>
+    </record>
+
+    <!-- the customer's contact: how many prizes they won, and the list -->
+    <record id="view_partner_form_spin_wins" model="ir.ui.view">
+        <field name="name">res.partner.form.spin.wins</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_view_spin_wins" type="object" class="oe_stat_button" icon="fa-gift"
+                        invisible="spin_win_count == 0">
+                    <field name="spin_win_count" widget="statinfo" string="Spin &amp; Win"/>
+                </button>
+            </div>
+        </field>
+    </record>
+
+    <!-- the booking: the prize on it -->
+    <record id="view_online_order_form_spin" model="ir.ui.view">
+        <field name="name">online.service.order.form.spin</field>
+        <field name="model">online.service.order</field>
+        <field name="inherit_id" ref="369ai_fix.view_online_order_form"/>
+        <field name="arch" type="xml">
+            <field name="coupon" position="after">
+                <field name="spin_win_id" invisible="not spin_win_id"/>
+                <field name="spin_prize" invisible="not spin_win_id"/>
+                <field name="spin_given" invisible="not spin_win_id"/>
+            </field>
+        </field>
+    </record>
+</odoo>

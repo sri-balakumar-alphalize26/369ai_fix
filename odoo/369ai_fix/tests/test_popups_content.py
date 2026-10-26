@@ -61,8 +61,16 @@ class TestPopupsContent(TransactionCase):
         self.assertIsInstance(c['popups']['cookie']['show'], bool)
         wheel = c['wheel']
         self.assertEqual(len(wheel['slices']), 6)
-        self.assertEqual(wheel['slices'][0], {'top': 'Free', 'label': 'Diagnosis', 'full': 'Free diagnosis', 'code': 'SPIN-DIAG',
-                                              'icon': 'diag', 'color': 'var(--violet)', 'text_color': '#fff'})
+        first = dict(wheel['slices'][0])
+        self.assertEqual(first.pop('id'), self._items('wheel').sorted('sequence')[0].id, 'the wheel lands on the prize by its id')
+        self.assertEqual(first, {'top': 'Free', 'label': 'Diagnosis', 'full': 'Free diagnosis', 'code': 'SPIN-DIAG',
+                                 'icon': 'diag', 'color': 'var(--violet)', 'text_color': '#fff'})
+        self.assertTrue(wheel['show'])
+        self.assertEqual(wheel['every_days'], 30)
+        # the starter chances: most spins win something small, the priority slot is show only
+        by_code = {i.code: i for i in self._items('wheel')}
+        self.assertEqual((by_code['SPIN-CLEAN'].chance, by_code['SPIN-FAST'].chance), (35, 0))
+        self.assertTrue(by_code['SPIN-DIAG'].free_visit)
         self.assertEqual(wheel['slices'][4]['color'], 'color-mix(in srgb, var(--violet) 55%, #fff)')
         bot = c['bot']
         self.assertEqual([r['intent'] for r in bot['replies']], ['book', 'area', 'price', 'time', 'contact', 'human'])

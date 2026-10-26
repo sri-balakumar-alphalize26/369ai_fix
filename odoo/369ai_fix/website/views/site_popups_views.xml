@@ -54,6 +54,9 @@
                     </group>
                     <group>
                         <group string="Spin &amp; Win">
+                            <field name="wheel_show" widget="boolean_toggle"/>
+                            <field name="wheel_every_days"/>
+                            <field name="wheel_valid_days"/>
                             <field name="wheel_tab" placeholder="Spin &amp; Win"/>
                             <field name="wheel_eyebrow" placeholder="✦ {site} rewards ✦"/>
                             <field name="wheel_title" placeholder="Spin &amp;"/>
@@ -137,6 +140,10 @@
                             <field name="text" widget="text" optional="show"/>
                             <field name="text2" widget="text" optional="hide"/>
                             <field name="code" optional="show"/>
+                            <field name="chance" optional="show"/>
+                            <field name="month_limit" optional="hide"/>
+                            <field name="valid_days" optional="hide"/>
+                            <field name="free_visit" optional="hide"/>
                             <field name="icon" optional="hide"/>
                             <field name="color" optional="hide"/>
                             <field name="color2" optional="hide"/>
@@ -161,6 +168,10 @@
                 <field name="name"/>
                 <field name="text" optional="show"/>
                 <field name="code" optional="show"/>
+                <field name="chance" optional="show"/>
+                <field name="month_limit" optional="hide"/>
+                <field name="valid_days" optional="hide"/>
+                <field name="free_visit" optional="hide"/>
                 <field name="icon" optional="hide"/>
                 <field name="color" optional="hide"/>
                 <field name="color2" optional="hide"/>
@@ -200,6 +211,16 @@
                             <field name="icon" invisible="kind != 'wheel'"/>
                             <field name="color" invisible="kind != 'wheel'" placeholder="#f5b400 or var(--violet)"/>
                             <field name="color2" invisible="kind != 'wheel'" placeholder="#fff"/>
+                        </group>
+                    </group>
+                    <group string="How it is won" invisible="kind != 'wheel'">
+                        <group>
+                            <field name="chance"/>
+                            <field name="month_limit"/>
+                        </group>
+                        <group>
+                            <field name="valid_days"/>
+                            <field name="free_visit"/>
                         </group>
                     </group>
                 </sheet>

@@ -529,7 +529,7 @@
             </details>
             <!-- Spin & Win: the prizes -->
             <details t-if="sel.kind === 'wheel'" class="fx-group" open="">
-                <summary>Prizes on the wheel <small>drag to reorder · every slice wins</small></summary>
+                <summary>Prizes on the wheel <small>drag to reorder · Odoo picks by chance %, 0 = shown but never won</small></summary>
                 <div class="fx-rows" t-ref="rows">
                     <div t-foreach="items('wheel')" t-as="it" t-key="it.id" t-attf-class="fx-row fx-row-card {{ it.active ? '' : 'fx-dim' }}" t-att-data-row="it.id" t-att-data-fx-for="K('item', it.id)">
                         <div class="fx-row-top">
@@ -549,6 +549,12 @@
                             <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.color'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'color'"/></t>
                             <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.color2'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'color2'"/></t>
                         </div>
+                        <div class="fx-three">
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.chance'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'chance'"/></t>
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.month_limit'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'month_limit'"/></t>
+                            <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.valid_days'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'valid_days'"/></t>
+                        </div>
+                        <t t-call="369ai_fix.FxField"><t t-set="hk" t-value="'item.wheel.free_visit'"/><t t-set="k" t-value="K('item', it.id)"/><t t-set="model" t-value="M.item"/><t t-set="rec" t-value="it"/><t t-set="field" t-value="'free_visit'"/></t>
                     </div>
                 </div>
                 <button type="button" class="fx-btn fx-btn-sm" t-on-click="() => this.addItem('wheel')"><i class="fa fa-plus"/> Prize</button>

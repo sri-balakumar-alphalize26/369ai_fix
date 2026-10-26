@@ -19,7 +19,8 @@ class OnlineServiceSite(models.Model):
         'svc_eyebrow', 'svc_title', 'svc_title2', 'svc_lead', 'svc_modes_eyebrow', 'svc_modes_title', 'svc_fee_label',
         'cov_eyebrow', 'cov_title', 'cov_trust', 'public_url', 'show_device_photos', 'drawing_style',
     ) + POPUP_FIELDS
-    ITEM_FIELDS = ('kind', 'sequence', 'active', 'name', 'name2', 'text', 'text2', 'code', 'icon', 'color', 'color2', 'link', 'category_id')
+    ITEM_FIELDS = ('kind', 'sequence', 'active', 'name', 'name2', 'text', 'text2', 'code', 'icon', 'color', 'color2', 'link', 'category_id',
+                   'chance', 'month_limit', 'valid_days', 'free_visit')
 
     @api.model
     def fix_editor_pictures(self, what):

@@ -8,4 +8,7 @@ from . import home
 from . import site_content
 from . import site_pages
 from . import site_popups
+from . import spin_win
+from . import spin_booking
+from . import spin_visit
 from . import editor

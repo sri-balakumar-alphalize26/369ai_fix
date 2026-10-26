@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.18.0',
+    'version': '19.0.2.22.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """
@@ -98,6 +98,7 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
         'website/views/site_content_views.xml',
         'website/views/site_pages_views.xml',
         'website/views/site_popups_views.xml',
+        'website/views/spin_win_views.xml',
         'website/views/editor_views.xml',
         'website/views/menus.xml',
         # app
@@ -112,10 +113,12 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
             '369ai_fix/static/lib/leaflet/leaflet.css',
             '369ai_fix/static/lib/leaflet/leaflet.js',
             # the alarm (shared by the desk and the background service), then the desk
+            '369ai_fix/static/src/app/desk/desk_alarm.scss',
             '369ai_fix/static/src/app/desk/desk_alarm.js',
             '369ai_fix/static/src/app/desk/leaflet_map.js',
             # the green screens and pop-ups every menu uses (the desk shows records with them too)
             '369ai_fix/static/src/app/screen/fix_screen.scss',
+            '369ai_fix/static/src/app/screen/fix_numbers.js',
             '369ai_fix/static/src/app/screen/fix_field.js',
             '369ai_fix/static/src/app/screen/fix_popup.js',
             '369ai_fix/static/src/app/screen/fix_record.js',

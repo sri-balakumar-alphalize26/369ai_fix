@@ -19,6 +19,14 @@
 
     <menuitem id="menu_fix_website_details" name="Website Details" parent="menu_fix_website_root"
               action="action_screen_sites" sequence="5"/>
+    <!-- Spin & Win: the switch and rules, the prizes, and who won -->
+    <menuitem id="menu_fix_spin_root" name="Spin &amp; Win" parent="menu_fix_website_root" sequence="6"/>
+    <menuitem id="menu_fix_spin_settings" name="Settings" parent="menu_fix_spin_root"
+              action="action_screen_spin_settings" sequence="1"/>
+    <menuitem id="menu_fix_spin_prizes" name="Prizes" parent="menu_fix_spin_root"
+              action="action_screen_spin_prizes" sequence="2"/>
+    <menuitem id="menu_fix_spin_wins" name="Winners" parent="menu_fix_spin_root"
+              action="action_screen_spin_wins" sequence="3"/>
 
     <menuitem id="menu_fix_website_pictures" name="Pictures" parent="menu_fix_website_root" sequence="10"/>
     <menuitem id="menu_fix_device_pictures" name="Device Pictures" parent="menu_fix_website_pictures"

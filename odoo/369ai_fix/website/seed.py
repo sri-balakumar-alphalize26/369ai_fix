@@ -98,7 +98,8 @@ def _fill_popups(site, d):
                     _logger.info('%s: no device type %r for the %s, skipped', MODULE, x.get('category'), kind)
                     continue
                 row['category_id'] = cat.id
-            for col in ('name', 'name2', 'text', 'text2', 'code', 'icon', 'color', 'color2', 'link'):
+            for col in ('name', 'name2', 'text', 'text2', 'code', 'icon', 'color', 'color2', 'link',
+                        'chance', 'month_limit', 'valid_days', 'free_visit'):
                 if x.get(col) not in (None, ''):
                     row[col] = x[col]
             rows.append(row)

@@ -25,6 +25,7 @@ POPUP_FIELDS = (
     'flash_badge', 'flash_title', 'flash_body', 'flash_code', 'flash_button', 'flash_button_link',
     'flash_wa_button', 'flash_wa_msg', 'flash_later',
     'cookie_show', 'cookie_title', 'cookie_text', 'cookie_decline', 'cookie_accept', 'cookie_delay_ms',
+    'wheel_show', 'wheel_every_days', 'wheel_valid_days',
     'wheel_tab', 'wheel_eyebrow', 'wheel_title', 'wheel_title2', 'wheel_subtitle', 'wheel_spin', 'wheel_later',
     'wheel_won', 'wheel_note', 'wheel_book', 'wheel_wa', 'wheel_wa_msg',
     'bot_name', 'bot_status', 'bot_greeting', 'bot_placeholder', 'bot_tip', 'bot_wa_tip', 'bot_wa_msg',
@@ -59,12 +60,12 @@ class OnlineServiceSite(models.Model):
     # flash offer
     flash_badge = fields.Char(string='Small red badge', help='e.g. Flash offer')
     flash_title = fields.Char(string='Offer title', help='e.g. Free diagnosis this week')
-    flash_body = fields.Text(string='Offer text', help='{fee} becomes the visit fee line.')
+    flash_body = fields.Text(string='Offer text', help='[Visit fee line] becomes the visit fee line.')
     flash_code = fields.Char(string='Offer code', help='e.g. 369FIX')
     flash_button = fields.Char(string='Green button', help='e.g. Book with offer')
     flash_button_link = fields.Char(string='Green button opens', help='e.g. /services#catalog')
     flash_wa_button = fields.Char(string='Offer WhatsApp button', help='e.g. WhatsApp us')
-    flash_wa_msg = fields.Char(string='Offer WhatsApp message', help='{site} = website name, {code} = the offer code.')
+    flash_wa_msg = fields.Char(string='Offer WhatsApp message', help='[Website name], [Code] = the offer code.')
     flash_later = fields.Char(string='Offer close link', help='e.g. No thanks')
     # cookie notice
     cookie_show = fields.Boolean(string='Show the cookie notice', default=True)
@@ -73,9 +74,16 @@ class OnlineServiceSite(models.Model):
     cookie_decline = fields.Char(string='Decline button', help='e.g. Decline')
     cookie_accept = fields.Char(string='Accept button', help='e.g. Accept')
     cookie_delay_ms = fields.Integer(string='Cookie notice after (ms)', default=1200)
-    # Spin & Win
+    # Spin & Win. Off = the wheel and its gift tab are not on the site, nobody can spin, and a
+    # prize already won is not applied to bookings or shown to the technician (the wins stay).
+    wheel_show = fields.Boolean(string='Spin & Win', default=True,
+                                help='Off: no gift tab, no wheel, no spins, and prizes are not applied. Wins already saved are kept.')
+    wheel_every_days = fields.Integer(string='One spin every (days)', default=30,
+                                      help='A customer (a signed-in account, or the same phone number) spins once in this many days.')
+    wheel_valid_days = fields.Integer(string='Prize valid for (days)', default=14,
+                                      help='A prize code works this many days after the spin, unless the prize says otherwise.')
     wheel_tab = fields.Char(string='Side tab', help='The tab on the left edge of every page, e.g. Spin & Win')
-    wheel_eyebrow = fields.Char(string='Small line above the title', help='e.g. ✦ {site} rewards ✦')
+    wheel_eyebrow = fields.Char(string='Small line above the title', help='e.g. ✦ [Website name] rewards ✦')
     wheel_title = fields.Char(string='Wheel title', help='e.g. Spin &')
     wheel_title2 = fields.Char(string='Title (gold part)', help='e.g. Win')
     wheel_subtitle = fields.Char(string='Wheel line under the title', help='e.g. Every slice is a free extra on your next repair.')
@@ -85,26 +93,26 @@ class OnlineServiceSite(models.Model):
     wheel_note = fields.Char(string='Note under the code', help='e.g. Show this code when you book. Valid on your next repair.')
     wheel_book = fields.Char(string='Book button', help='e.g. Book now')
     wheel_wa = fields.Char(string='Wheel WhatsApp button', help='e.g. WhatsApp us')
-    wheel_wa_msg = fields.Char(string='Wheel WhatsApp message', help='{site} = website name, {code} = the prize code.')
+    wheel_wa_msg = fields.Char(string='Wheel WhatsApp message', help='[Website name], [Code] = the prize code.')
     # chat assistant
-    bot_name = fields.Char(string='Assistant name', help='e.g. {site} Assistant')
+    bot_name = fields.Char(string='Assistant name', help='e.g. [Website name] Assistant')
     bot_status = fields.Char(string='Line under the name', help='e.g. Automated help · replies instantly')
     bot_greeting = fields.Text(string='First message')
     bot_placeholder = fields.Char(string='Typing box hint', help='e.g. Ask about a repair, area or price…')
     bot_tip = fields.Char(string='Chat button tip', help='e.g. Ask us anything')
     bot_wa_tip = fields.Char(string='WhatsApp button tip', help='e.g. WhatsApp us')
-    bot_wa_msg = fields.Char(string='Chat WhatsApp message', help='e.g. Hello {site} — I need help with a repair.')
+    bot_wa_msg = fields.Char(string='Chat WhatsApp message', help='e.g. Hello [Website name] — I need help with a repair.')
     bot_a_book = fields.Text(string='Answer: book a repair')
-    bot_a_dev = fields.Text(string='Answer: device chosen', help='{device} = the device type.')
-    bot_a_iss = fields.Text(string='Answer: problem chosen', help='{issue}, {device} and {price} (the price line).')
+    bot_a_dev = fields.Text(string='Answer: device chosen', help='[Device] = the device type.')
+    bot_a_iss = fields.Text(string='Answer: problem chosen', help='[Problem], [Device] and [Price line] (the price line).')
     bot_a_area = fields.Text(string='Answer: check my area')
-    bot_a_price = fields.Text(string='Answer: prices', help='{fee} = the visit fee line.')
-    bot_a_time = fields.Text(string='Answer: how long', help='{doorstep} = the visit time, {pickup} = the lab time.')
-    bot_a_contact = fields.Text(string='Answer: branches & contact', help='{branches}, {phone}, {email}')
-    bot_a_hours = fields.Text(string='Answer: opening hours', help='{hours} = the opening hours.')
+    bot_a_price = fields.Text(string='Answer: prices', help='[Visit fee line] = the visit fee line.')
+    bot_a_time = fields.Text(string='Answer: how long', help='[Visit time] = the visit time, [Lab time] = the lab time.')
+    bot_a_contact = fields.Text(string='Answer: branches & contact', help='[Branches], [Phone], [Email]')
+    bot_a_hours = fields.Text(string='Answer: opening hours', help='[Opening hours] = the opening hours.')
     bot_a_human = fields.Text(string='Answer: talk to a person')
     bot_a_menu = fields.Text(string='Answer: back to the menu')
-    bot_a_found = fields.Text(string='Answer: area found', help='{area} = the area typed.')
+    bot_a_found = fields.Text(string='Answer: area found', help='[Area] = the area typed.')
     bot_a_fallback = fields.Text(string='Answer: not understood')
     # Book-your-slot slider
     eng_eyebrow = fields.Char(string='Slide small line', help='e.g. Book your slot')
@@ -114,7 +122,7 @@ class OnlineServiceSite(models.Model):
     eng_slide_ms = fields.Integer(string='Slide every (ms)', default=3500)
     eng_idle_s = fields.Integer(string='Opens after idle (seconds)', default=35, help='No mouse, scroll, key or touch for this long opens the slider.')
     eng_still_s = fields.Integer(string='Leaving panel after still (seconds)', default=15, help='Cursor still for this long, or leaving through the top, opens the Leaving panel.')
-    eng_wa_msg = fields.Char(string='Form WhatsApp message', help='{site}, {slide} = the slide title, {contact} = the number or email typed.')
+    eng_wa_msg = fields.Char(string='Form WhatsApp message', help='[Website name], [Slide title] = the slide title, [Their number or email] = the number or email typed.')
     eng_form_pill = fields.Char(string='Form green pill', help='e.g. Book instantly on WhatsApp')
     eng_form_title = fields.Char(string='Form title', help='e.g. Book your slot')
     eng_form_subtitle = fields.Char(string='Form line under the title')
@@ -128,8 +136,8 @@ class OnlineServiceSite(models.Model):
     exit_status = fields.Char(string='Panel line under the title', help='e.g. We reply on WhatsApp')
     exit_text = fields.Char(string='Panel text')
     exit_button = fields.Char(string='Panel WhatsApp button', help='e.g. Chat with us on WhatsApp')
-    exit_wa_msg = fields.Char(string='Panel WhatsApp message', help='e.g. Hi {site}, I need help with a repair.')
-    exit_tile_msg = fields.Char(string='Tile message', help='{device} = the device type, e.g. Hi {site}, I need help with my {device}.')
+    exit_wa_msg = fields.Char(string='Panel WhatsApp message', help='e.g. Hi [Website name], I need help with a repair.')
+    exit_tile_msg = fields.Char(string='Tile message', help='[Device] = the device type, e.g. Hi [Website name], I need help with my [Device].')
     exit_link = fields.Char(string='Bottom link opens', help='e.g. /#book-services')
     exit_link_label = fields.Char(string='Bottom link', help='e.g. See all services →')
 
@@ -159,6 +167,7 @@ class OnlineServiceSite(models.Model):
                            'decline': t('cookie_decline'), 'accept': t('cookie_accept'), 'delay_ms': int(self.cookie_delay_ms or 0)},
             },
             'wheel': {
+                'show': bool(self.wheel_show), 'every_days': int(self.wheel_every_days or 0),
                 'tab': t('wheel_tab'), 'eyebrow': t('wheel_eyebrow'), 'title': t('wheel_title'), 'title2': t('wheel_title2'),
                 'subtitle': t('wheel_subtitle'), 'spin': t('wheel_spin'), 'later': t('wheel_later'), 'won': t('wheel_won'),
                 'note': t('wheel_note'), 'book': t('wheel_book'), 'wa': t('wheel_wa'), 'wa_msg': t('wheel_wa_msg'),
@@ -194,7 +203,10 @@ class FixSiteItem(models.Model):
     """One row of a pop-up list. ``kind`` says which list; the other columns mean:
 
     wheel  name = word on the slice (Diagnosis), name2 = word above it (Free), text = the prize
-           in full (Free diagnosis), code = prize code, icon, color = slice colour, color2 = text colour
+           in full (Free diagnosis), code = prize code, icon, color = slice colour, color2 = text colour,
+           chance = how often it is won (%, 0 = on the wheel but never won), month_limit = at most
+           this many wins a month (0 = no limit), valid_days = the prize's own validity (0 = the
+           site's), free_visit = the prize makes the visit fee free
     reply  name = the chip (🔧 Book a repair), code = what it does (book, area, price, …)
     slide  category_id = device type, name = title (Mobile), name2 = title green part (Repair),
            text = the pitch, text2 = perks one per line
@@ -219,11 +231,19 @@ class FixSiteItem(models.Model):
     color2 = fields.Char(string='Text colour', help='Prize: the text colour on the slice, e.g. #fff.')
     link = fields.Char(string='Opens')
     category_id = fields.Many2one('device.category', string='Device type', ondelete='set null', help='Slide / tile: the device type it is for.')
+    # Spin & Win: how the prize is handed out (Odoo picks the prize; the browser only draws the spin)
+    chance = fields.Integer(string='Chance (%)', default=0,
+                            help='Prize: how often it is won, against the other prizes. 0 = on the wheel, never won.')
+    month_limit = fields.Integer(string='At most a month', default=0, help='Prize: no more wins than this in a calendar month. 0 = no limit.')
+    valid_days = fields.Integer(string='Valid for (days)', default=0, help='Prize: its own validity. 0 = the website\'s "Prize valid for".')
+    free_visit = fields.Boolean(string='Makes the visit free', default=False,
+                                help='Prize: the job card\'s inspection becomes free (no visit fee), e.g. "Free diagnosis".')
 
     def _serialize(self):
         self.ensure_one()
         if self.kind == 'wheel':
-            return {'top': self.name2 or '', 'label': self.name or '', 'full': self.text or '', 'code': self.code or '',
+            # the odds stay here: the site only needs the id to land the wheel on the prize Odoo chose
+            return {'id': self.id, 'top': self.name2 or '', 'label': self.name or '', 'full': self.text or '', 'code': self.code or '',
                     'icon': self.icon or '', 'color': self.color or '', 'text_color': self.color2 or ''}
         if self.kind == 'reply':
             return {'label': self.name or '', 'intent': self.code or ''}

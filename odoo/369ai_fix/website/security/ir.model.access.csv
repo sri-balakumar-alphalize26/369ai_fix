@@ -25,3 +25,6 @@ access_fix_site_page_user,fix.site.page user,model_fix_site_page,base.group_user
 access_fix_site_page_editor,fix.site.page editor,model_fix_site_page,group_fix_website_editor,1,1,1,1
 access_fix_site_item_user,fix.site.item user,model_fix_site_item,base.group_user,1,0,0,0
 access_fix_site_item_editor,fix.site.item editor,model_fix_site_item,group_fix_website_editor,1,1,1,1
+access_fix_spin_win_user,fix.spin.win user,model_fix_spin_win,base.group_user,1,0,0,0
+access_fix_spin_win_editor,fix.spin.win editor,model_fix_spin_win,group_fix_website_editor,1,1,1,1
+access_fix_spin_win_reception,fix.spin.win receptionist,model_fix_spin_win,mobile_repair.group_mobile_repair_receptionist,1,1,1,0
