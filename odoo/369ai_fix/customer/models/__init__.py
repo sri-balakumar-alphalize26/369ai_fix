@@ -5,3 +5,4 @@ from . import online_otp
 from . import online_wa_message
 from . import job_card
 from . import repair_dashboard
+from . import demo_phone
