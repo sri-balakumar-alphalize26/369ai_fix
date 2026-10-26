@@ -16,9 +16,70 @@
  * while it is mounted; the services only read it.
  */
 
+import { markup } from "@odoo/owl";
+import { escape } from "@web/core/utils/strings";
+
 export const NEW_TONE = { notes: [784, 988, 1175], step: 0.22, len: 0.18, gap: 0.5, type: "square" };
 export const SLOT_TONE = { notes: [1047, 698], step: 0.42, len: 0.36, gap: 0.9, type: "sine" };
 export const ORDER_TONE = { notes: [880, 660], step: 0.36, len: 0.32, gap: 0, type: "triangle" };
+
+/**
+ * The body of an alarm pop-up in the desk's green (desk_alarm.scss): an icon, the title on its own
+ * line and the text. Pass it as the notification's message with `title: false` and
+ * `className: "fx-alarm"` (plus "fx-alarm-slot" for a booked visit time).
+ */
+export function alarmBody(icon, title, text) {
+    // a ringing bell draws the eye; the small badge says which alarm (booking, visit time, order)
+    return markup(`<span class="fx-alarm-ic"><span class="fx-bell" aria-hidden="true">🔔</span>` +
+        `<i class="fa ${escape(icon)} fx-alarm-kind" aria-hidden="true"></i></span>` +
+        `<span class="fx-alarm-tx"><b>${escape(title)}</b><span>${escape(text)}</span></span>`);
+}
+
+/**
+ * The alarm pop-ups' tray. X on a pop-up tucks it into a small "‹" tab on the right edge (with how
+ * many are tucked away) instead of losing it; a tap on the tab brings them all back. A new alarm
+ * - a different `key` for the same id, e.g. one more booking - shows by itself again.
+ * Shared by every alarm service: `hide(id, key, reopen)` on the user's X, `isHidden(id, key)`
+ * before showing, `drop(id)` when that alarm is over or shows new content.
+ */
+export const alarmTray = {
+    items: new Map(),
+    el: null,
+    hide(id, key, reopen) {
+        this.items.set(id, { key, reopen });
+        this.paint();
+    },
+    isHidden(id, key) {
+        const item = this.items.get(id);
+        return !!item && item.key === key;
+    },
+    drop(id) {
+        if (this.items.delete(id)) {
+            this.paint();
+        }
+    },
+    open() {
+        const all = [...this.items.values()];
+        this.items.clear();
+        this.paint();
+        all.forEach((item) => item.reopen());
+    },
+    paint() {
+        if (!this.el) {
+            this.el = document.createElement("button");
+            this.el.type = "button";
+            this.el.className = "fx-tray";
+            this.el.innerHTML = '<span class="fx-tray-arrow" aria-hidden="true">‹</span><span class="fx-tray-bell" aria-hidden="true">🔔</span><b></b>';
+            this.el.addEventListener("click", () => this.open());
+            document.body.appendChild(this.el);
+        }
+        const n = this.items.size;
+        this.el.hidden = !n;
+        this.el.querySelector("b").textContent = String(n);
+        this.el.setAttribute("aria-label", n === 1 ? "Show the hidden alert" : `Show ${n} hidden alerts`);
+        this.el.title = this.el.getAttribute("aria-label");
+    },
+};
 
 export function deskIsOpen() {
     return document.body.dataset.fixDesk === "1";

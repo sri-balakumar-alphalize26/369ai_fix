@@ -1,0 +1,75 @@
+/* The alarm pop-ups (new website bookings, visit times booked, new website orders): Odoo's own
+   notification, dressed in the Booking Desk's green - a white card, an icon, the title on its own
+   line and real buttons (the first filled, the others outlined). The services pass
+   className "fx-alarm" and a title/text body (see desk_alarm.js `alarmBody`). */
+
+.o_notification_manager .o_notification.fx-alarm {
+    /* slides in from the right edge, so the eye goes to it */
+    animation: fx-alarm-in .5s cubic-bezier(.2, .9, .3, 1.1) both;
+    width: 390px;
+    max-width: calc(100vw - 24px);
+    border-radius: 16px !important;
+    overflow: hidden;
+    background: #fff !important;
+    color: #0f1c15 !important;
+    border: 1px solid rgba(15, 107, 55, .2) !important;
+    box-shadow: 0 22px 44px -18px rgba(15, 28, 21, .5) !important;
+
+    > .o_notification_bar { width: 6px; flex: none; background: #0f6b37 !important; border-radius: 0 !important; }
+    > div { border: 0 !important; border-radius: 0 !important; padding: 14px 42px 14px 14px !important; background: #fff !important; color: inherit !important; }
+
+    .o_notification_close { top: 6px !important; right: 6px !important; margin: 0 !important; padding: 10px; opacity: .55; filter: none; }
+    .o_notification_close:hover { opacity: 1; }
+
+    .o_notification_body { flex-direction: column; align-items: stretch !important; gap: 12px; }
+    .o_notification_content { display: flex; gap: 12px; align-items: flex-start; }
+
+    .fx-alarm-ic { position: relative; flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+                   background: #e4f1e3; color: #0f6b37; font-size: 19px; }
+    /* the bell rings (swings from its top) while the card is up */
+    .fx-bell { display: block; font-size: 22px; line-height: 1; transform-origin: 50% 10%; animation: fx-ring 1.4s ease-in-out infinite; }
+    .fx-alarm-kind { position: absolute; right: -5px; bottom: -5px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+                     background: #fff; color: inherit; font-size: 9px; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0, 0, 0, .18); }
+    .fx-alarm-tx { display: grid; gap: 2px; min-width: 0; }
+    .fx-alarm-tx b { font-size: 15px; font-weight: 800; line-height: 1.25; color: #0f1c15; }
+    .fx-alarm-tx span { font-size: 13.5px; line-height: 1.4; color: #4a5a51; }
+
+    .o_notification_buttons { display: flex; flex-wrap: wrap; gap: 8px; width: 100% !important; justify-content: flex-end; }
+    .o_notification_buttons .btn { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+                                   min-height: 38px; padding: 7px 14px; border: 1px solid #0f6b37; border-radius: 10px;
+                                   background: #fff; color: #0f6b37; font-size: 14px; text-decoration: none; white-space: nowrap;
+                                   transition: background .15s, color .15s; }
+    .o_notification_buttons .btn:hover { background: #e4f1e3; color: #0b5229; }
+    .o_notification_buttons .btn:first-child { background: #0f6b37; color: #fff; }
+    /* an arrow nudges toward the main button */
+    .o_notification_buttons .btn:first-child::after { content: "→"; display: inline-block; margin-left: 6px; font-weight: 800; animation: fx-nudge 1s ease-in-out infinite; }
+    .o_notification_buttons .btn:first-child:hover { background: #0b5229; }
+    .o_notification_buttons .btn .fa { margin-right: 2px !important; }
+
+    .o_notification_progress { display: none; }
+}
+
+@keyframes fx-alarm-in { from { transform: translateX(120%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fx-ring { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(-16deg); } 30% { transform: rotate(14deg); } 45% { transform: rotate(-10deg); } 60% { transform: rotate(7deg); } 75% { transform: rotate(-3deg); } }
+@keyframes fx-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) {
+    .o_notification_manager .o_notification.fx-alarm { animation: none; }
+    .o_notification_manager .o_notification.fx-alarm .fx-bell,
+    .o_notification_manager .o_notification.fx-alarm .o_notification_buttons .btn:first-child::after { animation: none; }
+}
+
+/* the tray: alerts tucked away with X wait in a "‹" tab on the right edge; a tap brings them back */
+.fx-tray { position: fixed; right: 0; top: calc(var(--o-navbar-height, 46px) + 12px); z-index: 1054;   /* under the pop-ups (1055): a new one covers the tab, never the other way */ display: inline-flex; align-items: center; gap: 4px;
+           padding: 6px 8px 6px 10px; border: 0; border-radius: 12px 0 0 12px; background: #0f6b37; color: #fff;
+           box-shadow: 0 10px 24px -10px rgba(15, 28, 21, .6); cursor: pointer; animation: fx-tray-in .35s ease-out both; }
+.fx-tray[hidden] { display: none; }
+.fx-tray:hover { padding-left: 14px; background: #0b5229; }
+.fx-tray-arrow { font-size: 22px; font-weight: 800; line-height: 1; animation: fx-tray-nudge 1.2s ease-in-out infinite; }
+.fx-tray-bell { display: inline-block; font-size: 17px; line-height: 1; transform-origin: 50% 10%; animation: fx-ring 1.8s ease-in-out infinite; }
+.fx-tray b { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: #fff; color: #0f6b37; font-size: 11px; font-weight: 800; }
+@keyframes fx-tray-in { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes fx-tray-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-3px); } }
+@media (prefers-reduced-motion: reduce) { .fx-tray, .fx-tray-arrow, .fx-tray-bell { animation: none; } }
+
+/* a booked visit time: the same card, its icon in the desk's blue so the two alarms read apart */
+.o_notification_manager .o_notification.fx-alarm.fx-alarm-slot .fx-alarm-ic { background: #e8efff; color: #1f6fd1; }

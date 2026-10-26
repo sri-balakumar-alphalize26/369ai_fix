@@ -17,7 +17,7 @@
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
 import { BookingAlarm, SLOT_TONE, presence } from "./booking_shared";
-import { deskIsOpen } from "@369ai_fix/app/desk/desk_alarm";
+import { alarmBody, alarmTray, deskIsOpen } from "@369ai_fix/app/desk/desk_alarm";
 
 const POLL_MS = 20000;
 const MAX_FAILURES = 3;
@@ -116,25 +116,36 @@ export const bookingAlarmService = {
             poll();
         }
 
+        // X on a pop-up tucks it into the tray (desk_alarm.js); closing it from here does not
+        let quiet = false;
+        const shut = (close) => { quiet = true; close(); quiet = false; };
+
         function tellThem() {
-            // New bookings
+            // New bookings (one more booking = a new key: it shows again even if the last was tucked away)
+            const newKey = String(state.new || 0);
             if (!state.new) {
+                alarmTray.drop("new");
                 if (closeNew) {
-                    closeNew();
+                    shut(closeNew);
                     closeNew = null;
                 }
-            } else if (!closeNew && !screenOpen()) {
+            } else if (!closeNew && !screenOpen() && !alarmTray.isHidden("new", newKey)) {
+                alarmTray.drop("new");
                 closeNew = notification.add(
-                    state.new === 1
+                    alarmBody("fa-bell", _t("Website booking"), state.new === 1
                         ? _t("1 new website booking to review")
-                        : _t("%s new website bookings to review", state.new),
+                        : _t("%s new website bookings to review", state.new)),
                     {
-                        title: _t("Website booking"),
+                        title: false,
                         type: "warning",
+                        className: "fx-alarm",
                         sticky: true,
-                        buttons: [{ name: _t("Open Booking Desk"), primary: true, onClick: openScreen }],
+                        buttons: [{ name: _t("Open Booking Desk"), icon: "fa-desktop", primary: true, onClick: openScreen }],
                         onClose: () => {
                             closeNew = null;
+                            if (!quiet) {
+                                alarmTray.hide("new", newKey, () => tellThem());
+                            }
                         },
                     });
             }
@@ -142,29 +153,34 @@ export const bookingAlarmService = {
             const key = state.slots.map((s) => s.id).join(",");
             if (key !== slotKey || !key) {
                 if (closeSlot) {
-                    closeSlot();
+                    shut(closeSlot);
                     closeSlot = null;
                 }
                 slotKey = key;
+                alarmTray.drop("slot");
             }
-            if (key && !closeSlot && !screenOpen()) {
+            if (key && !closeSlot && !screenOpen() && !alarmTray.isHidden("slot", key)) {
                 const first = state.slots[0];
                 closeSlot = notification.add(
-                    state.slots.length === 1
+                    alarmBody("fa-calendar-check-o", _t("Visit time booked"), state.slots.length === 1
                         ? _t("%(name)s - %(customer)s booked %(slot)s",
                              { name: first.name, customer: first.customer, slot: first.slot })
-                        : _t("%s customers booked their visit time", state.slots.length),
+                        : _t("%s customers booked their visit time", state.slots.length)),
                     {
-                        title: _t("Visit time booked"),
+                        title: false,
                         type: "info",
+                        className: "fx-alarm fx-alarm-slot",
                         sticky: true,
-                        buttons: [
-                            state.slots.length === 1
-                                ? { name: _t("Seen"), primary: true, onClick: () => seen(first.id) }
-                                : { name: _t("Open Booking Desk"), primary: true, onClick: openScreen },
-                        ],
+                        // one booking: mark it seen here, or open the desk; several: the desk
+                        buttons: state.slots.length === 1
+                            ? [{ name: _t("Seen"), icon: "fa-check", primary: true, onClick: () => seen(first.id) },
+                               { name: _t("Open Booking Desk"), icon: "fa-desktop", onClick: openScreen }]
+                            : [{ name: _t("Open Booking Desk"), icon: "fa-desktop", primary: true, onClick: openScreen }],
                         onClose: () => {
                             closeSlot = null;
+                            if (!quiet) {
+                                alarmTray.hide("slot", key, () => tellThem());
+                            }
                         },
                     });
             }

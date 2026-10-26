@@ -14,7 +14,7 @@
 
 import { registry } from "@web/core/registry";
 import { _t } from "@web/core/l10n/translation";
-import { AlarmLoop, FixAlarm, ORDER_TONE, deskIsOpen } from "@369ai_fix/app/desk/desk_alarm";
+import { AlarmLoop, FixAlarm, ORDER_TONE, alarmBody, alarmTray, deskIsOpen } from "@369ai_fix/app/desk/desk_alarm";
 
 const POLL_MS = 20000;
 const MAX_FAILURES = 3;
@@ -68,16 +68,22 @@ export const onlineServiceAlarmService = {
             poll();
         }
 
+        // X on the pop-up tucks it into the tray (desk_alarm.js); closing it from here does not
+        let quiet = false;
+
         function tellThem() {
             const key = state && state.count && !deskIsOpen() ? state.orders.map((o) => o.id).join(",") : "";
             if (key === shownFor) {
                 return;
             }
             if (closeNotification) {
+                quiet = true;
                 closeNotification();
+                quiet = false;
                 closeNotification = null;
             }
             shownFor = key;
+            alarmTray.drop("order");   // another order (or none): the new state shows by itself
             if (!key) {
                 return;
             }
@@ -87,18 +93,23 @@ export const onlineServiceAlarmService = {
                      { mode: first.mode, name: first.name, customer: first.customer })
                 : _t("%(count)s new website orders - the oldest waiting is %(name)s",
                      { count: state.count, name: state.orders[state.orders.length - 1].name });
-            closeNotification = notification.add(text, {
-                title: _t("New website order"),
+            closeNotification = notification.add(alarmBody("fa-shopping-bag", _t("New website order"), text), {
+                title: false,
                 type: "warning",
+                className: "fx-alarm",
                 sticky: true,
                 buttons: [{
                     name: _t("Open"),
+                    icon: "fa-external-link",
                     primary: true,
                     onClick: () => openOrder(state.count === 1
                         ? first.id : state.orders[state.orders.length - 1].id),
                 }],
                 onClose: () => {
                     closeNotification = null;
+                    if (!quiet) {
+                        alarmTray.hide("order", key, () => { shownFor = ""; tellThem(); });
+                    }
                 },
             });
         }
