@@ -7,6 +7,19 @@
         <t t-if="props.readonly and type !== 'image' and type !== 'html'">
             <span class="fxf-ro" t-att-class="{ 'fxf-empty': !display }"><t t-esc="display or '—'"/></span>
         </t>
+        <t t-elif="props.tokens and props.tokens.length and (type === 'char' or type === 'text')">
+            <!-- a message with fill-ins: plain words in the box ([Prize code]), buttons to add them, and how it reads -->
+            <div class="fxf-tokens">
+                <textarea class="fxf-in fxf-text" t-att-rows="type === 'text' ? 3 : 2" t-ref="tok" t-att-value="state.text" t-on-input="onText" t-on-blur="onBlur"/>
+                <div class="fxf-tok-add">
+                    <span>Add:</span>
+                    <t t-foreach="props.tokens" t-as="tok" t-key="tok[0]">
+                        <button type="button" class="fxf-tok" t-on-mousedown.prevent="() => this.insertToken(tok)"><i class="fa fa-plus"/> <t t-esc="tok[1]"/></button>
+                    </t>
+                </div>
+                <div class="fxf-tok-preview" t-if="state.text"><span>Customers see:</span> <t t-esc="tokenPreview"/></div>
+            </div>
+        </t>
         <t t-elif="type === 'boolean'">
             <label class="fxf-switch">
                 <input type="checkbox" t-att-checked="props.value" t-on-change="onToggle"/>
@@ -57,7 +70,32 @@
                    t-on-input="onText" t-on-blur="onBlur"/>
         </t>
         <t t-elif="type === 'date'">
-            <input class="fxf-in" type="date" t-att-value="dateInput" t-on-change="onDate"/>
+            <!-- the screens' own calendar, not the browser's date box -->
+            <div class="fxf-date" t-ref="cal">
+                <button type="button" class="fxf-in fxf-date-btn" t-on-click="toggleCal" t-att-aria-expanded="state.cal ? 'true' : 'false'">
+                    <i class="fa fa-calendar"/>
+                    <span t-att-class="{ 'fxf-empty': !props.value }" t-esc="dateWords or props.placeholder or 'Choose a date'"/>
+                </button>
+                <div class="fxf-cal" t-if="state.cal" role="dialog" aria-label="Choose a date">
+                    <div class="fxf-cal-head">
+                        <button type="button" class="fxf-cal-nav" t-on-click="() => this.moveMonth(-1)" aria-label="Previous month"><i class="fa fa-chevron-left"/></button>
+                        <b t-esc="calTitle"/>
+                        <button type="button" class="fxf-cal-nav" t-on-click="() => this.moveMonth(1)" aria-label="Next month"><i class="fa fa-chevron-right"/></button>
+                    </div>
+                    <div class="fxf-cal-grid">
+                        <t t-foreach="calWeekdays" t-as="wd" t-key="wd_index"><span class="fxf-cal-wd" t-esc="wd"/></t>
+                        <t t-foreach="calDays" t-as="c" t-key="c.iso">
+                            <button type="button" t-attf-class="fxf-cal-day{{ c.out ? ' fxf-cal-out' : '' }}{{ c.today ? ' fxf-cal-today' : '' }}{{ c.on ? ' fxf-cal-on' : '' }}"
+                                    t-att-aria-pressed="c.on ? 'true' : 'false'" t-on-click="() => this.pickDate(c.iso)" t-esc="c.d"/>
+                        </t>
+                    </div>
+                    <div class="fxf-cal-foot">
+                        <button type="button" t-on-click="() => this.pickDate(todayIso)">Today</button>
+                        <button type="button" t-on-click="() => this.pickDate(tomorrowIso)">Tomorrow</button>
+                        <button type="button" class="fxf-cal-clear" t-if="props.value" t-on-click="() => this.pickDate(false)">Clear</button>
+                    </div>
+                </div>
+            </div>
         </t>
         <t t-elif="type === 'datetime'">
             <input class="fxf-in" type="datetime-local" t-att-value="dateInput" t-on-change="onDate"/>
@@ -243,10 +281,10 @@
                             <t t-else="">
                                 <div class="fxs-fields">
                                     <t t-foreach="sectionFields(section)" t-as="name" t-key="name">
-                                        <label class="fxs-field" t-att-class="{ 'fxs-field-wide': ['text', 'html', 'many2many'].includes(meta.fields[name].type) }">
+                                        <label class="fxs-field" t-att-class="{ 'fxs-field-wide': ['text', 'html', 'many2many'].includes(meta.fields[name].type) or (meta.tokens or {})[name] }">
                                             <span class="fxs-label" t-att-title="help(name)"><t t-esc="label(name)"/><i t-if="help(name)" class="fa fa-question-circle-o fxs-help"/></span>
                                             <FixField name="name" meta="meta.fields[name]" value="state.values[name]"
-                                                      readonly="readonly(name)" widget="(meta.widgets or {})[name]"
+                                                      readonly="readonly(name)" widget="(meta.widgets or {})[name]" tokens="(meta.tokens or {})[name]"
                                                       options="(section.ticks or []).includes(name) ? state.options[name] : undefined"
                                                       imageUrl="imageUrl(name)" pick="pickFor(name)"
                                                       onChange="(v) => this.onField(name, v)"/>
@@ -356,7 +394,7 @@
                                             <t t-foreach="meta.columns" t-as="c" t-key="c">
                                                 <td t-att-data-label="label(c)">
                                                     <FixField name="c" meta="meta.fields[c]" value="row[c]" compact="true"
-                                                              readonly="cellReadonly(c)" widget="(meta.widgets or {})[c]"
+                                                              readonly="cellReadonly(c)" widget="(meta.widgets or {})[c]" tokens="(meta.tokens or {})[c]"
                                                               imageUrl="cellImage(row, c)" pick="pickFor(c, row)"
                                                               onChange="(v) => this.onCell(row, c, v)"/>
                                                 </td>
@@ -484,6 +522,8 @@
                     <div class="fxp-body">
                         <ChecksPopup t-if="popup.kind === 'checks'" t-key="popup.visit_id" popup="popup" outcome="props.outcome"/>
                         <ResultPopup t-elif="popup.kind === 'result'" t-key="popup.visit_id" popup="popup" outcome="props.outcome"/>
+                        <PopupReassign t-elif="popup.kind === 'reassign'" popup="popup" finish="props.finish" cancel="props.cancel"/>
+                        <PopupSlot t-elif="popup.kind === 'slot'" popup="popup" finish="props.finish" cancel="props.cancel"/>
                         <PopupForm t-else="" t-key="props.entry.version"
                                    popup="popup" outcome="props.outcome" finish="props.finish" cancel="props.cancel"/>
                     </div>
@@ -503,6 +543,92 @@
         </div>
     </t>
 
+    <!-- the Booking Desk's "Book a time": the customer's windows, picked by staff on the phone -->
+    <t t-name="369ai_fix.PopupSlot">
+        <div class="fxp-form fxp-slot">
+            <t t-if="state.done">
+                <div class="fxp-slot-done">
+                    <span class="fxd-empty-mark"><i class="fa fa-check"/></span>
+                    <b>Booked: <t t-esc="state.done"/></b>
+                    <p class="fxd-muted">The customer gets it on WhatsApp, and the technician chosen at approval gets the visit.</p>
+                    <button class="fxd-btn fxd-btn-primary" t-on-click="() => props.finish(true)"><i class="fa fa-check"/> Done</button>
+                </div>
+            </t>
+            <t t-elif="!state.data and !state.error">
+                <p class="fxd-muted"><i class="fa fa-circle-o-notch fa-spin"/> Loading the free times…</p>
+            </t>
+            <t t-elif="state.data and state.data.state === 'ask_parts'">
+                <div class="fxd-note">A part must be ordered first (<t t-esc="(state.data.parts or []).join(', ')"/>): the customer answers on their link or My orders. The time is booked once it is here.</div>
+            </t>
+            <t t-elif="state.data and state.data.state === 'waiting_parts'">
+                <div class="fxd-note">Waiting for the part: the time is booked once it arrives.</div>
+            </t>
+            <t t-elif="state.data">
+                <p class="fxp-intro" t-if="state.data.booked">Booked now: <b t-esc="state.data.booked.label"/>. Choose another time to change it.</p>
+                <h4 class="fxp-h4"><i class="fa fa-calendar"/> Day</h4>
+                <div class="fxp-slot-days">
+                    <t t-foreach="days" t-as="day" t-key="day.date">
+                        <t t-set="c" t-value="chip(day)"/>
+                        <button type="button" t-attf-class="fxp-slot-day{{ day.date === state.day ? ' on' : '' }}{{ freeIn(day) ? '' : ' full' }}"
+                                t-on-click="() => this.pickDay(day)">
+                            <small t-esc="c.wd"/><b t-esc="c.d"/><small t-esc="c.m"/>
+                            <em><t t-if="freeIn(day)"><t t-esc="freeIn(day)"/> free</t><t t-else="">Full</t></em>
+                        </button>
+                    </t>
+                </div>
+                <p class="fxd-muted" t-if="!days.length">No free times in the next days.</p>
+                <h4 class="fxp-h4" t-if="today"><i class="fa fa-clock-o"/> Time <small>· <t t-esc="today.label"/></small></h4>
+                <div class="fxp-slot-wins" t-if="today">
+                    <t t-foreach="today.windows" t-as="w" t-key="w.slot_id">
+                        <button type="button" t-attf-class="fxp-slot-win{{ state.pick and state.pick.slot === w.slot_id and state.pick.date === today.date ? ' on' : '' }}{{ w.mine ? ' mine' : '' }}"
+                                t-att-disabled="!(w.free > 0) or w.mine" t-on-click="() => this.choose(today, w)">
+                            <b t-esc="w.label"/><small t-esc="left(w)"/>
+                        </button>
+                    </t>
+                </div>
+                <div class="fxp-info"><span>Estimate</span><b t-esc="total"/></div>
+            </t>
+            <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
+            <div class="fxp-btns" t-if="!state.done">
+                <button class="fxd-btn fxd-btn-primary" t-if="state.data and (state.data.state === 'pick' or state.data.state === 'booked')"
+                        t-att-disabled="!state.pick or state.busy" t-on-click="book">
+                    <i t-attf-class="fa {{ state.busy ? 'fa-circle-o-notch fa-spin' : 'fa-calendar-check-o' }}"/>
+                    <t t-if="state.pick">Book <t t-esc="state.pick.label"/></t><t t-else="">Choose a time</t>
+                </button>
+                <button class="fxd-btn fxd-btn-ghost" t-on-click="props.cancel">Close</button>
+            </div>
+        </div>
+    </t>
+
+    <!-- a day off: who takes the visits that technician already has then -->
+    <t t-name="369ai_fix.PopupReassign">
+        <div class="fxp-form">
+            <p class="fxp-intro fxp-reassign-text" t-esc="props.popup.text"/>
+            <ul class="fxp-reassign">
+                <t t-foreach="props.popup.visits" t-as="v" t-key="v.id">
+                    <li>
+                        <div>
+                            <b><t t-esc="v.when"/></b>
+                            <small><t t-esc="v.name"/><t t-if="v.order"> · <t t-esc="v.order"/></t><t t-if="v.customer"> · <t t-esc="v.customer"/></t></small>
+                        </div>
+                        <select class="fxf-in fxf-select" t-if="v.movable" t-on-change="(ev) => this.pickFor(v, ev)" t-att-aria-label="'Who takes ' + v.name">
+                            <t t-foreach="v.options" t-as="o" t-key="o.id">
+                                <option t-att-value="o.id" t-att-selected="state.picks[v.id] === o.id" t-esc="o.name"/>
+                            </t>
+                            <option value="0" t-att-selected="!state.picks[v.id]">Nobody now: back to "To assign"</option>
+                        </select>
+                        <span class="fxd-muted" t-else="">Already started: check with the office</span>
+                    </li>
+                </t>
+            </ul>
+            <p class="fxd-muted fxp-reassign-hint">The new technician gets the visit and its link at once, as with Assign on the Booking Desk.</p>
+            <div class="fxp-btns">
+                <button class="fxd-btn fxd-btn-primary" t-on-click="save"><i class="fa fa-check"/> Save day off &amp; move visits</button>
+                <button class="fxd-btn fxd-btn-ghost" t-on-click="props.cancel">Back</button>
+            </div>
+        </div>
+    </t>
+
     <t t-name="369ai_fix.PopupForm">
         <div class="fxp-form">
             <p class="fxp-intro" t-if="p.intro" t-esc="p.intro"/>
@@ -517,7 +643,7 @@
                 <label class="fxs-field fxp-field" t-if="p.meta[name] and shown(name)">
                     <span class="fxs-label"><t t-esc="p.meta[name].string"/><b t-if="isRequired(name)" class="fxp-req">*</b></span>
                     <FixField name="name" meta="p.meta[name]" value="state.values[name]" widget="(p.widgets or {})[name]"
-                              options="(p.options or {})[name]" pick="pickFor(name)"
+                              tokens="(p.tokens or {})[name]" options="(p.options or {})[name]" pick="pickFor(name)"
                               onChange="(v) => this.set(name, v)"/>
                     <small class="fxd-muted" t-if="p.meta[name].help" t-esc="p.meta[name].help"/>
                 </label>
@@ -660,7 +786,10 @@
                             <span class="fxs-label" t-esc="currentPlan === 'order_take' ? 'Repair after the part arrives' : 'Fixed within'"/>
                             <div class="fxp-span">
                                 <input class="fxf-in fxf-num" type="number" min="1" max="60" t-model.number="state.days"/>
-                                <select class="fxf-in fxf-select" t-model="state.unit"><option value="days">days</option><option value="weeks">weeks</option></select>
+                                <div class="fxd-seg" role="group" aria-label="Days or weeks">
+                                    <button type="button" t-att-class="{ on: state.unit === 'days' }" t-att-aria-pressed="state.unit === 'days' ? 'true' : 'false'" t-on-click="() => state.unit = 'days'">days</button>
+                                    <button type="button" t-att-class="{ on: state.unit === 'weeks' }" t-att-aria-pressed="state.unit === 'weeks' ? 'true' : 'false'" t-on-click="() => state.unit = 'weeks'">weeks</button>
+                                </div>
                             </div>
                         </div>
                         <p class="fxp-intro">The customer gets the parts and the price to approve first. Nothing is repaired, taken or ordered before.</p>

@@ -221,7 +221,9 @@ class TestScreens(TransactionCase):
         self.assertEqual(result['view']['stage'], 'find')
         result = Screen.screen_result(visit.id, 'result_fixed', {'note': 'Loose cable, fixed'})
         self.assertFalse(result['message'], result)
-        self.assertEqual(visit.state, 'done')
+        # repaired: the visit stays open to finish (after photo, payment, the customer's code)
+        self.assertEqual(visit.close_stage, 'finish')
+        self.assertEqual(visit.state, 'in_progress')
 
     # ------------------------------------------------------------------ lines, tables, settings
     def test_job_card_line_takes_the_price(self):

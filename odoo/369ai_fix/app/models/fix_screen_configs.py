@@ -32,6 +32,79 @@ ADMIN = 'base.group_system'
 WEB_EDITOR = '369ai_fix.group_fix_website_editor'
 
 
+# The fill-ins of the website's and WhatsApp's messages: {code} -> (the words staff see, an example for the
+# preview). A screen's `tokens` lists, per field, the codes it offers (a code, or (code, words, example) where
+# the same code means something else there, e.g. {code} is the prize code on the wheel). Staff see [Words],
+# Odoo keeps {code}.
+TOKENS = {
+    'site': ('Website name', 'Danat Fix'),
+    'name': ('Customer name', 'Ahmed'),
+    'order': ('Order number', 'OS/01171'),
+    'status': ('Status', 'Confirmed'),
+    'job_card': ('Job card number', 'JC-00385'),
+    'summary': ('What was booked', 'Screen replacement (iPhone 13)'),
+    'track_url': ('Tracking link', 'https://danatfix.com/track'),
+    'technician': ('Technician name', 'Naveen'),
+    'technician_phone': ('Technician phone', '+968 9000 0001'),
+    'eta': ('Arrival time', 'about 15 min'),
+    'code': ('Code', '4821'),
+    'tech_url': ('Technician page link', 'https://danatfix.com/tech?v=VIS/00808'),
+    'area': ('Area', 'Qurum'),
+    'address': ('Address', 'Villa 12, Qurum'),
+    'paid': ('Amount paid', 'OMR 15.000 by cash'),
+    'warranty': ('Warranty line', 'Warranty until 26 Jan 2027.'),
+    'rate_url': ('Rating link', 'https://danatfix.com/rate'),
+    'days': ('Days', '3'),
+    'date': ('Date', 'Tue 27 Oct'),
+    'device': ('Device', 'iPhone 13'),
+    'reason': ('Reason', 'the part is not available'),
+    'part': ('Part', 'Screen'),
+    'parts': ('Parts', 'Screen, Battery'),
+    'estimate': ('Estimate', '• Screen replacement — OMR 15.000 · Total: OMR 15.000'),
+    'slot_url': ('Pick-a-time link', 'https://danatfix.com/slot'),
+    'quote_url': ('Price link', 'https://danatfix.com/quote'),
+    'slot': ('Visit time', 'Tue 27 Oct 09:00-12:00'),
+    'next': ('Next step', 'We come back with the part.'),
+    'within': ('Within', '3 days'),
+    'part_days': ('Part arrives in (days)', '5'),
+    'timeline': ('What happens next', 'Fixed within 3 days.'),
+    'safety': ('Safety check line', ' Safety check done: gloves, mask.'),
+    'fee': ('Visit fee line', 'Visit fee OMR 5.000'),
+    'issue': ('Problem', 'Screen'),
+    'price': ('Price line', 'From OMR 15.000.'),
+    'doorstep': ('Visit time', 'same day'),
+    'pickup': ('Lab time', '2-3 days'),
+    'branches': ('Branches', 'Muscat, Sohar'),
+    'phone': ('Phone', '+968 7832 3116'),
+    'email': ('Email', 'hello@danatfix.com'),
+    'hours': ('Opening hours', 'Sat–Thu 9:00–21:00'),
+    'slide': ('Slide title', 'Mobile Repair'),
+    'contact': ('Their number or email', '9123 4567'),
+}
+PRIZE_CODE = ('code', 'Prize code', 'SPIN-GUARD-7K3Q')
+OFFER_CODE = ('code', 'Offer code', '369FIX')
+MESSAGE_TOKENS = ['name', 'order', 'site', 'track_url', 'summary', 'job_card', 'status', 'technician', 'technician_phone',
+                  'eta', 'code', 'date', 'slot', 'slot_url', 'quote_url', 'estimate', 'reason', 'device', 'part', 'parts',
+                  'days', 'within', 'next', 'timeline', 'safety', 'paid', 'warranty', 'rate_url', 'tech_url', 'area', 'address']
+POPUP_TOKENS = {
+    'flash_body': ['fee'], 'flash_wa_msg': ['site', OFFER_CODE],
+    'wheel_eyebrow': ['site'], 'wheel_wa_msg': ['site', PRIZE_CODE],
+    'bot_name': ['site'], 'bot_greeting': ['site'], 'bot_wa_msg': ['site'],
+    'bot_a_dev': ['device'], 'bot_a_iss': ['issue', 'device', 'price'], 'bot_a_price': ['fee'],
+    'bot_a_time': ['doorstep', 'pickup'], 'bot_a_contact': ['branches', 'phone', 'email'], 'bot_a_hours': ['hours'],
+    'bot_a_found': ['area'],
+    'eng_wa_msg': ['site', 'slide', 'contact'], 'exit_wa_msg': ['site'], 'exit_tile_msg': ['site', 'device'],
+}
+
+
+def screen_tokens(spec):
+    """{field: [code | (code, words, example)]} -> {field: [[code, words, example]]} for the screen."""
+    out = {}
+    for field, codes in (spec or {}).items():
+        out[field] = [list(c) if isinstance(c, (list, tuple)) else [c, *TOKENS.get(c, (c, ''))] for c in codes]
+    return out
+
+
 def _today(env):
     return fields.Datetime.to_string(datetime.combine(fields.Date.context_today(env['res.users']), time.min))
 
@@ -403,7 +476,8 @@ SCREENS = {
         'domain': [('type', '=', 'consu')],
         'order': 'name',
         'search': ['name', 'default_code', 'barcode'],
-        'columns': ['name', 'default_code', 'device_brand_id', 'device_model_id', 'lst_price', 'qty_available', 'active'],
+        'columns': ['name', 'default_code', 'fix_part_grade', 'device_brand_id', 'device_model_id', 'lst_price',
+                    'qty_available', 'active'],
         'image': 'image_128',
         'create': True,
         'create_fields': ['name', 'lst_price'],
@@ -421,7 +495,8 @@ SCREENS = {
         'active_test': False,
         'sections': [
             {'title': 'Part', 'icon': 'fa-cogs',
-             'fields': ['name', 'default_code', 'barcode', 'lst_price', 'standard_price', 'active'], 'info': ['qty_available']},
+             'fields': ['name', 'default_code', 'barcode', 'fix_part_grade', 'lst_price', 'standard_price', 'active'],
+             'info': ['qty_available']},
             # the technician ticks a problem at the visit and is offered the parts that fix it
             {'title': 'Fits and fixes', 'icon': 'fa-mobile',
              'fields': ['repair_issue_type_ids', 'fit_category_ids', 'device_brand_id', 'device_series_id',
@@ -493,7 +568,8 @@ SCREENS = {
     'slots': {
         'model': 'fix.booking.slot', 'kind': 'table',
         'title': 'Time Slots', 'icon': 'fa-clock-o', 'groups': MANAGER,
-        'hint': 'The times customers can book: every week on a day, or once on a date.',
+        'hint': 'The times customers can book: every week on a day, or once on a date. Places follow the technicians '
+                '(Configuration ▸ Technicians and Days Off); a number in "At most" caps a window.',
         'columns': ['weekday', 'date', 'start', 'end', 'capacity', 'mode', 'active'],
         'widgets': {'start': 'float_time', 'end': 'float_time'},
         'group_by': 'weekday',
@@ -504,12 +580,36 @@ SCREENS = {
                     {'key': 'once', 'label': 'One-off dates', 'domain': [('date', '!=', False)]}],
         'default_filter': 'all',
     },
+    'technicians': {
+        'model': 'hr.employee', 'kind': 'table',
+        'title': 'Technicians', 'icon': 'fa-users', 'groups': MANAGER,
+        'hint': 'Tick who goes out on doorstep visits: each one is a place in every time window customers can book.',
+        'order': 'name', 'search': ['name'],
+        'columns': ['name', 'mobile_phone', 'fix_takes_visits'],
+        'filters': [{'key': 'takes', 'label': 'Takes visits', 'domain': [('fix_takes_visits', '=', True)], 'count': True},
+                    {'key': 'all', 'label': 'All staff', 'domain': []}],
+        'default_filter': 'takes',
+    },
+    'days_off': {
+        'model': 'fix.technician.day.off', 'kind': 'table',
+        'title': 'Days Off', 'icon': 'fa-calendar-times-o', 'groups': RECEPTION,
+        'hint': 'A technician off on a day: that day has one place less in every time window, and they are not given its visits.',
+        'columns': ['employee_id', 'date_from', 'date_to', 'reason'],
+        'filters': [{'key': 'coming', 'label': 'Coming', 'domain': lambda env: [('date_to', '>=', fields.Date.context_today(env['res.users']))]},
+                    {'key': 'all', 'label': 'All', 'domain': []}],
+        'default_filter': 'coming',
+        'create': True, 'create_fields': ['employee_id', 'date_from', 'date_to', 'reason'],
+        'create_confirm': '_fix_create_confirm',   # who, which days, and the visits they already have then
+        'after_create': '_fix_after_create',       # those visits go to the technicians chosen in the question
+        'delete': True,
+    },
     'messages': {
         'model': 'online.service.message', 'kind': 'table',
         'title': 'Status Messages', 'icon': 'fa-whatsapp', 'groups': MANAGER,
         'hint': 'The WhatsApp message the customer gets at each status of their order.',
         'columns': ['key', 'body', 'active'], 'sequence': True,
         'widgets': {'body': 'text'},
+        'tokens': {'body': MESSAGE_TOKENS},   # [Customer name] in the box, a preview under it
         'create': True, 'create_fields': ['key', 'body'],
     },
     'issue_types': {
@@ -554,6 +654,8 @@ SCREENS = {
              'fields': ['wb_slot_days', 'wb_slot_lead_hours', 'wb_slot_change_hours', 'wb_unassigned_employee_id']},
             {'title': 'Doorstep visits', 'icon': 'fa-car',
              'fields': ['fs_speed_kmh', 'fs_stale_after_s', 'fs_position_keep_days', 'fs_arrival_otp', 'fs_show_tech_phone']},
+            {'title': 'After the repair', 'icon': 'fa-star',
+             'fields': ['fix_warranty_days', 'fix_review_url']},
             {'title': 'Spare parts', 'icon': 'fa-cogs',
              'fields': ['spare_request_assignee_id', 'spare_advance_account_id', 'spare_credit_account_id',
                         'spare_parts_journal_id']},
@@ -592,6 +694,7 @@ SCREENS = {
         'active_test': False,
         'create': True, 'create_fields': ['name', 'domains'],
         'tabs': ['Website', 'Contact', 'Menu', 'Branches', 'Footer', 'Services page', 'Pop-ups & chat'],
+        'tokens': POPUP_TOKENS,   # the pop-ups' messages: plain words, add buttons, a preview
         'sections': [
             {'tab': 'Website', 'title': 'Which website sends to this database', 'icon': 'fa-globe',
              'fields': ['name', 'domains', 'public_url', 'company_id', 'active']},
@@ -624,7 +727,8 @@ SCREENS = {
             {'tab': 'Pop-ups & chat', 'title': 'Cookie notice', 'icon': 'fa-shield',
              'fields': ['cookie_show', 'cookie_title', 'cookie_text', 'cookie_decline', 'cookie_accept', 'cookie_delay_ms']},
             {'tab': 'Pop-ups & chat', 'title': 'Spin & Win', 'icon': 'fa-gift',
-             'fields': ['wheel_tab', 'wheel_eyebrow', 'wheel_title', 'wheel_title2', 'wheel_subtitle', 'wheel_spin',
+             'fields': ['wheel_show', 'wheel_every_days', 'wheel_valid_days',
+                        'wheel_tab', 'wheel_eyebrow', 'wheel_title', 'wheel_title2', 'wheel_subtitle', 'wheel_spin',
                         'wheel_later', 'wheel_won', 'wheel_note', 'wheel_book', 'wheel_wa', 'wheel_wa_msg']},
             {'tab': 'Pop-ups & chat', 'title': 'Chat assistant', 'icon': 'fa-comments',
              'fields': ['bot_name', 'bot_status', 'bot_greeting', 'bot_placeholder', 'bot_tip', 'bot_wa_tip', 'bot_wa_msg']},
@@ -640,7 +744,8 @@ SCREENS = {
                         'exit_tile_msg', 'exit_link', 'exit_link_label']},
             {'tab': 'Pop-ups & chat', 'title': 'Prizes, replies, slides and tiles', 'icon': 'fa-list', 'lines': 'item_ids',
              'wide': True,
-             'columns': ['kind', 'category_id', 'name2', 'name', 'text', 'text2', 'code', 'icon', 'color', 'color2', 'active']},
+             'columns': ['kind', 'category_id', 'name2', 'name', 'text', 'text2', 'code', 'chance', 'month_limit', 'valid_days',
+                         'free_visit', 'icon', 'color', 'color2', 'active']},
         ],
         'buttons': [
             {'name': 'action_fix_load_starter_content', 'label': 'Load starter content', 'kind': 'ghost', 'icon': 'fa-magic',
@@ -654,6 +759,77 @@ SCREENS = {
              'client': 'action', 'xmlid': '369ai_fix.action_fix_editor_services'},
             {'name': 'site_pages', 'label': 'Info pages', 'kind': 'ghost', 'icon': 'fa-file-text-o',
              'client': 'action', 'xmlid': '369ai_fix.action_fix_editor_pages'},
+        ],
+    },
+
+    # ================================================================ Spin & Win: settings, prizes, winners
+    'spin_settings': {
+        'model': 'online.service.site',
+        'title': 'Spin & Win Settings', 'icon': 'fa-sliders', 'groups': '%s,%s' % (MANAGER, WEB_EDITOR),
+        'hint': 'Switch the wheel on or off and set its rules, any time. Odoo applies them at once; the website shows '
+                'the change within 5 minutes. The prizes and their chances are under Spin & Win ▸ Prizes.',
+        'order': 'sequence, id', 'search': ['name', 'domains'],
+        'columns': ['name', 'domains', 'wheel_show', 'wheel_every_days', 'wheel_valid_days'],
+        'title_field': 'name',
+        # fill-ins shown as plain words ([Website name]); the website still gets {site} / {code}
+        'tokens': POPUP_TOKENS,
+        'sections': [
+            # the rules across the top; the two wording boxes side by side, three rows each
+            {'title': 'On / off and rules', 'icon': 'fa-toggle-on', 'wide': True,
+             'fields': ['wheel_show', 'wheel_tab', 'wheel_every_days', 'wheel_valid_days']},
+            {'title': 'What the wheel says', 'icon': 'fa-font',
+             'fields': ['wheel_eyebrow', 'wheel_title', 'wheel_title2', 'wheel_subtitle', 'wheel_spin', 'wheel_later']},
+            {'title': 'After the spin', 'icon': 'fa-trophy',
+             'fields': ['wheel_won', 'wheel_note', 'wheel_book', 'wheel_wa', 'wheel_wa_msg']},
+        ],
+    },
+    'spin_prizes': {
+        'model': 'fix.site.item', 'kind': 'table',
+        'title': 'Spin & Win Prizes', 'icon': 'fa-gift', 'groups': '%s,%s' % (WEB_EDITOR, ADMIN),
+        'hint': 'The slices of the wheel. Chance = how often it is won against the others (they need not add up to 100); '
+                '0 = shown on the wheel, never won. "At most a month" stops a prize after that many wins in a month. '
+                '"Valid for" overrides the website\'s days to expire (0 = the website\'s).',
+        'domain': [('kind', '=', 'wheel')],
+        'columns': ['site_id', 'name2', 'name', 'text', 'code', 'chance', 'month_limit', 'valid_days', 'free_visit',
+                    'icon', 'color', 'active'],
+        'sequence': True,
+        'create': True, 'create_fields': ['site_id', 'name2', 'name', 'text', 'code', 'chance', 'valid_days'],
+        'create_context': {'default_kind': 'wheel'},
+        'delete': True,
+    },
+    'spin_wins': {
+        'model': 'fix.spin.win',
+        'title': 'Spin & Win winners', 'icon': 'fa-gift', 'groups': '%s,%s' % (RECEPTION, WEB_EDITOR),
+        'hint': 'Every prize won on the website\'s wheel: who, the code, whether it went on a booking and was given. '
+                'The prizes and their chances are in Website Details ▸ Pop-ups & chat.',
+        'order': 'id desc',
+        'search': ['code', 'partner_id', 'phone', 'prize'],
+        'columns': ['won_on', 'partner_id', 'phone', 'prize', 'code', 'valid_until', 'order_id', 'given_on', 'state'],
+        'title_field': 'code',
+        'badge': 'state',
+        'subtitle': 'partner_id',
+        'filters': [
+            {'key': 'won', 'label': 'Not used yet', 'domain': [('state', '=', 'won')], 'count': True},
+            {'key': 'used', 'label': 'On a booking', 'domain': [('state', '=', 'used')], 'count': True},
+            {'key': 'given', 'label': 'Given', 'domain': [('state', '=', 'given')]},
+            {'key': 'expired', 'label': 'Expired', 'domain': [('state', '=', 'expired')]},
+            {'key': 'month', 'label': 'This month',
+             'domain': lambda env: [('won_on', '>=', fields.Datetime.to_string(
+                 fields.Datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)))]},
+            {'key': 'all', 'label': 'All', 'domain': []},
+        ],
+        'default_filter': 'won',
+        'notes': True,
+        'sections': [
+            {'title': 'Who won', 'icon': 'fa-user', 'info': ['partner_id', 'phone', 'site_id']},
+            {'title': 'The prize', 'icon': 'fa-gift', 'info': ['prize', 'code', 'item_id', 'won_on', 'valid_until']},
+            {'title': 'Claimed', 'icon': 'fa-check-square-o', 'info': ['order_id', 'used_on', 'given_on', 'given_by_id']},
+        ],
+        'buttons': [
+            {'name': 'action_mark_given', 'label': 'Mark given', 'kind': 'primary', 'icon': 'fa-check',
+             'show': [('given_on', '=', False)], 'confirm': 'The customer got this prize?'},
+            {'name': 'action_open_booking', 'label': 'Open the booking', 'kind': 'ghost', 'icon': 'fa-calendar-check-o',
+             'show': [('order_id', '!=', False)], 'odoo': True},
         ],
     },
 }

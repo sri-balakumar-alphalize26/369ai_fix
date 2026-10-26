@@ -68,6 +68,18 @@
         <field name="path">fix-time-slots</field>
         <field name="context" eval="{'fix_screen': 'slots'}"/>
     </record>
+    <record id="action_screen_technicians" model="ir.actions.client">
+        <field name="name">Technicians</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-technicians</field>
+        <field name="context" eval="{'fix_screen': 'technicians'}"/>
+    </record>
+    <record id="action_screen_days_off" model="ir.actions.client">
+        <field name="name">Days Off</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-days-off</field>
+        <field name="context" eval="{'fix_screen': 'days_off'}"/>
+    </record>
     <record id="action_screen_messages" model="ir.actions.client">
         <field name="name">Status Messages</field>
         <field name="tag">369ai_fix.screen</field>
@@ -115,6 +127,24 @@
         <field name="tag">369ai_fix.screen</field>
         <field name="path">fix-websites</field>
         <field name="context" eval="{'fix_screen': 'sites'}"/>
+    </record>
+    <record id="action_screen_spin_settings" model="ir.actions.client">
+        <field name="name">Spin &amp; Win Settings</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-spin-settings</field>
+        <field name="context" eval="{'fix_screen': 'spin_settings'}"/>
+    </record>
+    <record id="action_screen_spin_prizes" model="ir.actions.client">
+        <field name="name">Spin &amp; Win Prizes</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-spin-prizes</field>
+        <field name="context" eval="{'fix_screen': 'spin_prizes'}"/>
+    </record>
+    <record id="action_screen_spin_wins" model="ir.actions.client">
+        <field name="name">Spin &amp; Win winners</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-spin-wins</field>
+        <field name="context" eval="{'fix_screen': 'spin_wins'}"/>
     </record>
     <!-- the same Bookings screen, opened on "Waiting for parts" -->
     <record id="action_screen_bookings_parts" model="ir.actions.client">

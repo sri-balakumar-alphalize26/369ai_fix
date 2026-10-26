@@ -31,7 +31,7 @@ from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.fields import Command
 from odoo.addons.web.controllers.utils import clean_action
 
-from .fix_screen_configs import MODEL_SCREENS, POPUPS, SCREENS
+from .fix_screen_configs import MODEL_SCREENS, POPUPS, SCREENS, screen_tokens
 
 PAGE = 40
 TABLE_PAGE = 100
@@ -167,6 +167,7 @@ class FixScreen(models.AbstractModel):
             'group_by': cfg.get('group_by') or '',
             'title_field': cfg.get('title_field') or 'display_name',
             'widgets': cfg.get('widgets') or {},
+            'tokens': screen_tokens(cfg.get('tokens')),
             'subtitle': cfg.get('subtitle') or '',
             'badge': cfg.get('badge') or '',
             'image': cfg.get('image') or '',
@@ -174,6 +175,7 @@ class FixScreen(models.AbstractModel):
             'tabs': cfg.get('tabs') or [],
             'buttons': buttons,
             'create_fields': cfg.get('create_fields') or [],
+            'create_confirm': bool(cfg.get('create_confirm')),
             'readonly': sorted(set(meta) - _editable(cfg)) if can_write else sorted(meta),
             'pick_domain': {k: v for k, v in (cfg.get('pick_domain') or {}).items()},
             'fields': meta,
@@ -380,8 +382,10 @@ class FixScreen(models.AbstractModel):
         } for m in messages if m.body or m.tracking_value_ids]
 
     @api.model
-    def screen_save(self, key, rec_id, values, defaults=None):
-        """Write the record (or create it when `rec_id` is empty); returns the record view."""
+    def screen_save(self, key, rec_id, values, defaults=None, extra=None):
+        """Write the record (or create it when `rec_id` is empty); returns the record view.
+        `extra`: what the create question answered (e.g. who takes a day off's visits), handed to
+        the screen's `after_create` method of the new record."""
         cfg = self._screen(key)
         if cfg.get('settings'):
             return self._settings_save(cfg, values)
@@ -400,7 +404,25 @@ class FixScreen(models.AbstractModel):
                    for k, v in (defaults or {}).items() if k in Model._fields and k not in SECRET}
             ctx.update(cfg.get('create_context') or {})
             rec = Model.with_context(**ctx).create(vals)
+            if cfg.get('after_create'):
+                getattr(rec, cfg['after_create'])(extra if isinstance(extra, dict) else {})
         return self._record_view(cfg, rec)
+
+    @api.model
+    def screen_create_confirm(self, key, values, defaults=None):
+        """What to ask before a new record of this screen is saved ('' = nothing to ask): the
+        screen's `create_confirm` method on its model, given the values typed in the pop-up."""
+        cfg = self._screen(key)
+        method = cfg.get('create_confirm')
+        if not method or not cfg.get('create'):
+            return ''
+        Model = self._model(cfg)
+        Model.check_access('create')
+        vals = self._incoming(Model, _editable(cfg), values)
+        for k, v in (defaults or {}).items():
+            if k in Model._fields and k not in SECRET:
+                vals.setdefault(k, v[0] if isinstance(v, (list, tuple)) and v and not isinstance(v[0], (list, tuple, dict)) else v)
+        return getattr(Model, method)(vals) or ''
 
     @api.model
     def screen_delete(self, key, rec_id):

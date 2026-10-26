@@ -31,8 +31,8 @@ class OnlineServiceMessage(models.Model):
     active = fields.Boolean(default=True)
     body = fields.Text(
         'Message', required=True,
-        help="Placeholders: {name} customer, {order} order no., {status}, {job_card} job card no., "
-             "{site} website name, {track_url} tracking link, {summary} what was booked.")
+        help="The message the customer gets. Tap the buttons under the box to add their name, the order number, "
+             "links and more; \"Customers see\" shows how it reads.")
 
     _key_unique = models.Constraint('unique(key)', 'One message per status.')
 

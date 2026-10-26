@@ -25,12 +25,7 @@ class OnlineServiceMessage(models.Model):
     key = fields.Selection(selection_add=BOOKING_KEYS,
                            ondelete={k: 'cascade' for k, _label in BOOKING_KEYS})
     body = fields.Text(
-        help="Placeholders: {name} customer, {order} order no., {status}, {job_card} job card no., "
-             "{site} website name, {track_url} tracking link, {summary} what was booked. "
-             "Booking messages also have {estimate} (repairs, parts and total), {slot_url} (link to pick "
-             "a time), {reason}, {parts}, {part}, {days}, {date}, {slot}, {device}, {next}, {within} (e.g. 3 days, 2 weeks), {part_days} and {timeline} (what happens once the customer approves the quotation). "
-             "The \"inspecting\" message also has {safety}: a line with the technician's safety check "
-             "(gloves, mask, ...).")
+        help="The message the customer gets. Tap the buttons under the box to add their name, the order number, links and more; \"Customers see\" shows how it reads.")
 
     @api.model
     def _render(self, key, values):

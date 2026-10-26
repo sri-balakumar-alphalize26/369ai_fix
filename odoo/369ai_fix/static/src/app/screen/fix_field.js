@@ -10,9 +10,12 @@
  *
  * `onChange(value)` gets the server's shape: many2one [id, name] or false, many2many
  * [{id, name}], date "YYYY-MM-DD", datetime "YYYY-MM-DD HH:MM:SS" (UTC), image base64.
+ *
+ * A date opens the screens' own green calendar (a month of days, Today / Tomorrow / Clear),
+ * not the browser's date box, so it looks the same everywhere.
  */
 
-import { Component, markup, onMounted, onWillUpdateProps, useRef, useState } from "@odoo/owl";
+import { Component, markup, onMounted, onWillUpdateProps, useExternalListener, useRef, useState } from "@odoo/owl";
 import { _t } from "@web/core/l10n/translation";
 import { useDebounced } from "@web/core/utils/timing";
 import {
@@ -20,6 +23,7 @@ import {
 } from "@web/core/l10n/dates";
 
 const { DateTime } = luxon;
+const WEEKDAYS = [_t("Mo"), _t("Tu"), _t("We"), _t("Th"), _t("Fr"), _t("Sa"), _t("Su")];
 
 export function floatTime(value) {
     const v = Number(value) || 0;
@@ -44,6 +48,25 @@ function parseFloatTime(text) {
         return (parseInt(h, 10) || 0) + (parseInt(m, 10) || 0) / 60;
     }
     return parseFloat(s.replace(",", ".")) || 0;
+}
+
+/** A message's fill-ins as words for the box: {code} -> [Prize code]. */
+function tokenWords(text, tokens) {
+    let out = String(text || "");
+    for (const [code, words] of tokens) {
+        out = out.split(`{${code}}`).join(`[${words}]`);
+    }
+    return out;
+}
+
+/** And back, for Odoo and the website: [Prize code] (any case, spaces) -> {code}. */
+function tokenCodes(text, tokens) {
+    let out = String(text || "");
+    for (const [code, words] of tokens) {
+        const re = new RegExp(`\\[\\s*${words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\s*\\]`, "gi");
+        out = out.replace(re, `{${code}}`);
+    }
+    return out;
 }
 
 /** A value as words, for read-only places (lists, info boxes). */
@@ -105,11 +128,28 @@ export class FixField extends Component {
         imageUrl: { type: String, optional: true },
         compact: { type: Boolean, optional: true },
         placeholder: { type: String, optional: true },
+        // fill-ins of a message, [[code, words, example]]: the box shows [words], Odoo keeps {code}
+        tokens: { type: Array, optional: true },
     };
 
     setup() {
-        this.state = useState({ query: "", results: [], open: false, text: this.textValue(this.props.value) });
+        this.state = useState({ query: "", results: [], open: false, text: this.textValue(this.props.value),
+                                cal: false, month: "" });
         this.editorRef = useRef("editor");
+        this.calRef = useRef("cal");
+        this.tokRef = useRef("tok");
+        // the calendar closes on a click elsewhere, or Escape
+        useExternalListener(window, "mousedown", (ev) => {
+            if (this.state.cal && this.calRef.el && !this.calRef.el.contains(ev.target)) {
+                this.state.cal = false;
+            }
+        });
+        useExternalListener(window, "keydown", (ev) => {
+            if (this.state.cal && ev.key === "Escape") {
+                ev.stopPropagation();
+                this.state.cal = false;
+            }
+        }, { capture: true });
         this.searchLater = useDebounced(() => this.search(), 250);
         onMounted(() => {
             // the rich-text box is filled once; after that the user's typing is the truth
@@ -147,7 +187,34 @@ export class FixField extends Component {
         if (meta.type === "many2one") {
             return Array.isArray(value) ? value[1] : "";
         }
+        if (props.tokens && props.tokens.length) {
+            return tokenWords(String(value), props.tokens);
+        }
         return value;
+    }
+
+    // ------------------------------------------------------------------ messages with fill-ins
+    get tokenPreview() {
+        let text = tokenCodes(this.state.text, this.props.tokens || []);
+        for (const [code, , example] of this.props.tokens || []) {
+            text = text.split(`{${code}}`).join(example || "");
+        }
+        return text;
+    }
+
+    insertToken(tok) {
+        const el = this.tokRef.el;
+        const add = `[${tok[1]}]`;
+        const text = this.state.text || "";
+        const at = el && el === document.activeElement ? el.selectionStart : text.length;
+        const before = text.slice(0, at), after = text.slice(at);
+        const next = before + (before && !/\s$/.test(before) ? " " : "") + add + (after && !/^\s/.test(after) ? " " : "") + after;
+        this.state.text = next;
+        this.change(tokenCodes(next, this.props.tokens));
+        if (el) {
+            el.value = next;
+            el.focus();
+        }
     }
 
     get display() {
@@ -171,6 +238,63 @@ export class FixField extends Component {
             return deserializeDate(v).toFormat("yyyy-MM-dd");
         }
         return deserializeDateTime(v).toFormat("yyyy-MM-dd'T'HH:mm");
+    }
+
+    // ------------------------------------------------------------------ the green calendar (dates)
+    get dateWords() {
+        return this.props.value ? deserializeDate(this.props.value).toFormat("ccc dd LLL yyyy") : "";
+    }
+
+    get todayIso() {
+        return DateTime.local().toISODate();
+    }
+
+    get tomorrowIso() {
+        return DateTime.local().plus({ days: 1 }).toISODate();
+    }
+
+    get calMonth() {
+        return DateTime.fromISO(this.state.month || this.todayIso).startOf("month");
+    }
+
+    get calTitle() {
+        return this.calMonth.toFormat("LLLL yyyy");
+    }
+
+    get calWeekdays() {
+        return WEEKDAYS;
+    }
+
+    /** Six weeks from the Monday on or before the 1st: {iso, d, out (other month), today, on}. */
+    get calDays() {
+        const first = this.calMonth;
+        const start = first.minus({ days: first.weekday - 1 });
+        const chosen = this.props.value ? deserializeDate(this.props.value).toISODate() : "";
+        const today = this.todayIso;
+        return Array.from({ length: 42 }, (_v, i) => {
+            const day = start.plus({ days: i });
+            const iso = day.toISODate();
+            return { iso, d: day.day, out: day.month !== first.month, today: iso === today, on: iso === chosen };
+        });
+    }
+
+    toggleCal() {
+        if (this.props.readonly) {
+            return;
+        }
+        if (!this.state.cal) {
+            this.state.month = this.props.value ? deserializeDate(this.props.value).toISODate() : this.todayIso;
+        }
+        this.state.cal = !this.state.cal;
+    }
+
+    moveMonth(step) {
+        this.state.month = this.calMonth.plus({ months: step }).toISODate();
+    }
+
+    pickDate(iso) {
+        this.state.cal = false;
+        this.change(iso ? serializeDate(DateTime.fromISO(iso)) : false);
     }
 
     get tags() {
@@ -199,6 +323,8 @@ export class FixField extends Component {
             value = parseFloat(String(value).replace(",", ".")) || 0;
         } else if (type === "float_time") {
             value = parseFloatTime(value);
+        } else if (this.props.tokens && this.props.tokens.length) {
+            value = tokenCodes(value, this.props.tokens);   // [Prize code] -> {code}, as the website reads it
         }
         this.change(value);
     }

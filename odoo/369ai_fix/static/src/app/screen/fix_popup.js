@@ -86,7 +86,7 @@ class PopupFrame extends Component {
     }
 
     get wide() {
-        return ["checks", "result"].includes(this.popup.kind);
+        return ["checks", "result", "slot"].includes(this.popup.kind);
     }
 
     onBackdrop(ev) {
@@ -163,7 +163,22 @@ class PopupForm extends Component {
                         vals[name] = this.state.values[name];
                     }
                 }
-                const rec = await this.orm.silent.call(MODEL, "screen_save", [this.p.screen, false, vals, this.p.defaults || {}]);
+                // some screens ask first, in words the server writes (e.g. a day off: who, when), and
+                // may ask who takes the records it touches (the day off's visits): `extra` carries that
+                let extra = {};
+                if (this.p.confirmCreate) {
+                    const ask = await this.orm.silent.call(MODEL, "screen_create_confirm", [this.p.screen, vals, this.p.defaults || {}]);
+                    if (ask && typeof ask === "object" && (ask.visits || []).length) {
+                        const picks = await this.popupService.reassign(ask);
+                        if (!picks) {
+                            return;
+                        }
+                        extra = { reassign: picks };
+                    } else if (ask && !(await this.popupService.confirm(typeof ask === "string" ? ask : ask.text, { ok: _t("Yes, save") }))) {
+                        return;
+                    }
+                }
+                const rec = await this.orm.silent.call(MODEL, "screen_save", [this.p.screen, false, vals, this.p.defaults || {}, extra]);
                 this.props.finish({ created: rec });
                 return;
             }
@@ -189,6 +204,136 @@ class PopupForm extends Component {
 class PopupConfirm extends Component {
     static template = "369ai_fix.PopupConfirm";
     static props = ["*"];
+}
+
+// ====================================================================== book a time for the customer
+/** The Booking Desk's "Book a time": the customer's own windows (online.service.order.desk_slot),
+ *  days as chips, times with the places left, one button that books. Answers true once booked. */
+class PopupSlot extends Component {
+    static template = "369ai_fix.PopupSlot";
+    static props = ["*"];
+
+    setup() {
+        this.orm = useService("orm");
+        this.state = useState({ data: null, day: "", pick: null, busy: false, error: "", done: "" });
+        onWillStart(() => this.load());
+    }
+
+    async load() {
+        try {
+            const data = await this.orm.silent.call("online.service.order", "desk_slot", [[this.props.popup.order_id]]);
+            if (!data.ok) {
+                this.state.error = SLOT_ERRORS[data.error] || _t("This booking can't take a time now.");
+                return;
+            }
+            this.state.data = data;
+            const days = data.days || [];
+            if (!days.some((d) => d.date === this.state.day)) {
+                const free = (d) => d.windows.some((w) => w.free > 0 && !w.mine);
+                this.state.day = (days.find(free) || days[0] || {}).date || "";
+            }
+        } catch (err) {
+            this.state.error = errorText(err);
+        }
+    }
+
+    get days() {
+        return (this.state.data && this.state.data.days) || [];
+    }
+
+    get today() {
+        return this.days.find((d) => d.date === this.state.day);
+    }
+
+    freeIn(day) {
+        return day.windows.filter((w) => w.free > 0 && !w.mine).length;
+    }
+
+    pickDay(day) {
+        this.state.day = day.date;
+    }
+
+    chip(day) {
+        const [wd = "", d = "", m = ""] = String(day.label).split(" ");
+        return { wd, d, m };
+    }
+
+    left(w) {
+        if (w.mine) {
+            return _t("Booked now");
+        }
+        return w.free > 0 ? (w.free === 1 ? _t("Last place") : _t("%s left", w.free)) : _t("Full");
+    }
+
+    get total() {
+        const lines = (this.state.data && this.state.data.estimate) || [];
+        const last = lines[lines.length - 1] || "";
+        return this.state.data && Number(this.state.data.total) > 0 ? last.replace(/^[^:]*:\s*/, "") : _t("Price after check");
+    }
+
+    choose(day, w) {
+        if (w.free > 0 && !w.mine) {
+            this.state.pick = { slot: w.slot_id, date: day.date, label: `${day.label} · ${w.label}` };
+            this.state.error = "";
+        }
+    }
+
+    async book() {
+        const pick = this.state.pick;
+        if (!pick || this.state.busy) {
+            return;
+        }
+        this.state.busy = true;
+        this.state.error = "";
+        try {
+            const r = await this.orm.silent.call("online.service.order", "desk_slot", [[this.props.popup.order_id]],
+                                                 { action: "book", slot_id: pick.slot, date: pick.date });
+            if (!r.ok) {
+                this.state.error = SLOT_ERRORS[r.error] || _t("That did not work. Try again.");
+                this.state.pick = null;
+                await this.load();
+                return;
+            }
+            this.state.done = (r.booked && r.booked.label) || pick.label;
+        } catch (err) {
+            this.state.error = errorText(err);
+        } finally {
+            this.state.busy = false;
+        }
+    }
+}
+
+const SLOT_ERRORS = {
+    unknown: _t("This booking can't be found."),
+    cancelled: _t("This booking is cancelled."),
+    full: _t("That time just filled up: choose another."),
+    "too late to change": _t("It is too close to the visit to change the time."),
+    "parts not ready": _t("The part has not arrived yet: the time is booked once it is here."),
+    "slot not available": _t("That time is no longer offered: choose another."),
+};
+
+// ====================================================================== who takes these visits?
+/** A day off's question: the visits that technician already has then, each with the technicians
+ *  free at that time (or "To assign" on the desk). Answers {visit id: technician id or 0}. */
+class PopupReassign extends Component {
+    static template = "369ai_fix.PopupReassign";
+    static props = ["*"];
+
+    setup() {
+        const picks = {};
+        for (const v of this.props.popup.visits || []) {
+            picks[v.id] = v.movable ? v.pick || 0 : 0;
+        }
+        this.state = useState({ picks });
+    }
+
+    pickFor(visit, ev) {
+        this.state.picks[visit.id] = parseInt(ev.target.value, 10) || 0;
+    }
+
+    save() {
+        this.props.finish({ ...this.state.picks });
+    }
 }
 
 // ====================================================================== Before you start
@@ -439,7 +584,7 @@ class ResultPopup extends Component {
     }
 }
 
-PopupFrame.components = { PopupForm, PopupConfirm, ChecksPopup, ResultPopup };
+PopupFrame.components = { PopupForm, PopupConfirm, PopupReassign, PopupSlot, ChecksPopup, ResultPopup };
 
 // ====================================================================== the service
 export const fixPopupService = {
@@ -545,8 +690,27 @@ export const fixPopupService = {
         }
 
         function confirm(text, { danger = false, ok = _t("Yes"), cancel = _t("No") } = {}) {
+            if (text && typeof text === "object") {
+                text = text.text || "";     // a server question with more in it: its words
+            }
             return new Promise((resolve) => {
                 show({ kind: "confirm", text, danger, ok, cancelLabel: cancel }, { resolve: (how) => resolve(!!how) });
+            });
+        }
+
+        /** The Booking Desk's "Book a time" for one order -> true once a time is booked. */
+        function pickSlot(orderId) {
+            return new Promise((resolve) => {
+                show({ kind: "slot", title: _t("Book a time for the customer"), order_id: orderId },
+                     { resolve: (how) => resolve(!!how) });
+            });
+        }
+
+        /** {title, text, visits:[{id, name, when, customer, order, movable, options, pick}]} -> picks or null */
+        function reassign(ask) {
+            return new Promise((resolve) => {
+                show({ kind: "reassign", title: ask.title || _t("Who takes these visits?"), text: ask.text || "",
+                       visits: ask.visits || [] }, { resolve: (how) => resolve(how || null) });
             });
         }
 
@@ -561,12 +725,13 @@ export const fixPopupService = {
                 show({
                     kind: "create", screen, title: _t("New: %s", meta.title), fields: meta.create_fields,
                     meta: meta.fields, values, defaults, widgets: meta.widgets || {}, info: [], show: {},
+                    confirmCreate: !!meta.create_confirm, tokens: meta.tokens || {},
                     buttons: [{ name: "create", label: _t("Create"), kind: "primary", icon: "fa-plus" }],
                 }, { resolve: (how) => resolve(how && how.created ? how.created : null) });
             });
         }
 
-        return { doAction, handle, openScreen, confirm, create, show };
+        return { doAction, handle, openScreen, confirm, reassign, pickSlot, create, show };
     },
 };
 

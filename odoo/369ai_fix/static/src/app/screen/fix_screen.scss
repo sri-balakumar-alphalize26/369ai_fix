@@ -174,6 +174,11 @@
 
 /* ===================================================================== a record (screens and desk) */
 .o_fxs, .o_fxd, .fxp-layer {
+    /* a choice of two (days | weeks): two buttons in the desk green instead of the browser's own dropdown */
+    .fxd-seg { display: inline-flex; flex: none; padding: 3px; gap: 3px; border: 1px solid var(--fxd-line); border-radius: 12px; background: var(--fxd-card); }
+    .fxd-seg button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--fxd-muted); font-size: 14px; font-weight: 700; cursor: pointer; transition: background .15s, color .15s; }
+    .fxd-seg button:hover { color: var(--fxd-ink); background: rgba(46, 139, 70, .08); }
+    .fxd-seg button.on { background: var(--fxd-green); color: #fff; }
     .fxs-record { display: flex; flex-direction: column; gap: 12px; padding: 16px 18px 40px; }
     .fxs-record.fxs-embedded { padding: 0; }
     .fxs-rhead { display: flex; align-items: center; gap: 12px; }
@@ -281,6 +286,37 @@
     .fxf-rich { min-height: 220px; max-height: 50vh; overflow-y: auto; padding: 10px 12px; outline: 0; font-size: 14px; line-height: 1.5; }
     .fxf-rich h2 { font-size: 18px; font-weight: 800; margin: 10px 0 6px; }
 
+    /* a message with fill-ins: [Prize code] in the box, buttons to add them, and how it reads */
+    .fxf-tokens { display: flex; flex-direction: column; gap: 6px; }
+    .fxf-tok-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; color: var(--fxd-muted); }
+    .fxf-tok { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px dashed var(--fxd-green); border-radius: 999px;
+        background: var(--fxd-soft); color: var(--fxd-green); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+    .fxf-tok:hover { background: var(--fxd-green); color: #fff; border-style: solid; }
+    .fxf-tok-preview { padding: 8px 11px; border-radius: 10px; background: var(--fxd-soft); font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+    .fxf-tok-preview span { font-weight: 800; color: var(--fxd-green); }
+
+    /* dates: the screens' own calendar */
+    .fxf-date { position: relative; }
+    .fxf-date-btn { display: flex; align-items: center; gap: 9px; text-align: left; cursor: pointer; }
+    .fxf-date-btn .fa { color: var(--fxd-green); }
+    .fxf-cal { position: absolute; z-index: 40; left: 0; top: 100%; margin-top: 6px; width: 288px; padding: 12px; border-radius: 16px;
+        background: var(--fxd-card); border: 1px solid var(--fxd-line); box-shadow: 0 22px 50px -20px rgba(0, 0, 0, .5); animation: fxp-in .16s ease-out; }
+    .fxf-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .fxf-cal-head b { font-size: 14.5px; font-weight: 800; color: var(--fxd-ink); }
+    .fxf-cal-nav { width: 32px; height: 32px; border: 0; border-radius: 10px; background: var(--fxd-soft); color: var(--fxd-green); cursor: pointer; }
+    .fxf-cal-nav:hover { background: var(--fxd-green); color: #fff; }
+    .fxf-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .fxf-cal-wd { padding: 4px 0; text-align: center; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: var(--fxd-muted); }
+    .fxf-cal-day { height: 34px; border: 0; border-radius: 10px; background: transparent; color: var(--fxd-ink); font-size: 13.5px; font-weight: 700; cursor: pointer; }
+    .fxf-cal-day:hover { background: var(--fxd-soft); color: var(--fxd-green); }
+    .fxf-cal-out { color: var(--fxd-muted); font-weight: 500; opacity: .55; }
+    .fxf-cal-today { box-shadow: inset 0 0 0 2px var(--fxd-green); color: var(--fxd-green); }
+    .fxf-cal-on, .fxf-cal-on:hover { background: var(--fxd-green); color: #fff; opacity: 1; }
+    .fxf-cal-foot { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--fxd-line); }
+    .fxf-cal-foot button { flex: 1; height: 32px; border: 1px solid var(--fxd-line); border-radius: 10px; background: var(--fxd-card); color: var(--fxd-ink); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+    .fxf-cal-foot button:hover { border-color: var(--fxd-green); color: var(--fxd-green); }
+    .fxf-cal-foot .fxf-cal-clear { color: var(--fxd-red, #c0392b); flex: 0 0 auto; padding: 0 12px; }
+
     @media (max-width: 700px) {
         .fxs-record { padding: 12px 12px 40px; }
         .fxd-grid, .fxs-fields { grid-template-columns: minmax(0, 1fr); }
@@ -328,6 +364,39 @@
     .fxp-confirm-body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px 20px 20px; text-align: center; }
     .fxp-confirm-body p { margin: 0; font-size: 15px; font-weight: 600; white-space: pre-line; }
     .fxp-confirm-body .fxp-btns { justify-content: center; }
+    /* the desk's "Book a time" */
+    .fxp-slot-days { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; }
+    .fxp-slot-day { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1px; width: 70px; padding: 9px 4px 8px;
+        border: 1.5px solid var(--fxd-line); border-radius: 14px; background: var(--fxd-card); color: var(--fxd-ink); cursor: pointer; }
+    .fxp-slot-day small { font-size: 11.5px; font-weight: 700; color: var(--fxd-muted); }
+    .fxp-slot-day b { font-size: 20px; line-height: 1.1; }
+    .fxp-slot-day em { margin-top: 3px; padding: 1px 7px; border-radius: 99px; background: var(--fxd-soft); color: var(--fxd-green); font-style: normal; font-size: 10.5px; font-weight: 800; }
+    .fxp-slot-day.full { opacity: .55; }
+    .fxp-slot-day:hover { border-color: var(--fxd-green); }
+    .fxp-slot-day.on { background: var(--fxd-green); border-color: var(--fxd-green); color: #fff; }
+    .fxp-slot-day.on small { color: rgba(255, 255, 255, .8); }
+    .fxp-slot-day.on em { background: rgba(255, 255, 255, .2); color: #fff; }
+    .fxp-slot-wins { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .fxp-slot-win { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 11px 12px; border: 1.5px solid var(--fxd-line);
+        border-radius: 12px; background: var(--fxd-card); color: var(--fxd-ink); cursor: pointer; text-align: left; }
+    .fxp-slot-win b { font-size: 15px; }
+    .fxp-slot-win small { font-size: 12px; font-weight: 700; color: var(--fxd-green); }
+    .fxp-slot-win:hover:not(:disabled) { border-color: var(--fxd-green); }
+    .fxp-slot-win.on { border-color: var(--fxd-green); background: var(--fxd-soft); box-shadow: 0 0 0 3px rgba(46, 139, 70, .2); }
+    .fxp-slot-win:disabled { opacity: .5; cursor: not-allowed; }
+    .fxp-slot-win:disabled small { color: var(--fxd-muted); }
+    .fxp-slot-win.mine { opacity: 1; border-style: dashed; border-color: var(--fxd-green); }
+    .fxp-slot-done { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 0 4px; text-align: center; }
+    .fxp-slot-done b { font-size: 17px; }
+    .fxp-slot-done p { margin: 0; }
+    .fxp-reassign-text { white-space: pre-line; }
+    .fxp-reassign { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .fxp-reassign li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 220px); gap: 10px; align-items: center;
+        padding: 10px 12px; border-radius: 12px; background: var(--fxd-card); border: 1px solid var(--fxd-line); }
+    .fxp-reassign li div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .fxp-reassign li small { color: var(--fxd-muted); font-size: 12.5px; overflow-wrap: anywhere; }
+    .fxp-reassign-hint { margin: 0; font-size: 12.5px; }
+    @media (max-width: 560px) { .fxp-reassign li { grid-template-columns: minmax(0, 1fr); } }
     .fxp-mark-red { background: var(--fxd-red-soft); color: var(--fxd-red); }
     .fxp-h4 { margin: 6px 0 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--fxd-muted); }
     .fxp-h4 i { color: var(--fxd-green); margin-right: 4px; }

@@ -46,6 +46,8 @@
               action="action_screen_bookings" sequence="3"/>
     <menuitem id="menu_fix_parts" name="Waiting for Parts" parent="menu_fix_bookings"
               action="action_screen_bookings_parts" sequence="12"/>
+    <menuitem id="menu_fix_app_spin_wins" name="Spin &amp; Win winners" parent="menu_fix_bookings"
+              action="action_screen_spin_wins" sequence="20"/>
 
     <!-- Service -->
     <menuitem id="menu_fix_service" name="Service" parent="menu_fix_root" sequence="20"
@@ -78,6 +80,13 @@
               groups="mobile_repair.group_mobile_repair_manager" sequence="90"/>
     <menuitem id="menu_fix_slots" name="Time Slots" parent="menu_fix_config"
               action="action_screen_slots" sequence="1"/>
+    <!-- who takes visits and their days off: the places in every time window follow them -->
+    <menuitem id="menu_fix_technicians" name="Technicians" parent="menu_fix_config"
+              action="action_screen_technicians" sequence="4"/>
+    <menuitem id="menu_fix_days_off" name="Days Off" parent="menu_fix_config"
+              action="action_screen_days_off" sequence="5"/>
+    <menuitem id="menu_fix_config_spin" name="Spin &amp; Win Settings" parent="menu_fix_config"
+              action="action_screen_spin_settings" sequence="6"/>
     <menuitem id="menu_fix_websites" name="Websites" parent="menu_fix_config"
               action="action_screen_sites" sequence="2"/>
     <menuitem id="menu_fix_messages" name="Status Messages" parent="menu_fix_config"
