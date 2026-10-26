@@ -29,4 +29,38 @@ Customer: {name}, {area}
 Open your visit page and keep it open while you drive. It shares your location with the customer:
 {tech_url}</field>
     </record>
+    <!-- After the repair (visit_closeout.py). -->
+    <record id="msg_visit_finish_code" model="online.service.message">
+        <field name="key">visit_finish_code</field>
+        <field name="sequence">14</field>
+        <field name="body">Hi {name}, {technician} has finished the repair for order {order} ✅
+When you are happy with it, give them this finish code: {code}</field>
+    </record>
+    <record id="msg_visit_receipt" model="online.service.message">
+        <field name="key">visit_receipt</field>
+        <field name="sequence">15</field>
+        <field name="body">Thank you {name}! Your repair for order {order} is complete 🎉
+Paid: {paid}
+{warranty}
+How did {technician} do? Rate the visit: {rate_url}</field>
+    </record>
+    <record id="msg_visit_lab_check" model="online.service.message">
+        <field name="key">visit_lab_check</field>
+        <field name="sequence">16</field>
+        <field name="body">Hi {name}, your {device} needs a closer check in our lab 🔬 (order {order}).
+{technician} has taken it with them. We will send you the price within {days}, before any repair.</field>
+    </record>
+    <record id="msg_visit_no_repair" model="online.service.message">
+        <field name="key">visit_no_repair</field>
+        <field name="sequence">17</field>
+        <field name="body">Hi {name}, {technician} has checked your device (order {order}).
+{reason}
+Thank you for choosing {site}.</field>
+    </record>
+    <record id="msg_visit_part_sourcing" model="online.service.message">
+        <field name="key">visit_part_sourcing</field>
+        <field name="sequence">18</field>
+        <field name="body">Hi {name}, your device needs a part we are finding for you: {part} 🔧 (order {order}).
+We will send you the price to approve shortly. Nothing is done before your OK.</field>
+    </record>
 </odoo>

@@ -18,9 +18,20 @@ branch has it, or it must be ordered.
 The parts are the job card's own spare lines, so the existing quotation, ordering,
 part-arrived and return-visit flows (booking/) carry on unchanged. A visit without a
 job card gets one here (the device brand is asked when the booking had none).
+
+"Can it be fixed?" comes first: needs parts / labour only (both priced here: the labour
+price can be typed, and any price above what the customer agreed is quoted first, part or
+not) / needs a lab check (the device goes to the office, the price follows) / no fault /
+not worth repairing / under the brand's warranty (the visit closes with the reason).
+A part that is not in the list is asked of the office (a purchase request, priced there).
+A part can be offered in two grades (original / compatible): the customer keeps one.
 """
+import base64
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+
+from .visit_checks import PHOTO_BYTES, _sniff
 
 RESULTS = [
     ('fixed', 'Fixed on the spot'),
@@ -32,7 +43,21 @@ RESULTS = [
     ('ordered', 'Approved: part ordered'),
     ('quoted', 'Quotation sent: customer decides later'),
     ('declined', 'Customer declined the quotation'),
+    ('sourcing', 'Part asked of the office: price follows'),
+    ('lab', 'Taken to the lab for a check'),
+    ('no_repair', 'Not repaired'),
 ]
+# "Can it be fixed?" - the technician's first answer
+OUTCOMES = [
+    ('parts', 'Needs parts'),
+    ('labour', 'Labour only'),
+    ('lab', 'Needs lab check'),
+    ('no_fault', 'No fault found'),
+    ('not_worth', 'Not worth repairing'),
+    ('warranty', "Under the brand's warranty"),
+]
+NO_REPAIR = ('no_fault', 'not_worth', 'warranty')
+MAX_PRICE = 100000.0
 # What the technician proposes with the quotation
 PLANS = [
     ('now', 'Fix now (the technician has the part)'),
@@ -52,6 +77,7 @@ class ServiceVisit(models.Model):
     _inherit = 'fix.service.visit'
 
     check_result = fields.Selection(RESULTS, 'Result', readonly=True, copy=False, tracking=True)
+    check_outcome = fields.Selection(OUTCOMES, 'Can it be fixed?', readonly=True, copy=False, tracking=True)
     check_found = fields.Text('What the technician found', copy=False)
     check_days = fields.Integer('Fixed within (days)', readonly=True, copy=False)
     check_result_on = fields.Datetime('Result on', readonly=True, copy=False)
@@ -228,38 +254,151 @@ class ServiceVisit(models.Model):
 
     def _vr_part_row(self, product, qty=1.0):
         stock = self._vr_stock(product, qty)
+        grades = dict(self.env['product.template']._fields['fix_part_grade'].selection)
         return {'product_id': product.id, 'name': product.display_name, 'price': product.lst_price,
+                'grade': grades.get(product.fix_part_grade, ''),
                 'office': stock['office'], 'other': stock['other'], 'status': stock['status'],
                 'branches': stock['branches']}
 
     def _vr_lines(self):
-        """The parts on the job card, each with where it is."""
+        """The parts on the job card, each with where it is. Two grades offered for one part
+        share `alt_key`; `alt_off` is the grade not chosen (yet)."""
         self.ensure_one()
         card = self.sudo().job_card_id
         rows = []
-        for line in card.spare_part_line_ids if card else []:
+        for line in card.spare_part_line_ids.sorted(lambda l: (l.fix_alt_key or 'A%d' % l.id, l.fix_alt_off, l.id)) \
+                if card else []:
             row = self._vr_part_row(line.product_id, line.quantity)
-            row.update(line_id=line.id, qty=line.quantity, name=line.description or line.product_id.display_name)
+            row.update(line_id=line.id, qty=line.quantity, name=line.description or line.product_id.display_name,
+                       price=line.unit_price, alt_key=line.fix_alt_key or '', alt_off=line.fix_alt_off,
+                       can_alt=bool(line.product_id.fix_part_grade) and not line.fix_alt_key)
             rows.append(row)
         return rows
 
-    def _vr_add_part(self, product, qty=1.0, brand=None, model=None, category=None):
+    def _vr_add_part(self, product, qty=1.0, brand=None, model=None, category=None, alt_of=None):
+        """A part on the job card. `alt_of`: a line already there - this part is another grade
+        of it, offered beside it (the customer keeps one; the first stays chosen)."""
         self.ensure_one()
         card = self._vr_card(brand=brand, model=model, category=category)
         line = card.spare_part_line_ids.filtered(lambda l: l.product_id == product)[:1]
         if line:
             line.quantity = qty or line.quantity
-        else:
-            self.env['job.card.spare.part.line'].sudo().create({
-                'job_card_id': card.id, 'product_id': product.id, 'description': product.name,
-                'quantity': qty or 1.0, 'unit_price': product.lst_price,
-                'tax_ids': [(6, 0, product.taxes_id.filtered(lambda t: t.company_id == card.company_id).ids)],
-            })
+            return line
+        vals = {
+            'job_card_id': card.id, 'product_id': product.id, 'description': product.name,
+            'quantity': qty or 1.0, 'unit_price': product.lst_price,
+            'tax_ids': [(6, 0, product.taxes_id.filtered(lambda t: t.company_id == card.company_id).ids)],
+        }
+        if alt_of:
+            if alt_of.job_card_id != card:
+                raise UserError(_("That part is not on this job card."))
+            key = alt_of.fix_alt_key or 'A%d' % alt_of.id
+            alt_of.fix_alt_key = key
+            vals.update(fix_alt_key=key, fix_alt_off=True)
+        return self.env['job.card.spare.part.line'].sudo().create(vals)
+
+    def _vr_alternatives(self, line, limit=8):
+        """Other grades of a part on the card: parts that fix the same problems for this device,
+        with a grade other than this one's."""
+        self.ensure_one()
+        product = line.product_id
+        if not product.fix_part_grade or not product.repair_issue_type_ids:
+            return []
+        category, brand, model = self._vr_device()
+        domain = [('type', '=', 'consu'), ('sale_ok', '=', True), ('id', '!=', product.id),
+                  ('fix_part_grade', 'not in', (False, product.fix_part_grade)),
+                  ('repair_issue_type_ids', 'in', product.repair_issue_type_ids.ids)]
+        if category:
+            domain += ['|', ('fit_category_ids', '=', False), ('fit_category_ids', 'in', category.ids)]
+        if brand:
+            domain += ['|', ('device_brand_id', '=', False), ('device_brand_id', '=', brand.id)]
+        if model:
+            domain += ['|', ('device_model_id', '=', False), ('device_model_id', '=', model.id)]
+        products = self.env['product.product'].sudo().search(domain, limit=100)
+        products -= line.job_card_id.spare_part_line_ids.product_id
+        return [self._vr_part_row(p) for p in sorted(products, key=self._vr_rank(brand, model))[:limit]]
+
+    def _vr_choose(self, line):
+        """The customer chose this grade at the door: the other grade is removed."""
+        self.ensure_one()
+        if not line.fix_alt_key:
+            return True
+        line.job_card_id._wb_choose_alts([line.id])
+        return True
+
+    def _vr_remove_part(self, line):
+        """Remove a part; when it was the chosen grade of two, the other one becomes the part."""
+        key, card = line.fix_alt_key, line.job_card_id
+        line.unlink()
+        if key:
+            rest = card.spare_part_line_ids.filtered(lambda l: l.fix_alt_key == key)
+            if len(rest) <= 1:
+                rest.write({'fix_alt_key': False, 'fix_alt_off': False})
+            elif not rest.filtered(lambda l: not l.fix_alt_off):
+                rest[:1].fix_alt_off = False
+
+    # ------------------------------------------------------------------ the labour (repairs) and its price
+    def _vr_services(self):
+        """The repairs on the job card with their price ({line_id, product_id, name, qty, price});
+        the booking's while there is no job card yet (line_id 0)."""
+        self.ensure_one()
+        visit = self.sudo()
+        card = visit.job_card_id
+        if card:
+            return [{'line_id': l.id, 'product_id': l.product_id.id, 'name': l.description or l.product_id.name,
+                     'qty': l.quantity, 'price': l.unit_price} for l in card.service_line_ids]
+        return [{'line_id': 0, 'product_id': l.product_id.id, 'name': l.product_id.name or l.issue,
+                 'qty': l.qty or 1, 'price': l.product_id.lst_price}
+                for l in visit.order_id.line_ids.filtered('product_id')]
+
+    @api.model
+    def _vr_labour_product(self, company):
+        """The plain repair service - the same one mobile_repair's invoice puts the repairs on."""
+        Product = self.env['product.product'].sudo()
+        product = Product.search([('default_code', '=', 'REPAIR-SERVICE'),
+                                  ('company_id', 'in', [company.id, False])], limit=1)
+        return product or Product.create({'name': 'Repair Service', 'default_code': 'REPAIR-SERVICE',
+                                          'type': 'service', 'sale_ok': True, 'purchase_ok': False,
+                                          'list_price': 0})
+
+    def _vr_set_price(self, price, line_id=0, product_id=0, brand=None):
+        """The technician's price for a repair (labour). `line_id`: a repair on the job card;
+        `product_id`: a repair of the booking (before there is a job card); neither: a labour
+        line is added. A price above what the customer agreed is quoted before the repair."""
+        self.ensure_one()
+        try:
+            price = round(float(price), 6)
+        except (TypeError, ValueError):
+            raise UserError(_("Type the price."))
+        if not 0 <= price <= MAX_PRICE:
+            raise UserError(_("Type a price of 0 or more."))
+        card = self._vr_card(brand=brand)
+        lines = card.service_line_ids
+        line = lines.browse()
+        if line_id:
+            line = lines.filtered(lambda l: l.id == int(line_id))
+            if not line:
+                raise UserError(_("That repair is not on the job card."))
+        elif product_id:
+            line = lines.filtered(lambda l: l.product_id.id == int(product_id))[:1]
+        if line:
+            line.unit_price = price
+            return line
+        product = self.env['product.product'].sudo().browse(int(product_id or 0)).exists()
+        if product.type != 'service':
+            product = self._vr_labour_product(card.company_id)
+        return self.env['job.card.service.line'].sudo().create({
+            'job_card_id': card.id, 'product_id': product.id,
+            'description': product.name if product.default_code != 'REPAIR-SERVICE' else _("Labour"),
+            'quantity': 1.0, 'unit_price': price,
+            'tax_ids': [(6, 0, product.taxes_id.filtered(lambda t: t.company_id == card.company_id).ids)],
+        })
 
     def _vr_need(self):
-        """What the parts allow: {parts, in_office (all here), to_order (some to order),
-        needs_quote (the price is above what the customer approved), total}."""
-        lines = self._vr_lines()
+        """What the parts and the price allow: {parts, in_office (all here), to_order (some to
+        order), needs_quote (the price - repairs and parts - is above what the customer
+        approved), choices (a part offered in two grades, not chosen yet), approved, total}."""
+        lines = [l for l in self._vr_lines() if not l['alt_off']]
         card = self.sudo().job_card_id
         total = card._wb_lines_total() if card else 0.0
         approved = card.estimate_total if card and card.quote_state in ('none', 'accepted') else 0.0
@@ -268,7 +407,9 @@ class ServiceVisit(models.Model):
             'parts': len(lines),
             'in_office': bool(lines) and all(l['status'] in ('in_stock', 'other_branch') for l in lines),
             'to_order': any(l['status'] == 'order' for l in lines),
-            'needs_quote': bool(lines) and currency.compare_amounts(total, approved) > 0,
+            'needs_quote': currency.compare_amounts(total, approved) > 0,
+            'choices': bool(card and card._wb_alt_groups()),
+            'approved': approved,
             'total': total,
         }
 
@@ -310,14 +451,21 @@ class ServiceVisit(models.Model):
         self._vr_note(note)
         need = self._vr_need()
         if self.check_result != 'repairing' and (need['needs_quote'] or need['to_order']):
-            raise UserError(_("These parts change the price: send the quotation first, the customer approves "
+            raise UserError(_("The price changed: send the quotation first, the customer approves "
                               "before the repair."))
+        if need['choices']:
+            raise UserError(_("A part is offered in two grades: tap the one the customer keeps, or send the "
+                              "quotation so they choose."))
         self._vr_clear_plan()
         self._vr_set('fixed')
-        self.action_done()
         self.message_post(body=_("Repair done at the customer's place. %s", self.check_found or ''),
                           subtype_xmlid='mail.mt_note')
+        self._vr_after_fixed()
         return True
+
+    def _vr_after_fixed(self):
+        """After the repair: the visit closes (visit_closeout adds the payment and the finish first)."""
+        self.action_done()
 
     # --- 1. the quotation, with the plan the technician proposes
     def _vr_send_quote(self, plan, days=None, unit='days', part_days=None, note=None):
@@ -325,8 +473,9 @@ class ServiceVisit(models.Model):
         with the timeline; nothing is repaired, taken or ordered before their OK."""
         self._vr_require()
         need = self._vr_need()
-        if not need['parts']:
-            raise UserError(_("Add the parts first. No part needed? Use Fixed on the spot."))
+        if not need['parts'] and not need['needs_quote']:
+            raise UserError(_("Nothing to quote: no part, and the price is what the customer agreed. "
+                              "Use Fixed on the spot."))
         allowed = ('keep', 'order_take') if need['to_order'] else ('now', 'take', 'come_back')
         if plan not in allowed:
             raise UserError(_("Choose what happens to the device."))
@@ -347,7 +496,8 @@ class ServiceVisit(models.Model):
         date = fields.Date.add(today, days=wait + total) if total else False
         when = date.strftime('%a %d %b') if date else ''
         timeline = {
-            'now': _("Our technician has the part and fixes it now, once you approve."),
+            'now': (_("Our technician has the part and fixes it now, once you approve.") if need['parts']
+                    else _("Our technician fixes it now, once you approve.")),
             'take': _("We take your device to our office: fixed within %(within)s, back by %(date)s.",
                       within=within, date=when),
             'come_back': _("We have the part: fixed within %(within)s, by %(date)s - we come back to you.",
@@ -366,6 +516,119 @@ class ServiceVisit(models.Model):
         visit.message_post(body=_("Quotation sent, waiting for the customer's OK. %s", timeline),
                            subtype_xmlid='mail.mt_note')
         return True
+
+    # --- "Can it be fixed?"
+    def _vr_outcome(self, outcome, note=None, days=None, unit='days', brand=None):
+        """The technician's first answer. Needs parts / labour only: the parts and the price
+        follow on the same screen. Lab check: the device goes to the office (accessories next),
+        the price follows from there. No fault / not worth it / brand warranty: the visit closes
+        with the reason, which the customer gets on WhatsApp."""
+        self._vr_require()
+        if outcome not in dict(OUTCOMES):
+            raise UserError(_("Choose what you found."))
+        self._vr_note(note)
+        visit = self.sudo()
+        if outcome in ('parts', 'labour'):
+            visit.check_outcome = outcome
+            return True
+        if outcome == 'lab':
+            visit._vr_card(brand=brand)
+            total, within = visit._vr_span(days, unit)
+            visit.write({'check_outcome': 'lab', 'pend_plan': 'take', 'pend_days': total, 'pend_within': within,
+                         'pend_part_days': 0,
+                         'pend_date': fields.Date.add(fields.Date.context_today(self), days=total)})
+            visit._vr_set('to_take', check_days=total)
+            visit.message_post(body=_("Needs a lab check: the device goes to the office, the price follows "
+                                      "within %s.", within), subtype_xmlid='mail.mt_note')
+            return True
+        if not (visit.check_found or '').strip():
+            raise UserError(_("Write what you checked and why it is not repaired: the customer reads it."))
+        return visit._vr_no_repair(outcome)
+
+    def _vr_no_repair(self, outcome):
+        """Not repaired (no fault / not worth it / brand warranty): the job card is closed as not
+        done, the booking is done, the customer gets the reason."""
+        self.ensure_one()
+        visit = self.sudo()
+        card, order = visit.job_card_id, visit.order_id
+        reason = dict(OUTCOMES)[outcome]
+        if card:
+            if card.spare_request_ids.filtered(lambda r: r.state == 'issued'):
+                raise UserError(_("Parts were issued for %s: give them back to the office first.", card.name))
+            # quietly: the customer gets the reason below, not the plain "cancelled" message
+            card.with_context(wb_silent=True).write({'state': 'cancelled'})
+            card.message_post(body=_("Not repaired at the visit: %(reason)s. %(found)s",
+                                     reason=_(reason), found=visit.check_found or ''))
+        visit.check_outcome = outcome
+        visit._vr_clear_plan()
+        visit._vr_set('no_repair')
+        visit.action_done()
+        if order and order.state not in ('done', 'cancelled'):
+            order._set_state('done')
+        visit.with_context(osm_extra={'reason': '%s. %s' % (_(reason), visit.check_found or '')}) \
+            ._fs_notify('visit_no_repair')
+        visit.message_post(body=_("Not repaired: %(reason)s. %(found)s", reason=_(reason), found=visit.check_found or ''),
+                           subtype_xmlid='mail.mt_note')
+        return True
+
+    # --- a part that is not in the list: the office finds it and prices it
+    def _vr_request_part(self, name, price=None, data=None, brand=None, note=None):
+        """The office is asked for a part the list does not have (a purchase request with the
+        technician's rough price and photo). The visit closes; the customer hears the price
+        follows. The office adds the part to the job card and presses "Send new price"."""
+        self._vr_require()
+        self._vr_note(note)
+        name = (name or '').strip()[:120]
+        if len(name) < 2:
+            raise UserError(_("Type the part's name."))
+        try:
+            price = max(float(price or 0.0), 0.0)
+        except (TypeError, ValueError):
+            price = 0.0
+        raw = b''
+        if data:
+            try:
+                raw = base64.b64decode(data, validate=True)
+            except (ValueError, TypeError):
+                raise UserError(_("The photo could not be read."))
+            if _sniff(raw) != 'image' or len(raw) > PHOTO_BYTES:
+                raise UserError(_("That is not a photo (or it is too large)."))
+        visit = self.sudo()
+        card = visit._vr_card(brand=brand)
+        # mobile_repair links a part order to its job card through a spare request
+        # (as booking/_wb_order_parts and the job card's own button do)
+        holder = self.env['spare.part.request'].sudo().create({'job_card_id': card.id})
+        request = self.env['spare.part.purchase.request'].sudo().create({
+            'spare_request_id': holder.id,
+            'product_name': name,
+            'product_description': _("For %(card)s (visit %(visit)s)", card=card.name, visit=visit.name),
+            'estimated_cost': price,
+            'quantity': 1.0,
+            'urgency': 'high',
+            'company_id': card.company_id.id,
+            'notes': _("Asked by %(tech)s at visit %(visit)s: no matching part in the list. %(found)s",
+                       tech=visit.technician_id.name or self.env.user.name, visit=visit.name,
+                       found=visit.check_found or ''),
+        })
+        request.action_request()
+        if raw:
+            self.env['ir.attachment'].sudo().create({
+                'name': '%s.jpg' % name[:60], 'datas': base64.b64encode(raw),
+                'res_model': request._name, 'res_id': request.id})
+        order = visit.order_id
+        card.activity_schedule('mail.mail_activity_data_todo',
+                               summary=_("Find and price the part: %s", name),
+                               note=_("Rough price from the technician: %s. Add the part to the job card, then "
+                                      "press \"Send new price\".", price),
+                               user_id=(order.approved_by_id or self.env.user).id if order else self.env.user.id)
+        visit.check_outcome = 'parts'
+        visit._vr_clear_plan()
+        visit._vr_set('sourcing')
+        visit.action_done()
+        visit.with_context(osm_extra={'part': name})._fs_notify('visit_part_sourcing')
+        visit.message_post(body=_("Part asked of the office (%(req)s): %(name)s, about %(price)s.",
+                                  req=request.name, name=name, price=price), subtype_xmlid='mail.mt_note')
+        return request
 
     # --- 2. the customer's answer
     def _vr_approved_here(self):
@@ -486,6 +749,14 @@ class ServiceVisit(models.Model):
         for visit in self.sudo():
             order, card = visit.order_id, visit.job_card_id
             date = return_by.strftime('%a %d %b') if return_by else ''
+            if visit.check_outcome == 'lab':
+                # no price yet: the lab checks it, the office sends the quotation
+                visit.with_context(osm_extra={'days': visit.pend_within or _("%s days", visit.pend_days),
+                                              'date': date, 'device': card._fix_device_name()}
+                                   )._fs_notify('visit_lab_check')
+                visit._vr_set('lab')
+                visit._vr_clear_plan()
+                continue
             if visit.pend_plan == 'order_take':
                 order._wb_notify('office_part_wait', part_days=visit.pend_part_days, within=visit.pend_within or '',
                                  date=date, device=card._fix_device_name())
@@ -536,11 +807,16 @@ class ServiceVisit(models.Model):
             'plan_label': dict(PLANS).get(visit.pend_plan, ''),
             'timeline_date': visit.pend_date.strftime('%a %d %b') if visit.pend_date else '',
             'need_device': not visit.job_card_id and not visit._vr_device_guess()[1],
+            'outcome': visit.check_outcome or '',
+            'outcomes': [{'key': k, 'label': _(label)} for k, label in OUTCOMES],
             'lines': visit._vr_lines(),
+            'services': visit._vr_services(),
             'issues': visit._vr_issues(),
             'suggested': visit._vr_suggest() if visit.check_result not in ('waiting', 'repairing', 'to_take') else [],
             'needs_quote': need['needs_quote'],
+            'choices': need['choices'],
             'to_order': need['to_order'],
+            'approved': need['approved'],
             'total': need['total'],
             'accessories': [{'id': a.id, 'name': a.name} for a in self.env['device.accessory'].sudo().search([])],
             'max_days': MAX_DAYS,
@@ -579,10 +855,36 @@ class ServiceVisit(models.Model):
             product = Model('product.product', 'product_id')
             if not product:
                 raise UserError(_("Choose a part."))
-            visit._vr_add_part(product, float(args.get('qty') or 1), brand=Model('device.brand', 'brand_id'))
+            alt_of = None
+            if args.get('line_id'):
+                alt_of = visit.job_card_id.spare_part_line_ids.filtered(lambda l: l.id == int(args['line_id']))
+                if not alt_of:
+                    raise UserError(_("That part is not on the job card."))
+            visit._vr_add_part(product, float(args.get('qty') or 1), brand=Model('device.brand', 'brand_id'),
+                               alt_of=alt_of)
         elif action == 'result_remove_part':
             line = visit.job_card_id.spare_part_line_ids.filtered(lambda l: l.id == int(args.get('line_id') or 0))
-            line.unlink()
+            if line:
+                visit._vr_remove_part(line)
+        elif action == 'result_alts':
+            line = visit.job_card_id.spare_part_line_ids.filtered(lambda l: l.id == int(args.get('line_id') or 0))
+            if not line:
+                raise UserError(_("That part is not on the job card."))
+            return {'alts': visit._vr_alternatives(line), 'alt_of': line.id}
+        elif action == 'result_choose':
+            line = visit.job_card_id.spare_part_line_ids.filtered(lambda l: l.id == int(args.get('line_id') or 0))
+            if not line:
+                raise UserError(_("That part is not on the job card."))
+            visit._vr_choose(line)
+        elif action == 'result_price':
+            visit._vr_set_price(args.get('price'), line_id=args.get('line_id') or 0,
+                                product_id=args.get('product_id') or 0, brand=Model('device.brand', 'brand_id'))
+        elif action == 'result_outcome':
+            visit._vr_outcome(args.get('outcome'), note=note, days=args.get('days'), unit=_unit(args.get('unit')),
+                              brand=Model('device.brand', 'brand_id'))
+        elif action == 'result_request':
+            visit._vr_request_part(args.get('name'), price=args.get('price'), data=args.get('data'),
+                                   brand=Model('device.brand', 'brand_id'), note=note)
         elif action == 'result_fixed':
             visit._vr_fixed(note)
         elif action == 'result_quote':

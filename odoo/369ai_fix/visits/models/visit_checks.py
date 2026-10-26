@@ -85,7 +85,8 @@ class VisitCheckPhoto(models.Model):
     _order = 'kind, sequence, id'
 
     visit_id = fields.Many2one('fix.service.visit', required=True, ondelete='cascade', index=True)
-    kind = fields.Selection([('safety', 'Safety'), ('device', 'Device')], required=True, default='device')
+    kind = fields.Selection([('safety', 'Safety'), ('device', 'Device'), ('after', 'After repair')],
+                            required=True, default='device')
     angle_id = fields.Many2one('fix.device.angle', string='Side', ondelete='restrict')
     name = fields.Char(compute='_compute_name')
     sequence = fields.Integer(related='angle_id.sequence', store=True)
@@ -95,7 +96,8 @@ class VisitCheckPhoto(models.Model):
     @api.depends('kind', 'angle_id')
     def _compute_name(self):
         for photo in self:
-            photo.name = photo.angle_id.name if photo.kind == 'device' else _("Safety photo")
+            photo.name = (photo.angle_id.name if photo.kind == 'device'
+                          else _("After repair") if photo.kind == 'after' else _("Safety photo"))
 
     @api.model_create_multi
     def create(self, vals_list):

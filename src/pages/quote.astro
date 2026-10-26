@@ -25,6 +25,8 @@ const phone = contactOf(content.site).display;
         <h3>After checking your device <small data-q-ref></small></h3>
         <p class="qs-found" data-q-found hidden></p>
         <ul data-q-lines></ul>
+        <!-- a part offered in two grades (original / compatible): the customer keeps one -->
+        <div class="qs-choices" data-q-choices hidden></div>
         <p class="qs-old">Estimate you agreed before: <b data-q-old></b></p>
         <p class="qs-parts" data-q-parts hidden></p>
         <p class="qs-office" data-q-office hidden>Your device is at our office.</p>
@@ -63,6 +65,7 @@ const phone = contactOf(content.site).display;
     found.hidden = !(r.found || []).length;
     found.innerHTML = found.hidden ? '' : `What we found: <b>${esc(r.found.join(', '))}</b>`;
     $('[data-q-lines]').innerHTML = r.lines.map((l: string) => `<li>${esc(l.replace(/^•\s*/, ''))}</li>`).join('');
+    drawChoices(r);
     $('[data-q-old]').textContent = `${r.currency} ${Number(r.old_total || 0).toFixed(3)}`;
     const parts = $('[data-q-parts]');
     parts.hidden = !r.parts.length;
@@ -77,9 +80,37 @@ const phone = contactOf(content.site).display;
     }
   }
 
+  // A part offered in two grades: one radio group each; the total follows the choice.
+  let quote: any = null;
+  const money = (v: number) => `${quote.currency} ${Number(v || 0).toFixed(quote.decimals ?? 3)}`;
+  const picked = () => [...document.querySelectorAll<HTMLInputElement>('[data-q-choices] input:checked')].map((x) => Number(x.value));
+  function drawChoices(r: any) {
+    quote = r;
+    const box = $('[data-q-choices]');
+    const groups: any[] = r.choices || [];
+    box.hidden = !groups.length || r.state !== 'waiting';
+    box.innerHTML = groups.map((g: any, i: number) => `<fieldset><legend>Choose one</legend>${g.options.map((op: any) => `
+      <label><input type="radio" name="qc${i}" value="${op.line_id}" ${op.chosen ? 'checked' : ''} />
+        <span><b>${esc(op.name)}</b>${op.grade ? ` <small>${esc(op.grade)}</small>` : ''}</span><em>${esc(money(op.amount))}</em></label>`).join('')}</fieldset>`).join('');
+    total();
+  }
+  function total() {
+    const groups: any[] = quote?.choices || [];
+    if (!groups.length) return;
+    const ids = new Set(picked());
+    let sum = Number(quote.total || 0);
+    for (const g of groups) for (const op of g.options) {
+      if (op.chosen) sum -= op.amount;
+      if (ids.has(op.line_id)) sum += op.amount;
+    }
+    const last = $('[data-q-lines]').lastElementChild;
+    if (last) last.textContent = `Total: ${money(sum)}`;
+  }
+  $('[data-q-choices]').addEventListener('change', total);
+
   async function answer(yes: boolean) {
     const r = await fetch('/api/visit', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ o, t, action: 'quote', yes }) }).then((x) => x.json()).catch(() => ({ ok: false }));
+      body: JSON.stringify({ o, t, action: 'quote', yes, choice: picked() }) }).then((x) => x.json()).catch(() => ({ ok: false }));
     if (!r.ok) { msg(ERR[r.error] || 'That did not work — please try again.'); return; }
     done(yes ? 'Approved — thank you. We will go ahead with the repair.' : 'You declined the new price. We will be in touch.');
   }
@@ -106,5 +137,13 @@ const phone = contactOf(content.site).display;
   .qs-btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
   .qs-done { font-weight: 700; }
   .qs-msg { margin: 0; color: #9F1239; font-weight: 600; }
+  .qs-choices[hidden] { display: none; }
+  .qs-choices :global(fieldset) { margin: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; display: grid; gap: 8px; }
+  .qs-choices :global(legend) { padding: 0 6px; font-weight: 700; color: var(--ink); }
+  .qs-choices :global(label) { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+  .qs-choices :global(label span) { flex: 1; color: var(--ink); }
+  .qs-choices :global(label small) { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--tint); color: var(--ink-2); font-size: 12px; font-weight: 700; }
+  .qs-choices :global(label em) { font-style: normal; font-weight: 700; color: var(--ink); }
+  .qs-choices :global(input) { width: 20px; height: 20px; accent-color: var(--violet); }
   .qs-msg[hidden] { display: none; }
 </style>

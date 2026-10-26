@@ -6,6 +6,11 @@ VISIT_KEYS = [
     ('on_the_way', 'Visit: technician on the way'),
     ('arrived', 'Visit: technician arrived'),
     ('tech_link', 'Visit: link for the technician'),
+    ('visit_finish_code', 'Visit: repair done, the finish code'),
+    ('visit_receipt', 'Visit: receipt, warranty and rating link'),
+    ('visit_lab_check', 'Visit: device taken to the lab for a check'),
+    ('visit_no_repair', 'Visit: not repaired (with the reason)'),
+    ('visit_part_sourcing', 'Visit: part asked of the office, price follows'),
 ]
 
 
@@ -16,8 +21,4 @@ class OnlineServiceMessage(models.Model):
     key = fields.Selection(selection_add=VISIT_KEYS,
                            ondelete={k: 'cascade' for k, _label in VISIT_KEYS})
     body = fields.Text(
-        help="Placeholders: {name} customer, {order} order no., {status}, {job_card} job card no., "
-             "{site} website name, {track_url} tracking link, {summary} what was booked. "
-             "Visit messages also have {technician}, {technician_phone}, {eta} (e.g. 'about 15 min') "
-             "and {code} (the arrival code). The technician's link message has {tech_url} "
-             "(their visit page, which shares their location), {area} and {address}.")
+        help="The message the customer gets. Tap the buttons under the box to add their name, the order number, links and more; \"Customers see\" shows how it reads.")

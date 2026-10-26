@@ -61,7 +61,9 @@ class TestVisitResult(DoorstepCase):
         _order, visit, _token = self._working()
         before = len(self.sent)
         self._wizard(visit, found='Loose cable, fixed').action_fixed()
-        self.assertEqual(visit.state, 'done')
+        # repaired: the visit stays open to finish (after photo, payment, the customer's code)
+        self.assertEqual(visit.state, 'in_progress')
+        self.assertEqual(visit.close_stage, 'finish')
         self.assertEqual(visit.check_result, 'fixed')
         self.assertFalse([t for _p, t in self.sent[before:] if '/quote?' in t])   # no quotation
 
@@ -89,7 +91,7 @@ class TestVisitResult(DoorstepCase):
         self.assertEqual(visit.check_result, 'repairing')
         self.assertEqual(visit.job_card_id.quote_state, 'accepted')
         visit._vr_fixed()
-        self.assertEqual(visit.state, 'done')
+        self.assertEqual(visit.close_stage, 'finish')
         self.assertEqual(visit.check_result, 'fixed')
 
     def test_in_office_take_approved_by_link(self):

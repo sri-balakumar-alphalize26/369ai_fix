@@ -21,3 +21,11 @@ class ResCompany(models.Model):
              "before the visit can be marked Arrived.")
     fs_show_tech_phone = fields.Boolean(
         "Show technician's phone to the customer", default=True)
+    fix_warranty_days = fields.Integer(
+        'Repair warranty (days)', default=30,
+        help="The customer's receipt after a doorstep repair says the repair is under warranty until "
+             "this many days later. 0: no warranty line.")
+    fix_review_url = fields.Char(
+        'Review link (Google)',
+        help="Customers who give 4 or 5 stars after a visit are also offered this link "
+             "(e.g. your Google review page). Empty: not offered.")

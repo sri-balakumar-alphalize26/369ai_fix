@@ -1,0 +1,112 @@
+---
+// The link in the customer's receipt after a doorstep repair: /rate?v=<visit>&t=<token>.
+// 1-5 stars and a few words, once; 4-5 stars are also offered the review link set in Odoo
+// (Repair Settings > After the repair).
+import Base from '../layouts/Base.astro';
+import { getContent, contactOf } from '../lib/content';
+import { hostOf } from '../lib/odoo';
+export const prerender = false;
+const content = await getContent(hostOf(Astro.request));
+const phone = contactOf(content.site).display;
+---
+
+<Base title="Rate your visit" description="Tell us how your repair visit went." quiet content={content}>
+  <section class="page-head">
+    <div class="wrap">
+      <span class="eyebrow">Your repair</span>
+      <h1 class="h-xl">How did <span class="grad-text">we do?</span></h1>
+      <p class="lead" data-r-lead>Loading…</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap rs" data-rs data-phone={phone}>
+      <form class="rs-card" data-r-form hidden>
+        <p class="rs-q" id="rs-q">Your rating</p>
+        <!-- 5 down to 1, drawn right to left: picking a star lights it and the ones before it -->
+        <div class="rs-stars" role="radiogroup" aria-labelledby="rs-q">
+          <label><input type="radio" name="stars" value="5" /><span aria-hidden="true">★</span><b>5 stars</b></label>
+          <label><input type="radio" name="stars" value="4" /><span aria-hidden="true">★</span><b>4 stars</b></label>
+          <label><input type="radio" name="stars" value="3" /><span aria-hidden="true">★</span><b>3 stars</b></label>
+          <label><input type="radio" name="stars" value="2" /><span aria-hidden="true">★</span><b>2 stars</b></label>
+          <label><input type="radio" name="stars" value="1" /><span aria-hidden="true">★</span><b>1 star</b></label>
+        </div>
+        <label class="rs-note">Anything you'd like to tell us? <small>(optional)</small>
+          <textarea data-r-note rows="3" maxlength="1000" placeholder="What went well, what could be better"></textarea>
+        </label>
+        <button type="submit" class="rs-btn" data-r-send>Send my rating</button>
+      </form>
+      <div class="rs-card rs-done" data-r-done hidden>
+        <p class="rs-big" data-r-thanks></p>
+        <a class="rs-btn" data-r-review href="#" target="_blank" rel="noopener" hidden>Review us on Google</a>
+      </div>
+      <p class="rs-msg" data-r-msg role="alert" hidden></p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const $ = <T extends Element = HTMLElement>(s: string) => document.querySelector<T>(s)!;
+  const phone = $('[data-rs]').dataset.phone!;
+  const q = new URLSearchParams(location.search);
+  const v = q.get('v') || '', t = q.get('t') || '';
+  const msg = (m: string) => { const el = $('[data-r-msg]'); el.textContent = m; el.hidden = !m; };
+  const BAD = `This link doesn't work — please call us on ${phone}.`;
+
+  function thanks(r: any) {
+    $('[data-r-form]').hidden = true;
+    $('[data-r-done]').hidden = false;
+    $('[data-r-thanks]').textContent = `Thank you! You gave ${r.rating} star${r.rating === 1 ? '' : 's'}.`;
+    const review = $<HTMLAnchorElement>('[data-r-review]');
+    review.hidden = !r.review_url;
+    if (r.review_url) review.href = r.review_url;
+  }
+
+  async function load() {
+    const r = await fetch(`/api/visit?page=rate&v=${encodeURIComponent(v)}&t=${encodeURIComponent(t)}`).then((x) => x.json()).catch(() => ({ ok: false }));
+    if (!r.ok) { $('[data-r-lead]').textContent = ''; msg(r.error === 'unknown' ? BAD : "We can't load this right now. Please try again in a minute."); return; }
+    $('[data-r-lead]').textContent = `Hi ${r.customer || 'there'} — your visit ${r.order ? `for ${r.order} ` : ''}with ${r.technician || 'our technician'}.`;
+    if (r.rated) thanks(r); else $('[data-r-form]').hidden = false;
+  }
+
+  $('[data-r-form]').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const stars = Number(document.querySelector<HTMLInputElement>('input[name="stars"]:checked')?.value || 0);
+    if (!stars) { msg('Tap the stars to choose your rating.'); return; }
+    msg('');
+    const btn = $<HTMLButtonElement>('[data-r-send]');
+    btn.disabled = true;
+    const r = await fetch('/api/visit', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ v, t, action: 'rate', stars, note: $<HTMLTextAreaElement>('[data-r-note]').value }) })
+      .then((x) => x.json()).catch(() => ({ ok: false }));
+    btn.disabled = false;
+    if (!r.ok) { msg(r.error === 'unknown' ? BAD : 'That did not work — please try again.'); return; }
+    thanks(r);
+  });
+
+  if (!v || !t) msg(BAD); else load();
+</script>
+
+<style>
+  .rs { max-width: 560px; display: grid; gap: 14px; }
+  .rs-card { padding: 22px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); display: grid; gap: 16px; }
+  .rs-card[hidden], .rs-msg[hidden], .rs-btn[hidden] { display: none; }
+  /* five stars in a row; picking one lights it and the ones before it */
+  .rs-q { margin: 0 0 -8px; font-weight: 700; color: var(--ink); }
+  .rs-stars { display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 6px; }
+  .rs-stars label { position: relative; cursor: pointer; }
+  .rs-stars input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .rs-stars label span { display: grid; place-items: center; width: 52px; height: 52px; font-size: 38px; line-height: 1; color: var(--line); transition: color .15s, transform .15s; }
+  .rs-stars label b { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .rs-stars label:hover span, .rs-stars label:hover ~ label span,
+  .rs-stars input:checked + span, .rs-stars label:has(input:checked) ~ label span { color: #f5a623; }
+  .rs-stars input:focus-visible + span { outline: 2px solid var(--violet); outline-offset: 2px; border-radius: 10px; }
+  @media (prefers-reduced-motion: no-preference) { .rs-stars label:hover span { transform: scale(1.1); } }
+  .rs-note { display: grid; gap: 8px; font-weight: 600; color: var(--ink); }
+  .rs-note small { font-weight: 500; color: var(--ink-3); }
+  .rs-note textarea { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; resize: vertical; }
+  .rs-btn { display: inline-flex; align-items: center; justify-content: center; height: 50px; padding: 0 22px; border: 0; border-radius: 14px; background: var(--violet); color: #fff; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none; justify-self: start; }
+  .rs-btn:disabled { opacity: .6; }
+  .rs-big { margin: 0; font-size: 18px; font-weight: 700; color: var(--ink); }
+  .rs-msg { margin: 0; color: #9F1239; font-weight: 600; }
+</style>

@@ -21,3 +21,8 @@ class ProductTemplate(models.Model):
         string='Fits device types',
         help='Spare parts: the device types this part fits. At the visit it is only offered for those '
              '(empty: any device).')
+    fix_part_grade = fields.Selection(
+        [('original', 'Original'), ('compatible', 'Compatible'), ('refurbished', 'Refurbished')],
+        string='Grade',
+        help='Spare parts: the brand\'s original part, a compatible copy or a refurbished one. At the visit '
+             'the technician can offer two grades of the same part, and the customer chooses one.')
