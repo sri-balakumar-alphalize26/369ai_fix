@@ -137,6 +137,7 @@
     .fxd-moved { padding: 8px 12px; border-radius: 10px; background: var(--fxd-blue-soft); color: var(--fxd-blue); font-size: 13px; }
     .fxd-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border-radius: var(--fxd-radius); background: var(--fxd-card); border: 1px solid var(--fxd-line); box-shadow: var(--fxd-shadow); }
     .fxd-assign { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+    .fxd-off-note { width: 100%; margin: 4px 0 0; font-size: 12.5px; }
     .fxd-pick, .fxd-in { flex: 1 1 220px; width: auto; min-height: 44px; padding: 8px 12px; border: 1px solid var(--fxd-line); border-radius: 12px; background: var(--fxd-card); color: var(--fxd-ink); font-size: 14px; font-weight: 600; }
     .fxd-pick:focus, .fxd-in:focus { outline: 2px solid rgba(46, 139, 70, .35); border-color: var(--fxd-green); }
     .fxd-cancel { padding-top: 8px; border-top: 1px dashed var(--fxd-line); }

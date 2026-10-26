@@ -45,6 +45,7 @@ const HINTS = {
 
 const BUTTONS = {
     approve: { label: "Approve", kind: "primary", icon: "fa-check" },
+    book_time: { label: "Book a time", kind: "primary", icon: "fa-calendar-plus-o" },
     call: { label: "Call", kind: "ghost", icon: "fa-phone" },
     reject: { label: "Reject", kind: "danger-ghost", icon: "fa-times" },
     seen: { label: "Seen", kind: "primary", icon: "fa-eye" },
@@ -64,6 +65,7 @@ const BUTTONS = {
     take: { label: "Take the device", kind: "primary", icon: "fa-building" },
     office: { label: "Repair at office", kind: "ghost", icon: "fa-building" },
     cancel_visit: { label: "Cancel visit", kind: "danger-ghost", icon: "fa-ban" },
+    finish_skip: { label: "Finish without code", kind: "ghost", icon: "fa-flag-checkered" },
 };
 
 export class FixDesk extends Component {
@@ -105,6 +107,8 @@ export class FixDesk extends Component {
             techPick: 0,
             askCancel: false,
             cancelReason: "",
+            askFinish: false,
+            finishReason: "",
             media: null,      // the customer's photo / video open in the viewer
             // the pane's tabs: the overview, or the booking / a job card / the visit drawn by
             // the green record screen, or the notes of all three
@@ -257,7 +261,9 @@ export class FixDesk extends Component {
             if (this.state.selectedId === id) {
                 this.state.detail = detail;
                 if (detail.visit && detail.visit.technician_id) {
-                    this.state.techPick = detail.visit.technician_id;
+                    // the technician already on it, unless they are off that day
+                    const tech = this.state.technicians.find((t) => t.id === detail.visit.technician_id);
+                    this.state.techPick = tech && this.offOn(tech, detail) ? 0 : detail.visit.technician_id;
                 }
             }
         } catch {
@@ -310,6 +316,18 @@ export class FixDesk extends Component {
             this.state.askCancel = true;
             return;
         }
+        if (what === "finish_skip" && !this.state.askFinish) {
+            this.state.askFinish = true;
+            this.state.finishReason = "";
+            return;
+        }
+        if (what === "book_time") {
+            // staff pick the visit time for the customer (on the phone): the green time picker
+            if (await this.popup.pickSlot(id)) {
+                await this.load({ force: true });
+            }
+            return;
+        }
         this.state.busy = id;
         try {
             const kwargs = { stage: this.state.stage, ...extra };
@@ -318,6 +336,9 @@ export class FixDesk extends Component {
             }
             if (what === "cancel_visit") {
                 kwargs.reason = this.state.cancelReason;
+            }
+            if (what === "finish_skip") {
+                kwargs.reason = this.state.finishReason;
             }
             let res;
             try {
@@ -328,6 +349,7 @@ export class FixDesk extends Component {
                 return;
             }
             this.state.askCancel = false;
+            this.state.askFinish = false;
             if (res && res.action) {
                 // a wizard: drawn as a green pop-up (only what stays in Odoo goes to Odoo)
                 await this.popup.doAction(res.action, { onClose: () => this.load({ force: true }) });
@@ -340,6 +362,15 @@ export class FixDesk extends Component {
         } finally {
             this.state.busy = 0;
         }
+    }
+
+    /** Is this technician off on the booking's day (Configuration > Days Off)? */
+    offOn(tech, d) {
+        return !!(d && d.slot_date && tech && (tech.off || []).includes(d.slot_date));
+    }
+
+    offNames(d) {
+        return this.state.technicians.filter((t) => this.offOn(t, d)).map((t) => t.name).join(", ");
     }
 
     button(key) {

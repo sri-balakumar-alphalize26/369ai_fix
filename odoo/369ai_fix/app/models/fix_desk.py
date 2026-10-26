@@ -100,7 +100,17 @@ class OnlineServiceOrder(models.Model):
             ('company_id', 'in', self.env.companies.ids),
             '|', '|', ('user_id', '!=', False), ('mobile_phone', '!=', False), ('work_phone', '!=', False),
         ], order='name')
-        return [{'id': e.id, 'name': e.name, 'phone': e.mobile_phone or e.work_phone or ''}
+        # their coming days off, so the assign list leaves out who is off on the booking's day
+        today = fields.Date.context_today(self)
+        off = {}
+        for day_off in self.env['fix.technician.day.off'].sudo().search(
+                [('employee_id', 'in', employees.ids), ('date_to', '>=', today)]):
+            day = max(day_off.date_from, today)
+            while day <= day_off.date_to and day <= today + timedelta(days=90):
+                off.setdefault(day_off.employee_id.id, []).append(fields.Date.to_string(day))
+                day += timedelta(days=1)
+        return [{'id': e.id, 'name': e.name, 'phone': e.mobile_phone or e.work_phone or '',
+                 'takes_visits': e.fix_takes_visits, 'off': off.get(e.id, [])}
                 for e in employees if e not in placeholders]
 
     # ------------------------------------------------------------------
@@ -263,8 +273,9 @@ class OnlineServiceOrder(models.Model):
         if stage == 'calling':
             return ['approve', 'reject']
         if stage == 'approved':
-            # no time yet: the technician gets the link once the customer picks one (booking/)
-            return ['call']
+            # no time yet: the customer picks one from their link or My orders, or staff book it here
+            # (on the phone); the technician gets the link with the time (booking/)
+            return ['book_time', 'call']
         if stage == 'booked':
             return ['seen', 'call']
         if stage == 'to_assign':
@@ -283,6 +294,10 @@ class OnlineServiceOrder(models.Model):
             return acts + ['call']
         if stage == 'working':
             acts = []
+            if visit and visit.state == 'in_progress' and visit.close_stage == 'finish':
+                # repair done: the technician takes the photo, the payment and the customer's code
+                manager = self.env.user.has_group('mobile_repair.group_mobile_repair_manager')
+                return (['finish_skip'] if manager else []) + ['call']
             if visit and visit.state == 'in_progress':
                 # what the technician found -> the quotation first -> the customer's OK (visits/visit_result.py)
                 acts += {
@@ -325,6 +340,18 @@ class OnlineServiceOrder(models.Model):
             'live': visit.state in OPEN_STATES,
         }
 
+    def _fix_desk_prize(self):
+        """The Spin & Win prize on this booking, else the customer's prize still to be used
+        (so the desk can remind them); None when there is none or the wheel is switched off."""
+        self.ensure_one()
+        order = self.sudo()
+        win = order.spin_win_id or (order.partner_id._spin_current_win() if order.partner_id else None)
+        if not win or not win.site_id.wheel_show:
+            return None
+        return {'id': win.id, 'prize': win.prize or '', 'code': win.code, 'given': bool(win.given_on),
+                'on_booking': win == order.spin_win_id,
+                'valid_until': fields.Date.to_string(win.valid_until) if win.valid_until else ''}
+
     def fix_desk_detail(self):
         """Everything the detail pane shows for this order."""
         self.ensure_one()
@@ -357,6 +384,8 @@ class OnlineServiceOrder(models.Model):
             'email': order.email or '',
             'problem': order.problem or '',
             'note': order.note or '',
+            'prize': order._fix_desk_prize(),
+            'slot_date': fields.Date.to_string(order.slot_date) if order.slot_date else '',
             'lines': [{'id': l.id, 'device': l.device or '', 'model': l.model or '', 'issue': l.issue or '',
                        'qty': l.qty or 1, 'price': l.product_id.lst_price if l.product_id else None}
                       for l in order.line_ids],
@@ -415,6 +444,17 @@ class OnlineServiceOrder(models.Model):
                 'arrival_verified_on': _dt(visit.arrival_verified_on),
                 'arrived_distance_m': visit.arrived_distance_m,
                 'cancel_reason': visit.cancel_reason or '',
+                # after the repair (visits/visit_closeout.py)
+                'finishing': visit.close_stage == 'finish' and visit.state == 'in_progress',
+                'finish_code': (visit.finish_code if receptionist and visit.close_stage == 'finish'
+                                and visit.state == 'in_progress' else ''),
+                'finish_missing': visit._co_missing() if visit.close_stage == 'finish' else [],
+                'paid_text': visit._co_paid_text() if visit.paid_on else '',
+                'warranty_until': fields.Date.to_string(visit.warranty_until) if visit.warranty_until else '',
+                'rating': visit.rating or 0,
+                'rating_note': visit.rating_note or '',
+                'outcome_label': (dict(visit._fields['check_outcome'].selection).get(visit.check_outcome, '')
+                                  if visit.check_outcome else ''),
                 'stale': visit.tech_stale,
                 'fix_age_s': visit.tech_fix_age_s,
                 'directions_url': visit.directions_url or '',
@@ -443,6 +483,11 @@ class OnlineServiceOrder(models.Model):
         if order.state != 'confirmed':
             raise UserError(_("Approve %s before assigning a technician.", order.name))
         placeholder = order._fix_desk_placeholder()
+        # a technician on a day off (Configuration > Days Off) does not get that day's visit
+        day = getattr(order, 'slot_date', False)
+        if day and technician._fix_off_on(day):
+            raise UserError(_("%(tech)s is off on %(day)s: choose another technician.",
+                              tech=technician.name, day=day.strftime('%a %d %b')))
         cards = order.job_card_ids.filtered(lambda c: c.state not in ('completed', 'cancelled'))
         cards.filtered(lambda c: not c.assigned_to or c.assigned_to == placeholder or c.state == 'draft') \
             .write({'assigned_to': technician.id})
@@ -530,6 +575,8 @@ class OnlineServiceOrder(models.Model):
             self._fix_desk_require_visit()._vr_decide_later()
         elif action == 'take':
             return wizard(self._fix_desk_require_visit().action_open_take())
+        elif action == 'finish_skip':
+            self._fix_desk_require_visit().with_env(self.env).action_finish_without_code(reason)
         elif action == 'cancel_visit':
             visit = self._fix_desk_require_visit()
             if reason:

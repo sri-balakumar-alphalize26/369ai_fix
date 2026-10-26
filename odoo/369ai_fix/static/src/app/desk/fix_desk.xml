@@ -199,20 +199,29 @@
                         <div class="fxd-assign">
                             <select class="fxd-pick" t-model.number="state.techPick" aria-label="Technician">
                                 <option value="0">Choose the technician…</option>
+                                <!-- whoever is off on the booking's day is left out (Configuration > Days Off) -->
                                 <t t-foreach="state.technicians" t-as="tech" t-key="tech.id">
-                                    <option t-att-value="tech.id"><t t-esc="tech.name"/><t t-if="tech.phone"> · <t t-esc="tech.phone"/></t></option>
+                                    <option t-if="!offOn(tech, d)" t-att-value="tech.id"><t t-esc="tech.name"/><t t-if="tech.phone"> · <t t-esc="tech.phone"/></t></option>
                                 </t>
                             </select>
                             <button t-attf-class="fxd-btn fxd-btn-{{ b.kind }}" t-att-disabled="state.busy" t-on-click="() => this.act('assign')">
                                 <i t-attf-class="fa {{ b.icon }}"/> <t t-esc="b.label"/>
                             </button>
                         </div>
+                        <p class="fxd-muted fxd-off-note" t-if="offNames(d)">Off that day: <t t-esc="offNames(d)"/></p>
                     </t>
                     <t t-elif="key === 'cancel_visit' and state.askCancel">
                         <div class="fxd-assign fxd-cancel">
                             <input class="fxd-in" type="text" placeholder="Why? (optional, kept on the visit)" t-model="state.cancelReason"/>
                             <button class="fxd-btn fxd-btn-danger" t-att-disabled="state.busy" t-on-click="() => this.act('cancel_visit')"><i class="fa fa-ban"/> Yes, cancel the visit</button>
                             <button class="fxd-btn fxd-btn-ghost" t-on-click="() => state.askCancel = false">Keep it</button>
+                        </div>
+                    </t>
+                    <t t-elif="key === 'finish_skip' and state.askFinish">
+                        <div class="fxd-assign fxd-cancel">
+                            <input class="fxd-in" type="text" placeholder="Why without the customer's code? (kept on the visit)" t-model="state.finishReason"/>
+                            <button class="fxd-btn fxd-btn-primary" t-att-disabled="state.busy or !state.finishReason.trim()" t-on-click="() => this.act('finish_skip')"><i class="fa fa-flag-checkered"/> Finish the visit</button>
+                            <button class="fxd-btn fxd-btn-ghost" t-on-click="() => state.askFinish = false">Back</button>
                         </div>
                     </t>
                     <button t-else="" t-attf-class="fxd-btn fxd-btn-{{ b.kind }}" t-att-disabled="state.busy" t-on-click="() => this.act(key)">
@@ -284,6 +293,15 @@
                     </div>
                 </section>
 
+                <!-- Spin & Win: the prize on this booking, or one the customer still holds -->
+                <section class="fxd-box" t-if="d.prize">
+                    <h3><i class="fa fa-gift"/> Spin &amp; Win prize</h3>
+                    <div><b t-esc="d.prize.prize"/> <span class="fxd-muted">· code <t t-esc="d.prize.code"/></span></div>
+                    <div class="fxd-muted" t-if="d.prize.on_booking and d.prize.given">Given to the customer.</div>
+                    <div class="fxd-muted" t-elif="d.prize.on_booking">On this booking, free on the job card. The technician marks it given.</div>
+                    <div class="fxd-muted" t-else="">Not on this booking yet. The customer can use it until <t t-esc="d.prize.valid_until"/>.</div>
+                </section>
+
                 <!-- the customer's words, photos, video -->
                 <section class="fxd-box" t-if="d.problem or d.note or d.photos.length or d.videos">
                     <h3><i class="fa fa-comment-o"/> Customer says</h3>
@@ -327,6 +345,16 @@
                         <span>Arrival code</span><b t-esc="d.visit.arrival_code"/>
                         <small>The customer reads it out at the door.</small>
                     </div>
+                    <!-- after the repair: photo, payment, the customer's finish code -->
+                    <div class="fxd-code" t-if="d.visit.finish_code">
+                        <span>Finish code</span><b t-esc="d.visit.finish_code"/>
+                        <small>The customer gives it to the technician when happy with the repair.</small>
+                    </div>
+                    <div class="fxd-muted" t-if="d.visit.finishing and d.visit.finish_missing.length">Still to do: <t t-esc="d.visit.finish_missing.join(', ')"/></div>
+                    <div class="fxd-muted" t-if="d.visit.outcome_label">Found: <b t-esc="d.visit.outcome_label"/></div>
+                    <div class="fxd-muted" t-if="d.visit.paid_text"><i class="fa fa-money"/> Paid at the door: <b t-esc="d.visit.paid_text"/></div>
+                    <div class="fxd-muted" t-if="d.visit.warranty_until"><i class="fa fa-shield"/> Warranty until <t t-esc="d.visit.warranty_until"/></div>
+                    <div class="fxd-muted" t-if="d.visit.rating"><i class="fa fa-star"/> Rated <b><t t-esc="d.visit.rating"/>/5</b><t t-if="d.visit.rating_note">: “<t t-esc="d.visit.rating_note"/>”</t></div>
                     <ol class="fxd-timeline" t-if="d.visit.timeline.length">
                         <t t-foreach="d.visit.timeline" t-as="step" t-key="step.key">
                             <li t-att-class="{ 'fxd-done': step.done, 'fxd-now': step.current }">
