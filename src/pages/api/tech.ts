@@ -11,7 +11,9 @@
 //   POST {v, t, action: 'result_approved_here' | 'result_declined_here' | 'result_later' | 'result_take' {accessory_ids, no_accessories}}
 //   POST {v, t, action: 'result_outcome', outcome, note?, days?, unit?}   "Can it be fixed?"
 //   POST {v, t, action: 'result_price', price, line_id? | product_id?}     the repair's (labour) price
-//   POST {v, t, action: 'result_request', name, price?, data?}            a part not in the list: ask the office
+//   POST {v, t, action: 'result_labour', price}                           Labour only: the charge (0 = free)
+//   POST {v, t, action: 'result_request', name?, price?, data?}           a part not in the list: the office sources it (visit closes)
+//   POST {v, t, action: 'result_ask', name, price?, data?}  /  'result_ask_cancel'   ask the office and wait at the door
 //   POST {v, t, action: 'result_alts' | 'result_choose', line_id}          another grade of a part / keep this grade
 //   POST {v, t, action: 'close_photo' {data} | 'close_clear' | 'close_pay' {method_id, amount?} | 'close_free' | 'close_code' {code}}   Finish
 import type { APIRoute } from 'astro';
@@ -31,6 +33,10 @@ const ACTIONS = new Set(['ping', 'on_the_way', 'arrive', 'start', 'done',
   'result_approved_here', 'result_declined_here', 'result_later', 'result_take',
   // can it be fixed?, the labour price, a part not in the list, two grades of a part
   'result_outcome', 'result_price', 'result_request', 'result_alts', 'result_choose',
+  // a part asked of the office while the technician waits (the office answers on the Booking Desk)
+  'result_ask', 'result_ask_cancel',
+  // Labour only: the labour charge (0 = free); any charge is quoted to the customer first
+  'result_labour',
   // after the repair: the photo, the payment and the customer's finish code
   'close_photo', 'close_clear', 'close_pay', 'close_free', 'close_code']);
 const MAX_B64 = 42 * 1024 * 1024;   // a 30 MB video, base64

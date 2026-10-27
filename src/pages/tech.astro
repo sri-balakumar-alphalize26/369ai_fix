@@ -39,6 +39,12 @@ export const prerender = false;
           <button type="button" class="tv-btn big" data-tv-prizego hidden>Given ✓</button>
         </div>
 
+        <!-- every part asked of the office for this booking, and the answer (kept for good, at every step) -->
+        <div class="tv-card vr-asks" data-vr-asks hidden>
+          <h3>Part questions <small data-vr-askcount></small></h3>
+          <div data-vr-asklist></div>
+        </div>
+
         <!-- after arriving: the safety check and the device photos; Start work waits for them -->
         <div class="tv-card tv-ck" data-vc hidden>
           <h3>Before you start</h3>
@@ -99,19 +105,36 @@ export const prerender = false;
             </div>
 
             <div data-vr-priced hidden>
-              <h4>Repair price <small>(type it when it is “price after check” or not right)</small></h4>
-              <div class="vc-list" data-vr-services></div>
+              <div data-vr-pricebox>
+                <h4>Repair price <small>(type it when it is “price after check” or not right)</small></h4>
+                <div class="vc-list" data-vr-services></div>
+              </div>
+              <!-- Labour only: free by default; a charge goes to the customer for their OK first -->
+              <div data-vr-labourbox hidden>
+                <h4>Labour charge</h4>
+                <label class="vr-free"><input type="checkbox" data-vr-free /> <span>No labour charge (free)</span></label>
+                <div class="vc-row" data-vr-lrow hidden>
+                  <span class="vc-st">Charge for labour</span>
+                  <span class="vr-price"><small data-vr-lcur></small><input type="number" min="0" step="any" inputmode="decimal" data-vr-lcharge placeholder="0" aria-label="Labour charge" />
+                    <button type="button" class="tv-btn ghost sm" data-vr-lsave>Save</button></span>
+                </div>
+                <p class="tv-hint" data-vr-lhint></p>
+              </div>
 
               <div data-vr-partsbox>
                 <h4>Parts</h4>
                 <div class="vc-list" data-vr-lines></div>
                 <p class="tv-hint" data-vr-sughint></p>
                 <div class="vc-list" data-vr-suggest></div>
+                <!-- searched as you type: the parts (or "not found") show right under the box -->
                 <form class="vr-search" data-vr-search>
-                  <input data-vr-q type="search" placeholder="Not listed? Search a part" />
-                  <button type="submit" class="tv-btn ghost sm">Search</button>
+                  <input data-vr-q type="search" placeholder="Not listed? Type a part name or code" aria-label="Search a part" autocomplete="off" />
+                  <span class="vr-wait" data-vr-wait hidden aria-hidden="true"></span>
                 </form>
+                <p class="vr-none" data-vr-none role="status" hidden></p>
                 <div class="vc-list" data-vr-found></div>
+                <!-- a part asked of the office: wait at the door for its answer (it shows here by itself) -->
+                <div class="vr-ask" data-vr-ask role="status" aria-live="polite" hidden></div>
                 <button type="button" class="vc-link" data-vr-reqtoggle>No matching part? Ask the office</button>
                 <div class="vr-sub" data-vr-req hidden>
                   <label class="vr-field">Part name<input data-vr-reqname maxlength="120" placeholder="e.g. iPad 10 charging flex" /></label>
@@ -120,7 +143,8 @@ export const prerender = false;
                     <span class="vc-st" data-vr-reqph>A photo of the part helps the office.</span>
                     <label class="tv-btn ghost sm">Take photo<input type="file" accept="image/*" capture="environment" data-vr-reqpin hidden /></label>
                   </div>
-                  <button type="button" class="tv-btn big" data-vr-reqgo>Ask the office (closes the visit)</button>
+                  <button type="button" class="tv-btn big" data-vr-reqgo>Send to the office and wait</button>
+                  <button type="button" class="vc-link" data-vr-reqlater>Don't wait: the office finds it later (closes the visit)</button>
                 </div>
               </div>
 
@@ -169,6 +193,8 @@ export const prerender = false;
             <p class="tv-hint">Tick what you take with the device:</p>
             <label class="vc-item"><input type="checkbox" data-vr-noacc /> <span>Device only (no accessories)</span></label>
             <div class="vr-acc" data-vr-acc></div>
+            <!-- counted, so the office and the customer can check every item comes back -->
+            <p class="vr-acc-count" data-vr-acccount role="status"></p>
             <button type="button" class="tv-btn big" data-vr-take>Take the device</button>
           </div>
         </div>
@@ -296,6 +322,16 @@ export const prerender = false;
     const call = $<HTMLAnchorElement>('[data-tv-call]'), dir = $<HTMLAnchorElement>('[data-tv-dir]');
     call.hidden = !c.phone; if (c.phone) call.href = 'tel:+' + String(c.phone).replace(/\D/g, '');
     dir.hidden = !d.directions_url; if (d.directions_url) dir.href = d.directions_url;
+
+    // every part asked of the office for this booking, and the answer: at every step
+    const history: any[] = d.ask_history || [];
+    $('[data-vr-asks]').hidden = !history.length;
+    $('[data-vr-askcount]').textContent = `(${history.length})`;
+    $('[data-vr-asklist]').innerHTML = history.map((a: any) => `<div class="vr-asks-row vr-asks-${esc(a.state)}">
+      <b>${esc(a.name)}</b> <small>· ${esc(a.state_label)}</small>
+      ${a.state === 'found' ? `<br /><span>${esc(a.part)} · ${money({ currency: a.currency, decimals: 3 }, a.price)}</span>` : ''}
+      ${a.reply ? `<br /><span>${esc(a.reply)}</span>` : ''}
+      <br /><small>${esc(a.technician || '')}${a.asked_on ? ` · ${esc(new Date(a.asked_on.replace(' ', 'T') + 'Z').toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}` : ''}${a.by ? ` · answered by ${esc(a.by)}` : ''}</small></div>`).join('');
 
     const pz = d.prize;
     $('[data-tv-prize]').hidden = !pz;
@@ -439,8 +475,43 @@ export const prerender = false;
   // "Can it be fixed?": lab / no repair are chosen here, then confirmed; parts / labour are saved at once
   const NO_REPAIR = ['no_fault', 'not_worth', 'warranty'];
   let outcome = '', savedOutcome = '', altsFor = 0, alts: any[] = [], reqPhoto = '';
+  let labourOpen = false;   // Labour only: the charge box open, before a charge is saved
   const prices: Record<string, string> = {};
   const svcKey = (s: any) => String(s.line_id || `p${s.product_id}`);
+
+  // The part asked of the office, and its answer. While it waits, the "ask" form is hidden.
+  let askWas = '';
+  function renderAsk(r: any) {
+    const ask = r.ask, box = $('[data-vr-ask]');
+    const tel = r.office_phone ? `tel:${String(r.office_phone).replace(/[^\d+]/g, '')}` : '';
+    const call = (cls: string) => tel ? `<a class="tv-btn ${cls} sm" href="${esc(tel)}">Call the office</a>` : '';
+    box.hidden = !ask;
+    box.className = `vr-ask${ask ? ` vr-ask-${ask.state}` : ''}`;
+    if (ask?.state === 'asked') {
+      box.innerHTML = `<b><span class="vr-wait-dot"></span> Asked the office: ${esc(ask.name)}</b>
+        <span>Waiting for the answer. It shows here by itself.</span>
+        <div class="vr-ask-acts">${call('')}
+          <button type="button" class="tv-btn ghost sm" data-vr-asklater>Don't wait, close the visit</button>
+          <button type="button" class="vc-link" data-vr-askcancel>Take the question back</button></div>`;
+    } else if (ask?.state === 'found') {
+      box.innerHTML = `<b>The office added: ${esc(ask.part)} · ${money(r, ask.part_price)}</b>
+        ${ask.reply ? `<span>${esc(ask.reply)}</span>` : ''}<span>It is in the parts above: fix it, or send the quotation.</span>`;
+    } else if (ask) {
+      box.innerHTML = `<b>The office: ${esc(ask.name)} is not available</b>${ask.reply ? `<span>${esc(ask.reply)}</span>` : ''}
+        <span>Choose what next: e.g. "Not worth repairing" or "Needs lab check" above.</span>
+        ${tel ? `<div class="vr-ask-acts">${call('ghost')}</div>` : ''}`;
+    }
+    const waiting = ask?.state === 'asked';
+    $('[data-vr-reqtoggle]').hidden = waiting;
+    $('[data-vr-reqtoggle]').textContent = ask ? 'Ask the office about another part' : 'No matching part? Ask the office';
+    if (waiting) $('[data-vr-req]').hidden = true;
+    // the answer just came: say so (the phone may be in the technician's pocket)
+    if (askWas === 'asked' && ask && ask.state !== 'asked') {
+      msg(ask.state === 'found' ? `The office added ${ask.part}.` : `The office: ${ask.name} is not available.`);
+      navigator.vibrate?.(200);
+    }
+    askWas = ask?.state || '';
+  }
 
   function renderResult(r: any) {
     show('[data-vr]', !!r);
@@ -480,6 +551,7 @@ export const prerender = false;
       || '<p class="tv-hint">No parts added.</p>';
     renderIssues(r);
     renderSuggest(r);
+    renderAsk(r);
     const services: any[] = r.services || [];
     $('[data-vr-services]').innerHTML = services.map((s: any) => `<div class="vc-row">
       <span class="vc-st">${esc(s.name)}${s.qty > 1 ? ` ×${s.qty}` : ''}</span>
@@ -489,6 +561,21 @@ export const prerender = false;
       || `<div class="vc-row"><span class="vc-st"><small>No repair on the job card yet. Add the labour:</small></span>
         <span class="vr-price"><small>${esc(r.currency || '')}</small><input type="number" min="0" step="any" inputmode="decimal" data-vr-labour placeholder="0" aria-label="Labour price" />
         <button type="button" class="tv-btn ghost sm" data-vr-labouradd>Add</button></span></div>`;
+    // Labour only: free by default, or a charge the customer approves first
+    const lab = outcome === 'labour';
+    show('[data-vr-pricebox]', !lab);
+    show('[data-vr-labourbox]', lab);
+    if (lab) {
+      const free = r.labour === 'free' && !labourOpen;
+      $<HTMLInputElement>('[data-vr-free]').checked = free;
+      show('[data-vr-lrow]', !free);
+      $('[data-vr-lcur]').textContent = r.currency || '';
+      const box = $<HTMLInputElement>('[data-vr-lcharge]');
+      box.placeholder = r.labour && r.labour !== 'free' ? String(r.labour) : '0';
+      $('[data-vr-lhint]').textContent = free ? 'Free for the customer: fix it and tap Fixed on the spot.'
+        : r.labour && r.labour !== 'free' ? `Charge ${money(r, r.labour)}: send it for the customer's OK below, before the repair.`
+          : 'Type the charge and Save. The customer approves it before the repair.';
+    }
     $('[data-vr-total]').innerHTML = `<span>Total${r.approved ? ` <small>· customer agreed ${esc(money(r, r.approved))}</small>` : ''}</span><b>${esc(money(r, r.total))}</b>`;
     const quoted = r.lines.length > 0 || !!r.needs_quote;
     show('[data-vr-plan]', quoted);
@@ -514,6 +601,14 @@ export const prerender = false;
     show('[data-vr-daysbox]', ['take', 'come_back', 'order_take'].includes(p));
     $('[data-vr-dayslabel]').textContent = p === 'order_take' ? 'Repair after the part arrives' : 'Fixed within';
     $('[data-vr-acc]').hidden = $<HTMLInputElement>('[data-vr-noacc]').checked;
+    accCount();
+  }
+  // the accessories taken, counted as he ticks (the office and the customer check them against it)
+  function accCount() {
+    const only = $<HTMLInputElement>('[data-vr-noacc]').checked;
+    const n = document.querySelectorAll('[data-vr-accid]:checked').length;
+    $('[data-vr-acccount]').innerHTML = only ? 'Device only: no accessories'
+      : `<b>${n}</b> accessor${n === 1 ? 'y' : 'ies'} taken${n ? '' : ' - tick them, or "Device only"'}`;
   }
   const noteArg = () => ({ note: $<HTMLTextAreaElement>('[data-vr-note]').value });
   const brandArg = () => Number($<HTMLSelectElement>('[data-vr-brand]').value) || null;
@@ -545,7 +640,7 @@ export const prerender = false;
     show('[data-co-pay]', !c.paid && c.to_pay);
     show('[data-co-free]', !c.paid && !c.to_pay);
     const cur = { currency: c.currency, decimals: c.decimals };
-    $('[data-co-due]').innerHTML = `<span>To pay</span><b>${esc(money(cur, c.due))}</b>`;
+    $('[data-co-due]').innerHTML = `<span>To pay${c.with_tax ? ' <small>· incl. VAT</small>' : ''}</span><b>${esc(money(cur, c.due))}</b>`;
     if (!payMethod && c.methods.length) payMethod = (c.methods.find((m: any) => m.default) || c.methods[0]).id;
     $('[data-co-methods]').innerHTML = c.methods.map((m: any) => `<button type="button" role="radio" aria-checked="${m.id === payMethod}"
       class="vr-out${m.id === payMethod ? ' on' : ''}" data-co-m="${m.id}">${esc(m.name)}</button>`).join('');
@@ -603,16 +698,57 @@ export const prerender = false;
     return d;
   }
 
-  $('[data-vr-search]').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const d = await result({ action: 'result_parts', query: $<HTMLInputElement>('[data-vr-q]').value });
-    $('[data-vr-found]').innerHTML = (d.parts || []).map((p: any) => partRow(d.result || {}, p)).join('')
-      || (d.ok ? '<p class="tv-hint">No part found. Try another word.</p>' : '');
+  // The parts search, as the technician types (no Search button): only the answer for the
+  // latest words is shown, and "not found" sits right under the box.
+  let searchTimer: ReturnType<typeof setTimeout> | undefined, searchSeq = 0;
+  const clearSearch = (words = true) => {
+    clearTimeout(searchTimer);
+    searchSeq += 1;
+    $('[data-vr-found]').innerHTML = '';
+    $('[data-vr-none]').hidden = true;
+    $('[data-vr-wait]').hidden = true;
+    if (words) $<HTMLInputElement>('[data-vr-q]').value = '';
+  };
+  async function searchParts() {
+    const query = $<HTMLInputElement>('[data-vr-q]').value.trim();
+    if (query.length < 2) return;
+    const seq = ++searchSeq;
+    $('[data-vr-wait]').hidden = false;
+    const d = await api({ action: 'result_parts', query });
+    if (seq !== searchSeq) return;
+    $('[data-vr-wait]').hidden = true;
+    const parts = d.parts || [];
+    $('[data-vr-found]').innerHTML = parts.map((p: any) => partRow(view?.result || {}, p)).join('');
+    const none = $('[data-vr-none]');
+    none.hidden = !d.ok || parts.length > 0;
+    none.innerHTML = `No part found for "<b>${esc(query)}</b>". Try another word, or `
+      + `<button type="button" class="vc-link" data-vr-askfor="${esc(query)}">ask the office for it</button>`;
+    if (!d.ok) msg(d.message || ERR[d.error] || 'That did not work. Try again.');
+  }
+  $('[data-vr-q]').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    if ($<HTMLInputElement>('[data-vr-q]').value.trim().length < 2) { clearSearch(false); return; }
+    $('[data-vr-wait]').hidden = false;
+    searchTimer = setTimeout(searchParts, 300);
+  });
+  $('[data-vr-search]').addEventListener('submit', (e) => {
+    e.preventDefault();             // Enter: search now
+    clearTimeout(searchTimer);
+    searchParts();
+  });
+  $('[data-vr-none]').addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vr-askfor]');
+    if (!el) return;
+    // not in the list: open "Ask the office" with the part's name filled in
+    $('[data-vr-req]').hidden = false;
+    const name = $<HTMLInputElement>('[data-vr-reqname]');
+    if (!name.value.trim()) name.value = el.dataset.vrAskfor || '';
+    name.focus();
   });
   $('[data-vr]').addEventListener('click', async (e) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vr-add],[data-vr-del],[data-vr-issue],[data-vr-more],'
-      + '[data-vr-outcome],[data-vr-labgo],[data-vr-nogo],[data-vr-alts],[data-vr-altadd],[data-vr-keep],[data-vr-labouradd],'
-      + '[data-vr-reqtoggle],[data-vr-reqgo]');
+      + '[data-vr-outcome],[data-vr-labgo],[data-vr-nogo],[data-vr-alts],[data-vr-altadd],[data-vr-keep],[data-vr-labouradd],[data-vr-lsave],'
+      + '[data-vr-reqtoggle],[data-vr-reqgo],[data-vr-reqlater],[data-vr-asklater],[data-vr-askcancel]');
     if (!el) return;
     if (el.dataset.vrOutcome) {
       if (needBrand()) return;
@@ -657,6 +793,14 @@ export const prerender = false;
       }
       return;
     }
+    if (el.hasAttribute('data-vr-lsave')) {
+      if (needBrand()) return;
+      const typed = $<HTMLInputElement>('[data-vr-lcharge]').value;
+      if (typed === '' || !(Number(typed) >= 0)) { msg('Type the labour charge.'); return; }
+      const d = await result({ action: 'result_labour', price: Number(typed), brand_id: brandArg() });
+      if (d.ok !== false) { labourOpen = false; $<HTMLInputElement>('[data-vr-lcharge]').value = ''; if (view?.result) renderResult(view.result); }
+      return;
+    }
     if (el.hasAttribute('data-vr-labouradd')) {
       if (needBrand()) return;
       const typed = $<HTMLInputElement>('[data-vr-labour]').value;
@@ -665,14 +809,36 @@ export const prerender = false;
       return;
     }
     if (el.hasAttribute('data-vr-reqtoggle')) { $('[data-vr-req]').hidden = !$('[data-vr-req]').hidden; return; }
-    if (el.hasAttribute('data-vr-reqgo')) {
+    if (el.hasAttribute('data-vr-reqgo') || el.hasAttribute('data-vr-reqlater')) {
       if (needBrand()) return;
       const name = $<HTMLInputElement>('[data-vr-reqname]').value.trim();
       if (name.length < 2) { msg("Type the part's name."); return; }
-      if (confirm('Ask the office for this part? The visit closes; the customer is told the price follows.')) {
-        await result({ action: 'result_request', name, price: Number($<HTMLInputElement>('[data-vr-reqprice]').value) || 0,
-                       data: reqPhoto, brand_id: brandArg(), ...noteArg() });
+      const part = { name, price: Number($<HTMLInputElement>('[data-vr-reqprice]').value) || 0, data: reqPhoto,
+                     brand_id: brandArg(), ...noteArg() };
+      if (el.hasAttribute('data-vr-reqgo')) {
+        // ask and wait at the door: the office answers on the Booking Desk
+        const d = await result({ action: 'result_ask', ...part });
+        if (d.ok !== false) {
+          $<HTMLInputElement>('[data-vr-reqname]').value = '';
+          $<HTMLInputElement>('[data-vr-reqprice]').value = '';
+          reqPhoto = '';
+          $('[data-vr-reqph]').textContent = 'A photo of the part helps the office.';
+          clearSearch();
+        }
+      } else if (confirm("Don't wait for the office? The visit closes; the office finds the part and the customer is told the price follows.")) {
+        await result({ action: 'result_request', ...part });
       }
+      return;
+    }
+    if (el.hasAttribute('data-vr-asklater')) {
+      // the question already sent carries its name, price and photo
+      if (confirm("Don't wait for the office? The visit closes; the office finds the part and the customer is told the price follows.")) {
+        await result({ action: 'result_request', ...noteArg() });
+      }
+      return;
+    }
+    if (el.hasAttribute('data-vr-askcancel')) {
+      await result({ action: 'result_ask_cancel' });
       return;
     }
     if (el.hasAttribute('data-vr-more')) {
@@ -687,14 +853,21 @@ export const prerender = false;
       const brand = Number($<HTMLSelectElement>('[data-vr-brand]').value) || null;
       if (view?.result?.need_device && !brand) { msg('Choose the device brand first.'); return; }
       const d = await result({ action: 'result_add_part', product_id: Number(el.dataset.vrAdd), brand_id: brand });
-      if (d.ok) { $('[data-vr-found]').innerHTML = ''; $<HTMLInputElement>('[data-vr-q]').value = ''; }
+      if (d.ok) clearSearch();
     } else {
       await result({ action: 'result_remove_part', line_id: Number(el.dataset.vrDel) });
     }
   });
   $('[data-vr]').addEventListener('change', async (e) => {
     const el = e.target as HTMLInputElement;
+    if (el.hasAttribute('data-vr-free')) {
+      // Labour only: back to free (no charge), or open the charge box (nothing charged until Save)
+      if (el.checked) { labourOpen = false; await result({ action: 'result_labour', price: 0, brand_id: brandArg() }); }
+      else { labourOpen = true; if (view?.result) renderResult(view.result); }
+      return;
+    }
     if (el.name === 'vr-plan' || el.hasAttribute('data-vr-noacc')) syncPlan();
+    if (el.hasAttribute('data-vr-accid')) accCount();
     if (el.hasAttribute('data-vr-partdays')) el.dataset.set = '1';
     if (el.dataset.vrPrice) {
       // the repair's price, saved when the technician leaves the box
@@ -821,7 +994,12 @@ export const prerender = false;
   (navigator as any).getBattery?.().then((b: any) => { battery = b; }).catch(() => {});
 
   if (!v || !t) { $('[data-tv-load]').hidden = true; msg(ERR.unknown); }
-  else { load(); setInterval(() => { if (!document.hidden) load(); }, 60000); }
+  else {
+    load();
+    setInterval(() => { if (!document.hidden) load(); }, 60000);
+    // waiting for the office's answer about a part: looked for every 10 s
+    setInterval(() => { if (!document.hidden && view?.result?.ask?.state === 'asked') load(); }, 10000);
+  }
 </script>
 
 <style>
@@ -881,8 +1059,37 @@ export const prerender = false;
   .vr-seg { display: inline-flex; flex: none; padding: 3px; gap: 3px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
   .vr-seg button { height: 36px; padding: 0 14px; border: 0; border-radius: 9px; background: none; color: var(--ink-2); font: inherit; font-weight: 700; cursor: pointer; }
   .vr-seg button[aria-pressed="true"] { background: var(--grad, var(--violet)); color: var(--on-accent, #fff); }
-  .vr-search { display: flex; gap: 8px; margin: 10px 0 6px; }
-  .vr-search input { flex: 1; min-width: 0; }
+  /* a part asked of the office: waiting (amber), added (green), not available (red) */
+  .vr-ask { display: grid; gap: 4px; margin: 8px 0; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line);
+            color: var(--ink); font-size: 14px; }
+  .vr-ask[hidden] { display: none; }
+  .vr-ask span { color: var(--ink-2); }
+  .vr-ask-asked { background: rgba(240, 160, 30, .14); border-color: rgba(240, 160, 30, .45); }
+  .vr-ask-found { background: var(--accent-soft); }
+  .vr-ask-none { background: rgba(220, 60, 50, .12); border-color: rgba(220, 60, 50, .35); }
+  .vr-ask-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+  .vr-asks { margin: 6px 0; }
+  .vr-asks[hidden] { display: none; }
+  .vr-asks summary { cursor: pointer; color: var(--ink-2); font-size: 14px; font-weight: 700; padding: 4px 0; }
+  .vr-asks-row { margin: 6px 0; padding: 8px 12px; border-left: 4px solid var(--line); border-radius: 10px; background: var(--tint); font-size: 14px; }
+  .vr-asks-row small { color: var(--ink-3); }
+  .vr-asks-found { border-left-color: #2e8b46; }
+  .vr-asks-none { border-left-color: #c0392b; }
+  .vr-asks-asked { border-left-color: #f0a01e; }
+  .vr-asks-later { border-left-color: #1f6fd1; }
+  .vr-wait-dot { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 50%; background: #f0a01e;
+                 animation: tvp 1.2s ease-in-out infinite; vertical-align: middle; }
+  /* the parts search: a spinner in the box while it looks, "not found" just under it */
+  .vr-search { position: relative; display: flex; gap: 8px; margin: 10px 0 6px; }
+  .vr-search input { flex: 1; min-width: 0; padding-right: 40px; }
+  .vr-wait { position: absolute; right: 14px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border: 2px solid var(--line);
+             border-top-color: var(--ink-2); border-radius: 50%; animation: vrspin .7s linear infinite; }
+  .vr-wait[hidden] { display: none; }
+  @keyframes vrspin { to { transform: rotate(360deg); } }
+  .vr-none { margin: 0 0 6px; padding: 10px 12px; border-radius: 12px; background: var(--tint-2); color: var(--ink-2); font-size: 14px; }
+  .vr-none[hidden] { display: none; }
+  .vr-none b { color: var(--ink); }
+  .vr-none .vc-link { padding: 0; font-size: 14px; }
   .vr-choice { display: grid; gap: 8px; margin: 12px 0; font-weight: 600; color: var(--ink); }
   .vr-choice input { accent-color: var(--violet); margin-right: 6px; }
   .vr-acc[hidden] { display: none; }
@@ -922,6 +1129,11 @@ export const prerender = false;
   .tv-ck :global(.vr-out.on) { border-color: var(--violet); background: var(--violet); color: var(--on-accent, #fff); }
   .vr-sub { display: grid; gap: 8px; margin: 6px 0 4px; padding: 12px; border-radius: 12px; background: var(--tint); }
   .tv-ck :global(.vr-price) { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .vr-acc-count { margin: 6px 0 10px; font-size: 14px; color: var(--ink-2); }
+  .vr-acc-count :global(b) { color: var(--ink); font-size: 16px; }
+  .vr-free { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 4px 0; font-weight: 600; cursor: pointer; }
+  .vr-free input { width: 20px; height: 20px; }
+  [data-vr-pricebox][hidden], [data-vr-labourbox][hidden], [data-vr-lrow][hidden] { display: none; }
   .tv-ck :global(.vr-price input) { width: 96px; height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; text-align: right; }
   .tv-ck :global(.vr-price small) { color: var(--ink-3); font-weight: 700; }
   .tv-ck :global(.vr-total) { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--tint); font-weight: 700; color: var(--ink); }
