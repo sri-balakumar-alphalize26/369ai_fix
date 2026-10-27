@@ -67,6 +67,12 @@ PLANS = [
     ('order_take', 'Take the device to the office until the part arrives'),
 ]
 MAX_DAYS = 60
+# A part not in the list, asked of the office while the technician waits at the door
+ASK_STATES = [
+    ('asked', 'Asked: waiting for the office'),
+    ('found', 'Office added the part'),
+    ('none', 'Office: not available'),
+]
 
 
 def _unit(value):
@@ -87,6 +93,19 @@ class ServiceVisit(models.Model):
     pend_within = fields.Char(readonly=True, copy=False)
     pend_part_days = fields.Integer(readonly=True, copy=False)
     pend_date = fields.Date('Back by', readonly=True, copy=False)
+    # the part asked of the office at the door, and the office's answer
+    ask_state = fields.Selection(ASK_STATES, 'Part asked', readonly=True, copy=False, index=True, tracking=True)
+    ask_name = fields.Char('Part asked for', readonly=True, copy=False)
+    ask_price = fields.Float('Rough price (technician)', readonly=True, copy=False)
+    ask_photo = fields.Binary('Photo of the part', attachment=True, readonly=True, copy=False)
+    ask_on = fields.Datetime('Asked on', readonly=True, copy=False)
+    ask_reply = fields.Text("Office's answer", readonly=True, copy=False)
+    ask_product_id = fields.Many2one('product.product', 'Part added by the office', readonly=True, copy=False)
+    ask_replied_by_id = fields.Many2one('res.users', 'Answered by', readonly=True, copy=False)
+    ask_replied_on = fields.Datetime('Answered on', readonly=True, copy=False)
+    # every question and its answer, kept (the fields above only hold the one open now)
+    ask_id = fields.Many2one('fix.part.ask', 'Question now', readonly=True, copy=False)
+    part_ask_ids = fields.One2many('fix.part.ask', 'visit_id', 'Part questions', readonly=True)
 
     # ------------------------------------------------------------------ the job card
     def _vr_device_guess(self):
@@ -177,7 +196,8 @@ class ServiceVisit(models.Model):
         if card:
             return card.device_category_id or card.brand_id.category_id, card.brand_id, card.model_id
         category, brand, _series, model = self._vr_device_guess()
-        return category or brand.category_id, brand, model
+        # no brand booked: the device type the customer chose still narrows the parts
+        return category or brand.category_id or self.sudo().order_id.line_ids.category_id[:1], brand, model
 
     @staticmethod
     def _vr_rank(brand, model):
@@ -187,16 +207,30 @@ class ServiceVisit(models.Model):
                     else 2, 0 if p.is_mobile_repair_part else 1, p.name or '')
         return rank
 
+    @staticmethod
+    def _vr_fit_domain(category, brand, model):
+        """Parts that fit this device: each of the part's device type / brand / model is empty
+        (fits any) or this device's - a phone's search never offers a laptop screen."""
+        domain = []
+        if category:
+            domain += ['|', ('fit_category_ids', '=', False), ('fit_category_ids', 'in', category.ids)]
+        if brand:
+            domain += ['|', ('device_brand_id', '=', False), ('device_brand_id', '=', brand.id)]
+        if model:
+            domain += ['|', ('device_model_id', '=', False), ('device_model_id', '=', model.id)]
+        return domain
+
     def _vr_parts(self, query='', limit=20):
-        """Spare parts for the search box: the device's own first, each with its stock."""
+        """Spare parts for the search box: only those that fit the device (the customer's
+        device type, brand and model), its own first, each with its stock."""
         self.ensure_one()
         query = (query or '').strip()
-        domain = [('type', '=', 'consu'), ('sale_ok', '=', True)]
+        category, brand, model = self._vr_device()
+        domain = [('type', '=', 'consu'), ('sale_ok', '=', True)] + self._vr_fit_domain(category, brand, model)
         if query:
             domain += ['|', '|', ('name', 'ilike', query), ('default_code', 'ilike', query),
                        ('barcode', '=', query)]
         products = self.env['product.product'].sudo().search(domain, limit=200)
-        _category, brand, model = self._vr_device()
         return [self._vr_part_row(p) for p in sorted(products, key=self._vr_rank(brand, model))[:limit]]
 
     # ------------------------------------------------------------------ what's wrong (as on Urban Company)
@@ -239,13 +273,8 @@ class ServiceVisit(models.Model):
         if not ticked:
             return []
         category, brand, model = self._vr_device()
-        domain = [('type', '=', 'consu'), ('sale_ok', '=', True), ('repair_issue_type_ids', 'in', ticked.ids)]
-        if category:
-            domain += ['|', ('fit_category_ids', '=', False), ('fit_category_ids', 'in', category.ids)]
-        if brand:
-            domain += ['|', ('device_brand_id', '=', False), ('device_brand_id', '=', brand.id)]
-        if model:
-            domain += ['|', ('device_model_id', '=', False), ('device_model_id', '=', model.id)]
+        domain = [('type', '=', 'consu'), ('sale_ok', '=', True), ('repair_issue_type_ids', 'in', ticked.ids)] \
+            + self._vr_fit_domain(category, brand, model)
         products = self.env['product.product'].sudo().search(domain, limit=200)
         card = self.sudo().job_card_id
         if card:
@@ -307,13 +336,8 @@ class ServiceVisit(models.Model):
         category, brand, model = self._vr_device()
         domain = [('type', '=', 'consu'), ('sale_ok', '=', True), ('id', '!=', product.id),
                   ('fix_part_grade', 'not in', (False, product.fix_part_grade)),
-                  ('repair_issue_type_ids', 'in', product.repair_issue_type_ids.ids)]
-        if category:
-            domain += ['|', ('fit_category_ids', '=', False), ('fit_category_ids', 'in', category.ids)]
-        if brand:
-            domain += ['|', ('device_brand_id', '=', False), ('device_brand_id', '=', brand.id)]
-        if model:
-            domain += ['|', ('device_model_id', '=', False), ('device_model_id', '=', model.id)]
+                  ('repair_issue_type_ids', 'in', product.repair_issue_type_ids.ids)] \
+            + self._vr_fit_domain(category, brand, model)
         products = self.env['product.product'].sudo().search(domain, limit=100)
         products -= line.job_card_id.spare_part_line_ids.product_id
         return [self._vr_part_row(p) for p in sorted(products, key=self._vr_rank(brand, model))[:limit]]
@@ -394,6 +418,99 @@ class ServiceVisit(models.Model):
             'tax_ids': [(6, 0, product.taxes_id.filtered(lambda t: t.company_id == card.company_id).ids)],
         })
 
+    # ------------------------------------------------------------------ Labour only: free, or a charge the customer approves
+    @staticmethod
+    def _vr_is_labour_line(line):
+        return line.product_id.default_code == 'REPAIR-SERVICE'
+
+    def _vr_labour_lines(self):
+        self.ensure_one()
+        card = self.sudo().job_card_id
+        return card.service_line_ids.filtered(self._vr_is_labour_line) if card else self.env['job.card.service.line']
+
+    def _vr_labour_free(self, brand=None):
+        """Labour only: the work is free to start with - the booked repairs at 0, no labour line.
+        A charge is added only when needed (`_vr_labour_charge`), and the customer approves it."""
+        self.ensure_one()
+        visit = self.sudo()
+        card = visit._vr_card(brand=brand)
+        card.service_line_ids.filtered(self._vr_is_labour_line).unlink()
+        card.service_line_ids.write({'unit_price': 0.0})
+        visit.message_post(body=_("Labour only: free."), subtype_xmlid='mail.mt_note')
+
+    def _vr_labour_restore(self):
+        """Back to Needs parts: the booked repairs at their own price again, no labour line."""
+        self.ensure_one()
+        visit = self.sudo()
+        card = visit.job_card_id
+        if not card:
+            return
+        card.service_line_ids.filtered(self._vr_is_labour_line).unlink()
+        for line in card.service_line_ids:
+            line.unit_price = line.product_id.lst_price
+        visit.message_post(body=_("Needs parts: the booked repairs are back at their price."),
+                           subtype_xmlid='mail.mt_note')
+
+    def _vr_labour_presets(self):
+        """The office's fixed labour prices (Catalogue > Labour Prices), at this device type's price."""
+        self.ensure_one()
+        visit = self.sudo()
+        company = visit.company_id or self.env.company
+        category = visit._vr_device()[0]
+        jobs = self.env['fix.labour.job'].sudo().search([('service_id.company_id', 'in', [company.id, False])])
+        return [{'id': j.id, 'name': j.name, 'price': j._price_for(category)} for j in jobs]
+
+    def _vr_labour_preset(self, preset_id, brand=None):
+        """The technician tapped a fixed labour price: its name and price come from the office's list."""
+        self.ensure_one()
+        job = self.env['fix.labour.job'].sudo().browse(int(preset_id or 0)).exists()
+        if not job or not job.active:
+            raise UserError(_("That labour price is not in the list any more."))
+        price = job._price_for(self.sudo()._vr_device()[0])
+        return self._vr_labour_charge(price, brand=brand, name=job.name)
+
+    def _vr_labour_charge(self, amount, brand=None, name=None):
+        """Labour only, a charge: one "Labour" line at this amount (0 = free again). Any charge is
+        quoted first - the customer approves it before the repair (`_vr_need`). `name`: a fixed
+        labour price's job (e.g. Cleaning), shown on the line instead of "Labour"."""
+        self._vr_require()
+        if self.check_outcome != 'labour':
+            raise UserError(_("Choose \"Labour only\" first."))
+        try:
+            amount = round(float(amount or 0.0), 6)
+        except (TypeError, ValueError):
+            raise UserError(_("Type the labour charge."))
+        if not 0 <= amount <= MAX_PRICE:
+            raise UserError(_("Type a labour charge of 0 or more."))
+        visit = self.sudo()
+        labour = visit._vr_labour_lines()
+        currency = (visit.company_id or self.env.company).currency_id
+        if currency.compare_amounts(amount, 0.0) <= 0:
+            labour.unlink()
+            visit.message_post(body=_("Labour only: free."), subtype_xmlid='mail.mt_note')
+            return True
+        if labour:
+            labour[1:].unlink()
+            labour = labour[:1]
+            labour.unit_price = amount
+        else:
+            labour = visit._vr_set_price(amount, brand=brand)
+        labour.description = name or _("Labour")
+        visit.message_post(body=_("Labour only: %(job)s %(cur)s %(amount)s (the customer approves it first).",
+                                  job=name or _("charge"), cur=currency.name,
+                                  amount='%.*f' % (currency.decimal_places, amount)),
+                           subtype_xmlid='mail.mt_note')
+        return True
+
+    def _vr_labour_note(self):
+        """For the office: 'free', the labour charge, or '' when the outcome is not Labour only."""
+        self.ensure_one()
+        visit = self.sudo()
+        if visit.check_outcome != 'labour':
+            return ''
+        charge = sum(l.unit_price * l.quantity for l in visit._vr_labour_lines())
+        return charge if charge > 0 else 'free'
+
     def _vr_need(self):
         """What the parts and the price allow: {parts, in_office (all here), to_order (some to
         order), needs_quote (the price - repairs and parts - is above what the customer
@@ -401,7 +518,11 @@ class ServiceVisit(models.Model):
         lines = [l for l in self._vr_lines() if not l['alt_off']]
         card = self.sudo().job_card_id
         total = card._wb_lines_total() if card else 0.0
-        approved = card.estimate_total if card and card.quote_state in ('none', 'accepted') else 0.0
+        if self.check_outcome == 'labour':
+            # Labour only is free unless the customer approved a labour charge: any charge is quoted
+            approved = card.estimate_total if card and card.quote_state == 'accepted' else 0.0
+        else:
+            approved = card.estimate_total if card and card.quote_state in ('none', 'accepted') else 0.0
         currency = (self.company_id or self.env.company).currency_id
         return {
             'parts': len(lines),
@@ -518,32 +639,80 @@ class ServiceVisit(models.Model):
         return True
 
     # --- "Can it be fixed?"
-    def _vr_outcome(self, outcome, note=None, days=None, unit='days', brand=None):
+    def _vr_outcome(self, outcome, note=None, days=None, unit='days', brand=None, fee=False):
         """The technician's first answer. Needs parts / labour only: the parts and the price
         follow on the same screen. Lab check: the device goes to the office (accessories next),
         the price follows from there. No fault / not worth it / brand warranty: the visit closes
-        with the reason, which the customer gets on WhatsApp."""
+        with the reason, which the customer gets on WhatsApp. No fault with `fee`: the visit fee
+        is paid at the door first (visit_closeout `_vr_no_fault_fee`)."""
         self._vr_require()
         if outcome not in dict(OUTCOMES):
             raise UserError(_("Choose what you found."))
         self._vr_note(note)
         visit = self.sudo()
         if outcome in ('parts', 'labour'):
+            was = visit.check_outcome
             visit.check_outcome = outcome
+            if outcome == 'labour' and was != 'labour':
+                visit._vr_labour_free(brand=brand)
+            elif outcome == 'parts' and was == 'labour':
+                visit._vr_labour_restore()
             return True
         if outcome == 'lab':
-            visit._vr_card(brand=brand)
+            card = visit._vr_card(brand=brand)
             total, within = visit._vr_span(days, unit)
+            date = fields.Date.add(fields.Date.context_today(self), days=total)
             visit.write({'check_outcome': 'lab', 'pend_plan': 'take', 'pend_days': total, 'pend_within': within,
-                         'pend_part_days': 0,
-                         'pend_date': fields.Date.add(fields.Date.context_today(self), days=total)})
-            visit._vr_set('to_take', check_days=total)
-            visit.message_post(body=_("Needs a lab check: the device goes to the office, the price follows "
-                                      "within %s.", within), subtype_xmlid='mail.mt_note')
+                         'pend_part_days': 0, 'pend_date': date})
+            order = visit.order_id
+            if not order or card.wb_lab_ok:
+                # no website customer to ask, or they already agreed (a pickup visit): take it
+                visit._vr_set('to_take', check_days=total)
+                visit.message_post(body=_("Needs a lab check: the device goes to the office, the price follows "
+                                          "within %s.", within), subtype_xmlid='mail.mt_note')
+                return True
+            # the customer's OK first: nothing leaves their place without it (WhatsApp, My orders or at the door)
+            card.quote_state = 'waiting'
+            visit._vr_set('waiting', check_days=total)
+            link = order._wb_new_slot_link().replace('/slot?', '/quote?')
+            order._wb_notify('lab_permission', device=card._fix_device_name(), days=within,
+                             date=date.strftime('%a %d %b'), quote_url=link)
+            visit.message_post(body=_("Needs a lab check (price within %s): asked the customer's OK to take the device.",
+                                      within), subtype_xmlid='mail.mt_note')
             return True
         if not (visit.check_found or '').strip():
             raise UserError(_("Write what you checked and why it is not repaired: the customer reads it."))
+        if outcome == 'no_fault' and fee:
+            return visit._vr_no_fault_fee(brand=brand)
         return visit._vr_no_repair(outcome)
+
+    # --- no fault found: free, or the visit fee; a free re-check when the problem comes back
+    def _vr_visit_fee(self):
+        """The visit fee product (Repair Settings), or an empty record."""
+        return self.env['job.card'].sudo()._visit_fee_product()
+
+    def _vr_recheck_of(self):
+        """This customer's last "No fault found" visit within the free re-check days, or an empty
+        record: the problem came back, so this check is free."""
+        self.ensure_one()
+        visit = self.sudo()
+        days = (visit.company_id or self.env.company).fix_recheck_days
+        if not days or days <= 0 or not (visit.partner_id or visit.phone):
+            return self.browse()
+        who = [('partner_id', '=', visit.partner_id.id)] if visit.partner_id else []
+        if visit.phone:
+            who = (['|'] + who if who else []) + [('phone', '=', visit.phone)]
+        since = fields.Datetime.subtract(fields.Datetime.now(), days=days)
+        return self.sudo().search([('id', '!=', visit.id), ('check_outcome', '=', 'no_fault'),
+                                   ('check_result_on', '>=', since)] + who,
+                                  order='check_result_on desc', limit=1)
+
+    def _vr_recheck_line(self):
+        """The customer's free re-check line ('' when the company gives none)."""
+        days = (self.company_id or self.env.company).fix_recheck_days
+        if not days or days <= 0:
+            return ''
+        return _("If the problem comes back within %s days, book again: the check is free.", days)
 
     def _vr_no_repair(self, outcome):
         """Not repaired (no fault / not worth it / brand warranty): the job card is closed as not
@@ -565,7 +734,8 @@ class ServiceVisit(models.Model):
         visit.action_done()
         if order and order.state not in ('done', 'cancelled'):
             order._set_state('done')
-        visit.with_context(osm_extra={'reason': '%s. %s' % (_(reason), visit.check_found or '')}) \
+        visit.with_context(osm_extra={'reason': '%s. %s' % (_(reason), visit.check_found or ''),
+                                      'recheck': visit._vr_recheck_line() if outcome == 'no_fault' else ''}) \
             ._fs_notify('visit_no_repair')
         visit.message_post(body=_("Not repaired: %(reason)s. %(found)s", reason=_(reason), found=visit.check_found or ''),
                            subtype_xmlid='mail.mt_note')
@@ -578,6 +748,9 @@ class ServiceVisit(models.Model):
         follows. The office adds the part to the job card and presses "Send new price"."""
         self._vr_require()
         self._vr_note(note)
+        if self.ask_state == 'asked' and not (name or '').strip():
+            # "Don't wait" from the question already sent: the office sources that part
+            name, price, data = self.ask_name, price if price is not None else self.ask_price, data or self.sudo().ask_photo
         name = (name or '').strip()[:120]
         if len(name) < 2:
             raise UserError(_("Type the part's name."))
@@ -623,12 +796,195 @@ class ServiceVisit(models.Model):
                                user_id=(order.approved_by_id or self.env.user).id if order else self.env.user.id)
         visit.check_outcome = 'parts'
         visit._vr_clear_plan()
+        # kept in the part questions: the open one ("Don't wait") or a new line for this one
+        later = _("The office finds it later: purchase request %s.", request.name)
+        if visit.ask_state == 'asked':
+            visit._vr_ask_row()._answer('later', reply=later)
+        else:
+            self.env['fix.part.ask'].sudo().create({
+                'visit_id': visit.id, 'job_card_id': card.id, 'technician_id': visit.technician_id.id,
+                'name': name, 'rough_price': price, 'photo': base64.b64encode(raw) if raw else False,
+                'state': 'later', 'reply': later})
+        visit._vr_ask_clear()
         visit._vr_set('sourcing')
         visit.action_done()
         visit.with_context(osm_extra={'part': name})._fs_notify('visit_part_sourcing')
         visit.message_post(body=_("Part asked of the office (%(req)s): %(name)s, about %(price)s.",
                                   req=request.name, name=name, price=price), subtype_xmlid='mail.mt_note')
         return request
+
+    # --- the same question, while the technician waits at the door: the office answers on the desk
+    def _vr_ask_office(self, name, price=None, data=None, brand=None, note=None):
+        """Ask the office for a part the list does not have, and wait: the Booking Desk rings and
+        shows "Part asked"; the office adds the part to the job card (or says it is not available)
+        and the technician's screen shows the answer. The visit stays open."""
+        self._vr_require()
+        self._vr_note(note)
+        name = (name or '').strip()[:120]
+        if len(name) < 2:
+            raise UserError(_("Type the part's name."))
+        try:
+            price = max(float(price or 0.0), 0.0)
+        except (TypeError, ValueError):
+            price = 0.0
+        photo = False
+        if data:
+            try:
+                raw = base64.b64decode(data, validate=True)
+            except (ValueError, TypeError):
+                raise UserError(_("The photo could not be read."))
+            if _sniff(raw) != 'image' or len(raw) > PHOTO_BYTES:
+                raise UserError(_("That is not a photo (or it is too large)."))
+            photo = base64.b64encode(raw)
+        visit = self.sudo()
+        card = visit._vr_card(brand=brand)
+        if visit.ask_state == 'asked':
+            visit._vr_ask_row()._answer('cancelled')    # a new question replaces one still open
+        now = fields.Datetime.now()
+        row = self.env['fix.part.ask'].sudo().create({
+            'visit_id': visit.id, 'job_card_id': card.id, 'technician_id': visit.technician_id.id,
+            'name': name, 'rough_price': price, 'photo': photo, 'asked_on': now})
+        visit.write({'ask_state': 'asked', 'ask_name': name, 'ask_price': price, 'ask_photo': photo,
+                     'ask_on': now, 'ask_reply': False, 'ask_product_id': False,
+                     'ask_replied_by_id': False, 'ask_replied_on': False, 'ask_id': row.id})
+        visit.message_post(body=_("%(tech)s asks the office for a part: %(name)s (about %(price)s). Waiting at the door.",
+                                  tech=visit.technician_id.name or self.env.user.name, name=name, price=price),
+                           subtype_xmlid='mail.mt_note')
+        if visit.order_id:
+            visit.order_id._ring()          # the Booking Desk rings and shows "Part asked"
+        return True
+
+    def _vr_ask_require(self):
+        self.ensure_one()
+        if self.state != 'in_progress' or self.ask_state != 'asked':
+            raise UserError(_("No part is waiting for the office's answer on %s.", self.name))
+
+    def _vr_ask_found(self, product=None, price=None, new_name=None, note=None):
+        """The office's answer: this part (from the list, or a new one by its name) at this price,
+        added to the job card; the technician carries on from there."""
+        self._vr_ask_require()
+        visit = self.sudo()
+        try:
+            price = round(float(price), 6) if price not in (None, '', False) else None
+        except (TypeError, ValueError):
+            raise UserError(_("Type the price."))
+        if price is not None and not 0 <= price <= MAX_PRICE:
+            raise UserError(_("Type a price of 0 or more."))
+        if not product:
+            new_name = (new_name or '').strip()[:120]
+            if len(new_name) < 2:
+                raise UserError(_("Choose the part, or type the new part's name."))
+            if price is None:
+                raise UserError(_("Type the price of the new part."))
+            category, brand, model = visit._vr_device()
+            product = self.env['product.product'].sudo().create({
+                'name': new_name, 'type': 'consu', 'is_storable': True, 'sale_ok': True, 'lst_price': price,
+                'fit_category_ids': [(6, 0, category.ids)] if category else False})
+        line = visit._vr_add_part(product)
+        if price is not None:
+            line.unit_price = price
+        reply = (note or '').strip()[:500]
+        row = visit._vr_ask_row()               # while the question still counts as open
+        visit.write({'ask_state': 'found', 'ask_product_id': product.id, 'ask_reply': reply or False,
+                     'ask_replied_by_id': self.env.uid, 'ask_replied_on': fields.Datetime.now()})
+        row._answer('found', product_id=product.id, price=line.unit_price, reply=reply or False)
+        visit.message_post(body=_("Office (%(who)s) added %(part)s at %(price)s for the technician. %(note)s",
+                                  who=self.env.user.name, part=product.display_name, price=line.unit_price,
+                                  note=reply), subtype_xmlid='mail.mt_note')
+        if visit.order_id:
+            visit.order_id._ring()
+        return line
+
+    def _vr_ask_none(self, reason):
+        """The office's answer: not available, and why; the technician chooses what next."""
+        self._vr_ask_require()
+        reason = (reason or '').strip()[:500]
+        if not reason:
+            raise UserError(_("Write why the part is not available: the technician reads it."))
+        visit = self.sudo()
+        row = visit._vr_ask_row()               # while the question still counts as open
+        visit.write({'ask_state': 'none', 'ask_reply': reason, 'ask_replied_by_id': self.env.uid,
+                     'ask_replied_on': fields.Datetime.now()})
+        row._answer('none', reply=reason)
+        visit.message_post(body=_("Office (%(who)s): %(part)s is not available. %(reason)s",
+                                  who=self.env.user.name, part=visit.ask_name, reason=reason),
+                           subtype_xmlid='mail.mt_note')
+        if visit.order_id:
+            visit.order_id._ring()
+        return True
+
+    def _vr_ask_cancel(self):
+        """The technician takes the question back (asked by mistake, or found the part after all)."""
+        self.ensure_one()
+        if self.ask_state:
+            self.sudo().message_post(body=_("Question to the office taken back: %s.", self.ask_name or ''),
+                                     subtype_xmlid='mail.mt_note')
+        self._vr_ask_row()._answer('cancelled')
+        self._vr_ask_clear()
+        if self.order_id:
+            self.sudo().order_id._ring()
+        return True
+
+    def _vr_ask_clear(self):
+        self.sudo().write({'ask_state': False, 'ask_name': False, 'ask_price': 0.0, 'ask_photo': False,
+                           'ask_on': False, 'ask_reply': False, 'ask_product_id': False,
+                           'ask_replied_by_id': False, 'ask_replied_on': False, 'ask_id': False})
+
+    def _vr_ask_row(self):
+        """The history line of the visit's question; for one asked before the history was kept,
+        made from the visit's own fields - still waiting, or with the answer it already got."""
+        self.ensure_one()
+        visit = self.sudo()
+        if visit.ask_id or not visit.ask_state:
+            return visit.ask_id
+        vals = {
+            'visit_id': visit.id, 'job_card_id': visit.job_card_id.id, 'technician_id': visit.technician_id.id,
+            'name': visit.ask_name or _("Part"), 'rough_price': visit.ask_price, 'photo': visit.ask_photo,
+            'asked_on': visit.ask_on or fields.Datetime.now(), 'state': visit.ask_state,
+        }
+        if visit.ask_state != 'asked':
+            line = visit.job_card_id.spare_part_line_ids.filtered(lambda l: l.product_id == visit.ask_product_id)[:1]
+            vals.update(reply=visit.ask_reply or False, product_id=visit.ask_product_id.id,
+                        price=line.unit_price if line else 0.0, answered_by_id=visit.ask_replied_by_id.id,
+                        answered_on=visit.ask_replied_on)
+        row = self.env['fix.part.ask'].sudo().create(vals)
+        visit.ask_id = row
+        return row
+
+    @api.model
+    def _vr_ask_backfill(self, visits):
+        """Questions asked before the history was kept get their line when a screen shows them."""
+        for visit in visits.sudo().filtered(lambda v: v.ask_state and not v.ask_id):
+            visit._vr_ask_row()
+
+    def _vr_ask_history(self):
+        """Every part question of this booking's visits (newest first), for the screens."""
+        self.ensure_one()
+        visit = self.sudo()
+        self._vr_ask_backfill(visit.order_id.visit_ids or visit)
+        holder = [('order_id', '=', visit.order_id.id)] if visit.order_id else [('visit_id', '=', visit.id)]
+        return [a._row() for a in self.env['fix.part.ask'].sudo().search(holder, limit=50)]
+
+    def _vr_ask_view(self):
+        """The question and its answer, for the technician's screens and the desk."""
+        self.ensure_one()
+        visit = self.sudo()
+        if not visit.ask_state:
+            return None
+        line = visit.job_card_id.spare_part_line_ids.filtered(lambda l: l.product_id == visit.ask_product_id)[:1]
+        return {
+            'state': visit.ask_state,
+            'name': visit.ask_name or '',
+            'price': visit.ask_price or 0.0,
+            # its file only (reading the field would load the photo on every refresh)
+            'photo': bool(self.env['ir.attachment'].sudo().search_count(
+                [('res_model', '=', visit._name), ('res_id', '=', visit.id), ('res_field', '=', 'ask_photo')])),
+            'on': fields.Datetime.to_string(visit.ask_on) if visit.ask_on else '',
+            'reply': visit.ask_reply or '',
+            'part': visit.ask_product_id.display_name or '',
+            'part_price': line.unit_price if line else 0.0,
+            'by': visit.ask_replied_by_id.name or '',
+        }
 
     # --- 2. the customer's answer
     def _vr_approved_here(self):
@@ -667,6 +1023,23 @@ class ServiceVisit(models.Model):
         for visit in self.sudo().filtered('pend_plan'):
             plan, here = visit.pend_plan, visit.state == 'in_progress'
             order = visit.order_id
+            if visit.check_outcome == 'lab':
+                # the customer agreed to the lab check: take it now, or come back to collect it
+                if visit.job_card_id:
+                    # the OK to take it is not a price: the office sends the price after the check
+                    visit.job_card_id.write({'wb_lab_ok': True, 'quote_state': 'none'})
+                if here:
+                    visit._vr_set('to_take')
+                    visit.message_post(body=_("Customer agreed: take the device to the lab (record the accessories)."),
+                                       subtype_xmlid='mail.mt_note')
+                    continue
+                order.write({'parts_state': 'ready', 'slot_id': False, 'slot_date': False,
+                             'slot_booked_on': False, 'slot_seen_by_id': False})
+                link = order._wb_new_slot_link()
+                order._wb_notify('lab_pickup', device=visit.job_card_id._fix_device_name(), slot_url=link)
+                visit._vr_set('come_back')
+                visit._vr_clear_plan()
+                continue
             if plan == 'now' and here:
                 visit._vr_set('repairing')
                 visit.message_post(body=_("Customer approved: the technician repairs it now."),
@@ -707,11 +1080,13 @@ class ServiceVisit(models.Model):
         """The customer said no: nothing is repaired or ordered; with "Visit fee + quote" only
         the visit fee is billed (repair/)."""
         for visit in self.sudo().filtered(lambda v: v.check_result in ('waiting', 'quoted')):
+            lab = visit.check_outcome == 'lab'
             visit._vr_clear_plan()
             visit._vr_set('declined')
             if visit.state == 'in_progress':
                 visit.action_done()
-            visit.message_post(body=_("Customer declined the quotation: nothing repaired or ordered."),
+            visit.message_post(body=_("Customer didn't want the lab check: the device stays with them, not repaired.")
+                               if lab else _("Customer declined the quotation: nothing repaired or ordered."),
                                subtype_xmlid='mail.mt_note')
         return True
 
@@ -749,17 +1124,23 @@ class ServiceVisit(models.Model):
         for visit in self.sudo():
             order, card = visit.order_id, visit.job_card_id
             date = return_by.strftime('%a %d %b') if return_by else ''
+            # the customer's receipt: what was taken with the device (booking/office_device.py)
+            accessories = card._wb_accessories_text() if hasattr(card, '_wb_accessories_text') else ''
             if visit.check_outcome == 'lab':
-                # no price yet: the lab checks it, the office sends the quotation
+                # no price yet: the lab checks it, the office sends the quotation by the promised date
+                if 'wb_price_by' in card._fields:
+                    card.wb_price_by = return_by
                 visit.with_context(osm_extra={'days': visit.pend_within or _("%s days", visit.pend_days),
-                                              'date': date, 'device': card._fix_device_name()}
+                                              'date': date, 'device': card._fix_device_name(),
+                                              'accessories': accessories}
                                    )._fs_notify('visit_lab_check')
                 visit._vr_set('lab')
                 visit._vr_clear_plan()
                 continue
             if visit.pend_plan == 'order_take':
                 order._wb_notify('office_part_wait', part_days=visit.pend_part_days, within=visit.pend_within or '',
-                                 date=date, device=card._fix_device_name())
+                                 date=date, device=card._fix_device_name(), accessories=accessories,
+                                 technician=visit.technician_id.name or '')
             else:
                 order._wb_notify('part_in_stock', days=visit.pend_days, within=visit.pend_within or '', date=date,
                                  device=card._fix_device_name(), slot_url='',
@@ -779,6 +1160,20 @@ class ServiceVisit(models.Model):
 
     def action_vr_done(self):
         return self._vr_fixed()
+
+    def action_open_part_ask(self):
+        """The office's answer to the technician's part question (Booking Desk: "Part found")."""
+        self.ensure_one()
+        self._vr_ask_require()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Part for %s", self.name),
+            'res_model': 'fix.part.ask.wizard',
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            'target': 'new',
+            'context': {'default_visit_id': self.id},
+        }
 
     def action_open_result(self):
         self.ensure_one()
@@ -804,7 +1199,9 @@ class ServiceVisit(models.Model):
             'decimals': currency.decimal_places,
             'found': visit.check_found or '',
             'stage': visit.check_result if visit.check_result in ('waiting', 'repairing', 'to_take') else 'find',
-            'plan_label': dict(PLANS).get(visit.pend_plan, ''),
+            'plan_label': (_("Take it to our lab for a check (the customer's OK first)")
+                           if visit.check_outcome == 'lab' and visit.check_result == 'waiting'
+                           else dict(PLANS).get(visit.pend_plan, '')),
             'timeline_date': visit.pend_date.strftime('%a %d %b') if visit.pend_date else '',
             'need_device': not visit.job_card_id and not visit._vr_device_guess()[1],
             'outcome': visit.check_outcome or '',
@@ -821,14 +1218,38 @@ class ServiceVisit(models.Model):
             'accessories': [{'id': a.id, 'name': a.name} for a in self.env['device.accessory'].sudo().search([])],
             'max_days': MAX_DAYS,
             'part_days': visit.order_id.parts_days or 7,
+            'ask': visit._vr_ask_view(),
+            'ask_history': visit._vr_ask_history(),
+            # Labour only: 'free' or the charge (the customer approves any charge first)
+            'labour': visit._vr_labour_note(),
+            # the office's fixed labour prices: one tap instead of typing the charge
+            'labour_presets': visit._vr_labour_presets() if visit.check_outcome == 'labour' else [],
+            # No fault found: free, or the visit fee (paid at the door); none on a free re-check
+            'visit_fee': visit._vr_fee_view(),
+            'recheck': visit._vr_recheck_view(),
+            # "Call the office" while waiting for its answer
+            'office_phone': (visit.company_id or self.env.company).phone or '',
         }
         if view['need_device']:
             view['brands'] = [{'id': b.id, 'name': b.name}
                               for b in self.env['device.brand'].sudo().search([], order='name')]
         return view
 
+    def _vr_fee_view(self):
+        """The visit fee the technician can charge for "No fault found" (False: none set)."""
+        fee = self._vr_visit_fee()
+        return fee.lst_price if fee and fee.lst_price > 0 else False
+
+    def _vr_recheck_view(self):
+        """The earlier "No fault found" visit when this one is a free re-check ('' when not)."""
+        earlier = self._vr_recheck_of()
+        return earlier.check_result_on.strftime('%a %d %b') if earlier else ''
+
     def _fs_tech_view(self):
         view = super()._fs_tech_view()
+        # the part questions of this booking and the office's answers: shown at every step
+        if view.get('ref'):
+            view['ask_history'] = self._vr_ask_history()
         if self.state == 'in_progress':
             view['result'] = self._vr_view()
         if self.check_result:
@@ -881,10 +1302,20 @@ class ServiceVisit(models.Model):
                                 product_id=args.get('product_id') or 0, brand=Model('device.brand', 'brand_id'))
         elif action == 'result_outcome':
             visit._vr_outcome(args.get('outcome'), note=note, days=args.get('days'), unit=_unit(args.get('unit')),
-                              brand=Model('device.brand', 'brand_id'))
+                              brand=Model('device.brand', 'brand_id'), fee=bool(args.get('fee')))
         elif action == 'result_request':
             visit._vr_request_part(args.get('name'), price=args.get('price'), data=args.get('data'),
                                    brand=Model('device.brand', 'brand_id'), note=note)
+        elif action == 'result_labour':
+            if args.get('preset_id'):      # a fixed price: never the phone's number
+                visit._vr_labour_preset(args['preset_id'], brand=Model('device.brand', 'brand_id'))
+            else:
+                visit._vr_labour_charge(args.get('price'), brand=Model('device.brand', 'brand_id'))
+        elif action == 'result_ask':
+            visit._vr_ask_office(args.get('name'), price=args.get('price'), data=args.get('data'),
+                                 brand=Model('device.brand', 'brand_id'), note=note)
+        elif action == 'result_ask_cancel':
+            visit._vr_ask_cancel()
         elif action == 'result_fixed':
             visit._vr_fixed(note)
         elif action == 'result_quote':
@@ -910,6 +1341,9 @@ class ServiceVisit(models.Model):
         if visit.state != 'in_progress':
             return dict(visit._fs_tech_view(), ok=False, error='state',
                         message=_("This is done while the work is in progress."))
+        if action == 'result_parts':
+            # searched as the technician types: the parts only, not the whole page each time
+            return {'ok': True, 'parts': visit._vr_parts(args.get('query') or '')}
         try:
             with self.env.cr.savepoint():
                 extra = visit._vr_tech_act(action, args)
