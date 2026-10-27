@@ -10,6 +10,7 @@ import Engage from '../components/Engage.astro';
 import ChatBot from '../components/ChatBot.astro';
 import CartDrawer from '../components/CartDrawer.astro';
 import SlotPicker from '../components/SlotPicker.astro';
+import PricePicker from '../components/PricePicker.astro';
 import HeaderSearch from '../components/HeaderSearch.astro';
 import { getContent, contactOf, type Content } from '../lib/content';
 import { getCatalog, type Catalog } from '../lib/catalog';
@@ -94,6 +95,7 @@ const branchWords = (b: { name: string }) => {
     <ChatBot coverage={content.coverage} categories={cats} contact={contact} visitFee={C.visit_fee} bot={content.bot} site={C} />
     <CartDrawer categories={cats} contact={contact} visitFee={C.visit_fee} />
     <SlotPicker />
+    <PricePicker />
     <div class="aurora" aria-hidden="true">
       <span class="orb o1"></span>
       <span class="grid"></span>

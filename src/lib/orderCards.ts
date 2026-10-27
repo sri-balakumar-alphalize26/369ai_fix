@@ -3,14 +3,17 @@
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
-const hm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+// Every time and date on the order pages in Oman time (the business's own clock), whatever the
+// customer's browser is set to: the same as the times Odoo writes (e.g. "13:00-16:00").
+const TZ = 'Asia/Muscat';
+const hm = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: TZ });
 
 // The technician's visit (doorstep orders): who, live position, ETA and the arrival code.
 function visitBlock(v: any) {
   if (!v || v.state === 'cancelled') return '';
   const tech = v.technician;
   const live = v.live;
-  const slot = v.slot ? new Date(v.slot.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  const slot = v.slot ? new Date(v.slot.start).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: TZ }) : '';
   const facts = [
     v.eta_minutes ? `<b>About ${esc(String(v.eta_minutes))} min away</b>${v.eta_at ? ` · by ${esc(hm(v.eta_at))}` : ''}` : '',
     v.distance_km ? `${esc(Number(v.distance_km).toFixed(1))} km from you` : '',
@@ -19,7 +22,7 @@ function visitBlock(v: any) {
   return `
     <div class="tk-visit">
       <div class="tk-vhead">
-        ${tech?.photo ? `<img src="${esc(tech.photo)}" alt="" width="44" height="44" />` : '<span class="tk-vav" aria-hidden="true"></span>'}
+        ${tech?.photo ? `<img src="${esc(tech.photo)}" alt="" width="44" height="44" onerror="this.outerHTML='&lt;span class=&quot;tk-vav&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;'" />` : '<span class="tk-vav" aria-hidden="true"></span>'}
         <div>
           <b>${esc(v.state_label)}</b>
           <span>${tech ? esc(tech.name) : 'We are choosing your technician'}${slot ? ` · ${esc(slot)}` : ''}</span>
@@ -73,8 +76,9 @@ const ICONS: [RegExp, string][] = [
 ];
 const WRENCH = '<path d="M14.5 6.5a4 4 0 0 0 5 5l-8.5 8.5a2.1 2.1 0 0 1-3-3l8.5-8.5a4 4 0 0 0-2-2z"/>';
 const icon = (text: string) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS.find(([re]) => re.test(text))?.[1] ?? WRENCH}</svg>`;
-const when = (s: string) => new Date(s.replace(' ', 'T') + 'Z').toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-const day = (s: string) => new Date(s + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+const when = (s: string) => new Date(s.replace(' ', 'T') + 'Z').toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: TZ });
+// a date (no time): read at midday so it is the same day in Oman for every browser
+const day = (s: string) => new Date(s + 'T12:00:00Z').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', timeZone: TZ });
 
 function track(steps: any[], cls = '') {
   return `<ol class="tk-track${cls}">${steps.map((s: any) => `<li class="${s.done ? 'done' : ''}${s.current ? ' cur' : ''}">
@@ -105,9 +109,47 @@ function timeBox(o: any) {
       ${btn ? `<button type="button" class="tk-timebtn" data-pick-time="${esc(o.ref)}">${esc(btn)}</button>` : ''}
     </div>`;
 }
-// in the list: a small "Pick a time" tag (the whole row opens the order, where the button is)
-const timeTag = (o: any) => (o.time && !o.cancelled && (o.time.state === 'pick' || o.time.state === 'ask_parts')
-  ? `<span class="tk-timetag">${o.time.state === 'pick' ? 'Pick a time' : 'Action needed'}</span>` : '');
+// in the list: a small "Pick a time" / "Approve the price" tag (the whole row opens the order, where the button is)
+const timeTag = (o: any) => (o.quote && !o.cancelled
+  ? `<span class="tk-timetag">${o.quote.lab ? 'Action needed' : 'Approve the price'}</span>`
+  : o.time && !o.cancelled && (o.time.state === 'pick' || o.time.state === 'ask_parts')
+    ? `<span class="tk-timetag">${o.time.state === 'pick' ? 'Pick a time' : 'Action needed'}</span>` : '');
+
+// The device at our office (o.office, from Odoo): when and by whom it was taken, with what, the dates.
+function officeBox(o: any) {
+  const f = o.office;
+  if (!f || o.cancelled) return '';
+  const dates = [
+    f.price_by ? `Price by <b>${esc(day(f.price_by))}</b>` : '',
+    f.back_by && !f.price_by ? `Back by <b>${esc(day(f.back_by))}</b>` : '',
+  ].filter(Boolean).join(' · ');
+  return `<div class="tk-timebox office">
+      <span class="tk-timeico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/></svg></span>
+      <div><b>Your device is at our office</b>
+        <span>Taken${f.taken_on ? ` ${esc(when(f.taken_on))}` : ''}${f.technician ? ` by ${esc(f.technician)}` : ''}, with: ${esc(f.accessories || 'the device only')}.</span>
+        ${dates ? `<span>${dates}</span>` : ''}</div>
+    </div>`;
+}
+
+// A new price after the technician's check (o.quote, from Odoo), waiting for the customer: the button
+// opens the price on this page (components/PricePicker.astro), the same as the WhatsApp link's page.
+function quoteBox(o: any) {
+  const q = o.quote;
+  if (!q || o.cancelled) return '';
+  if (q.lab) {
+    // the technician asks to take the device to our lab for a check: the customer's OK first
+    return `<div class="tk-timebox ask">
+      <span class="tk-timeico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/></svg></span>
+      <div><b>May we take your device to our lab?</b><span>A closer check is needed. You'll get the price${q.lab.date ? ` by ${esc(q.lab.date)}` : ''}; nothing is repaired before you approve it.</span></div>
+      <button type="button" class="tk-timebtn" data-review-price="${esc(o.ref)}">Answer</button>
+    </div>`;
+  }
+  return `<div class="tk-timebox ask">
+      <span class="tk-timeico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3.5h10a1.5 1.5 0 0 1 1.5 1.5v15l-2.5-1.5-2.5 1.5-2.5-1.5-2.5 1.5-2.5-1.5V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M9 9h6M9 12.5h6"/></svg></span>
+      <div><b>New price to approve: ${money(q.total, q)}</b><span>The technician checked your device. Nothing is done before you approve.</span></div>
+      <button type="button" class="tk-timebtn" data-review-price="${esc(o.ref)}">Review &amp; approve</button>
+    </div>`;
+}
 
 /** One order in the list (as on a shop's "Your orders"): tap it for the order's own page. */
 function orderRow(o: any) {
@@ -149,8 +191,10 @@ function orderDetail(o: any, help: { wa: string; tel: string; back: string }) {
     : `<li><span><b>${esc(o.summary || 'Repair')}</b></span></li>`;
   const bill = b
     ? `<ul class="tk-bill">${b.lines.map((l: any) => `<li><span>${esc(l.name)}${l.qty > 1 ? ` ×${esc(String(l.qty))}` : ''}${l.kind === 'part' ? ' <small>part</small>' : ''}</span><b>${money(l.amount, b)}</b></li>`).join('')}</ul>
-       <p class="tk-total"><span>Total</span><b>${money(b.total, b)}</b></p>
-       ${v?.close?.paid ? `<p class="tk-paid">✓ ${esc(v.close.paid)}</p>` : b.state === 'waiting' ? '<p class="tk-muted">We sent you this price on WhatsApp. Nothing is done before you approve it.</p>' : ''}`
+       ${b.tax_label ? `<ul class="tk-bill"><li><span>${esc(b.tax_label)}</span><b>${money(b.tax, b)}</b></li></ul>` : ''}
+       <p class="tk-total"><span>Total${b.tax_label ? ' <small>incl. VAT</small>' : ''}</span><b>${money(b.total, b)}</b></p>
+       ${v?.close?.paid ? `<p class="tk-paid">✓ ${esc(v.close.paid)}</p>` : b.state === 'waiting' ? `<p class="tk-muted">Nothing is done before you approve this price.</p>
+       <button type="button" class="tk-timebtn tk-billbtn" data-review-price="${esc(o.ref)}">Review &amp; approve</button>` : ''}`
     : '<p class="tk-muted">The technician checks your device first and tells you the price before any work starts.</p>';
   const facts = [
     ['Order', o.ref], ['Job card', o.job_card], ['Booked', when(o.created)], ['Service', o.mode_label], ['Visit', o.slot],
@@ -167,6 +211,8 @@ function orderDetail(o: any, help: { wa: string; tel: string; back: string }) {
         <span class="tk-status">${esc(o.status)}</span>
       </header>
       ${banner}
+      ${quoteBox(o)}
+      ${officeBox(o)}
       ${timeBox(o)}
       <div class="tk-dgrid">
         <div class="tk-dcol">

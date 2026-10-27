@@ -180,6 +180,10 @@
   [data-tk-list] .tk-timebox.booked .tk-timebtn { background: transparent; color: var(--violet); border: 1.5px solid var(--violet); }
   [data-tk-list] .tk-timetag { justify-self: start; margin-top: 4px; padding: 3px 10px; border-radius: 99px; background: var(--violet); color: var(--on-accent, #fff);
     font-size: 12px; font-weight: 800; }
+  /* a new price to approve (opens components/PricePicker.astro): amber, as the Quotation step */
+  [data-tk-list] .tk-timebox.ask { border-color: #e39b2d; box-shadow: 0 12px 28px -18px #e39b2d; }
+  [data-tk-list] .tk-timebox.ask .tk-timeico { background: rgba(227, 155, 45, .14); color: #b06a00; }
+  [data-tk-list] .tk-billbtn { width: 100%; margin-top: 10px; }
   @media (max-width: 900px) {
     [data-tk-list] .tk-dgrid { grid-template-columns: minmax(0, 1fr); }
   }

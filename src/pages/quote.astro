@@ -20,7 +20,7 @@ const phone = contactOf(content.site).display;
   </section>
 
   <section class="section">
-    <div class="wrap qs" data-qs data-phone={phone}>
+    <div class="wrap qs" data-qs data-no-fx data-phone={phone}>
       <div class="qs-card" data-q-card hidden>
         <h3>After checking your device <small data-q-ref></small></h3>
         <p class="qs-found" data-q-found hidden></p>
@@ -61,6 +61,19 @@ const phone = contactOf(content.site).display;
     $('[data-q-card]').hidden = false;
     $('[data-q-lead]').textContent = `Hi ${r.customer || 'there'} — booking ${r.ref}.`;
     $('[data-q-ref]').textContent = r.ref;
+    if (r.lab && r.state === 'waiting') {
+      // the technician asks to take the device for a lab check: the reason and the date, no price yet
+      lab = true;
+      document.querySelector('h1')!.innerHTML = 'A lab <span class="grad-text">check</span>';
+      $('[data-q-card] h3').firstChild!.textContent = 'May we take your device to our lab? ';
+      $('[data-q-lines]').innerHTML = `<li>Our technician needs a closer check of your <b>${esc(r.lab.device || 'device')}</b> at our lab.</li>`
+        + (r.lab.date ? `<li>You'll get the price by <b>${esc(r.lab.date)}</b>${r.lab.within ? ` (within ${esc(r.lab.within)})` : ''}.</li>` : '')
+        + '<li>Nothing is repaired before you approve the price.</li>';
+      $('[data-q-old]').closest('p')!.hidden = true;
+      $('[data-q-yes]').textContent = 'Yes, take it';
+      $('[data-q-no]').textContent = 'No thanks';
+      return;
+    }
     const found = $('[data-q-found]');
     found.hidden = !(r.found || []).length;
     found.innerHTML = found.hidden ? '' : `What we found: <b>${esc(r.found.join(', '))}</b>`;
@@ -82,6 +95,7 @@ const phone = contactOf(content.site).display;
 
   // A part offered in two grades: one radio group each; the total follows the choice.
   let quote: any = null;
+  let lab = false;   // the OK to take the device for a lab check, not a price
   const money = (v: number) => `${quote.currency} ${Number(v || 0).toFixed(quote.decimals ?? 3)}`;
   const picked = () => [...document.querySelectorAll<HTMLInputElement>('[data-q-choices] input:checked')].map((x) => Number(x.value));
   function drawChoices(r: any) {
@@ -112,7 +126,9 @@ const phone = contactOf(content.site).display;
     const r = await fetch('/api/visit', { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ o, t, action: 'quote', yes, choice: picked() }) }).then((x) => x.json()).catch(() => ({ ok: false }));
     if (!r.ok) { msg(ERR[r.error] || 'That did not work — please try again.'); return; }
-    done(yes ? 'Approved — thank you. We will go ahead with the repair.' : 'You declined the new price. We will be in touch.');
+    done(lab ? (yes ? 'Thank you! Our technician takes your device to our lab; we send you the price before any repair.'
+                    : 'Fine, your device stays with you. Nothing is taken or repaired.')
+      : yes ? 'Approved — thank you. We will go ahead with the repair.' : 'You declined the new price. We will be in touch.');
   }
   $('[data-q-yes]').addEventListener('click', () => answer(true));
   $('[data-q-no]').addEventListener('click', () => answer(false));
