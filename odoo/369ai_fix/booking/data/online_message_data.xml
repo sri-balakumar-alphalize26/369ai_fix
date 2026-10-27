@@ -57,7 +57,7 @@ Please approve or decline - nothing is done before your OK: {quote_url}</field>
     <record id="msg_office_taken" model="online.service.message">
         <field name="key">office_taken</field>
         <field name="sequence">30</field>
-        <field name="body">Hi {name}, we've taken your device to our office for {order}. We'll send you the price shortly and return it by {date}.</field>
+        <field name="body">Hi {name}, our technician {technician} took your device to our office for {order}, with: {accessories}. We'll send you the price shortly and return it by {date}.</field>
     </record>
     <record id="msg_return_ready" model="online.service.message">
         <field name="key">return_ready</field>
@@ -74,10 +74,20 @@ Please approve or decline - nothing is done before your OK: {quote_url}</field>
         <field name="sequence">32</field>
         <field name="body">Hi {name}, good news: we have the part for your {device} ({order}). It will be fixed within {within}, by {date}. {next}</field>
     </record>
+    <record id="msg_lab_permission" model="online.service.message">
+        <field name="key">lab_permission</field>
+        <field name="sequence">34</field>
+        <field name="body">Hi {name}, our technician needs to take your {device} to our lab for a closer check (order {order}). You'll get the price by {date}, and nothing is repaired before you approve it. May we take it? Yes / No: {quote_url}</field>
+    </record>
+    <record id="msg_lab_pickup" model="online.service.message">
+        <field name="key">lab_pickup</field>
+        <field name="sequence">35</field>
+        <field name="body">Thanks {name}! We'll collect your {device} for the lab check (order {order}). Pick a time for our technician: {slot_url}</field>
+    </record>
     <record id="msg_office_part_wait" model="online.service.message">
         <field name="key">office_part_wait</field>
         <field name="sequence">33</field>
-        <field name="body">Thanks {name}! Your {device} is with us for {order}. The part is ordered (about {part_days} days) and the repair then takes {within}. We'll bring it back by {date}.</field>
+        <field name="body">Thanks {name}! Your {device} is with us for {order} ({technician} took it, with: {accessories}). The part is ordered (about {part_days} days) and the repair then takes {within}. We'll bring it back by {date}.</field>
     </record>
     <record id="msg_part_arrived_office" model="online.service.message">
         <field name="key">part_arrived_office</field>

@@ -9,6 +9,7 @@ import base64
 import hashlib
 import hmac
 import logging
+import re
 import secrets
 from datetime import timedelta
 
@@ -32,6 +33,12 @@ def _int(value):
         return int(value or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _model_key(name):
+    """A model name to compare: no inch marks, letters and digits only (the site's modelKey)."""
+    name = re.sub(r'["”″]|-?\s*inch(es)?\b', '', ' '.join((name or '').lower().split()))
+    return re.sub(r'[^a-z0-9]', '', name)
 
 
 def _sniff(data):
@@ -135,6 +142,9 @@ class OnlineServiceOrder(models.Model):
             brand = env['device.brand'].browse()
             series = env['device.series'].browse()
             model = env['device.model'].browse()
+        if cat and not brand:
+            # Only names (a cart saved from the site's own list): find the device by its text.
+            brand, series, model = self._wb_match_device(cat, raw.get('model'))
         if brand and not cat:
             cat = brand.category_id
         product = env['product.product'].browse(_int(raw.get('product_id'))).exists()
@@ -147,6 +157,34 @@ class OnlineServiceOrder(models.Model):
             'model_id': model.id or False,
             'product_id': product.id or False,
         }, product
+
+    @api.model
+    def _wb_match_device(self, category, text):
+        """(brand, series, model) of `category` from the customer's "Brand Model" text, as the
+        site's cart relinks it: the brand whose name starts the text, then the model whose name
+        (or series + name) the rest ends with - 'iPad Pro 13" (M4)' finds 'iPad Pro 13-inch (M4)'.
+        Without a brand name, a model that matches alone in the category. Empty where not found."""
+        env = self.sudo().env
+        none = (env['device.brand'], env['device.series'], env['device.model'])
+        text = _clip(text, 80)
+        if not category or not text:
+            return none
+        typed = ' '.join(text.lower().split())
+        brands = category.brand_ids.sorted(lambda b: -len(b.name or ''))
+        brand = brands.filtered(lambda b: b.name and (typed == b.name.lower()
+                                                     or typed.startswith(b.name.lower() + ' ')))[:1]
+        rest = _model_key(text[len(brand.name):] if brand else text)
+        models = (brand or brands).series_ids.model_ids
+        best, size = env['device.model'], 0
+        for model in models:
+            for key in (_model_key(model.name), _model_key('%s %s' % (model.series_id.name, model.name))):
+                if key and rest.endswith(key) and len(key) > size:
+                    best, size = model, len(key)
+        if not brand and best and len(models.filtered(lambda m: _model_key(m.name) == _model_key(best.name))) > 1:
+            best = env['device.model']      # the same name under two brands: let staff choose
+        if best:
+            return best.series_id.brand_id, best.series_id, best
+        return brand, none[1], none[2]
 
     @api.model
     def _wb_account(self, payload):

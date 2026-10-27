@@ -8,8 +8,16 @@
             <form string="Approve booking">
                 <field name="order_id" invisible="1"/>
                 <field name="has_missing" invisible="1"/>
+                <field name="needs_card" invisible="1"/>
+                <field name="category_id" invisible="1"/>
+                <div class="alert alert-info" role="alert" invisible="not needs_card">
+                    No job card yet: the booking came without a brand. Choose it, and the job card is made with the booked repairs and their prices.
+                </div>
                 <group>
+                    <field name="brand_id" invisible="not needs_card" required="needs_card" options="{'no_create': True}"/>
+                    <field name="model_id" invisible="not needs_card" options="{'no_create': True}"/>
                     <field name="technician_id" options="{'no_create': True}"/>
+                    <field name="bill_type" widget="radio"/>
                 </group>
                 <separator string="Parts on the job card" invisible="not parts_html"/>
                 <field name="parts_html" nolabel="1" invisible="not parts_html"/>
@@ -53,11 +61,32 @@
                 <group>
                     <field name="accessory_ids" widget="many2many_checkboxes" invisible="no_accessories"/>
                     <field name="no_accessories"/>
+                    <field name="accessory_count"/>
                     <field name="accessories" placeholder="e.g. charger has a frayed cable; black case"/>
                     <field name="return_by"/>
                 </group>
                 <footer>
                     <button name="action_confirm" type="object" string="Take to office and tell the customer" class="btn-primary"/>
+                    <button special="cancel" string="Back"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_wb_receive_wizard" model="ir.ui.view">
+        <field name="name">wb.receive.wizard.form</field>
+        <field name="model">wb.receive.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Received at the office">
+                <field name="job_card_id" invisible="1"/>
+                <p>Check the device and untick anything the technician took that did not arrive.</p>
+                <group>
+                    <field name="taken"/>
+                    <field name="accessory_ids" widget="many2many_checkboxes"/>
+                    <field name="note"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Received at the office" class="btn-primary"/>
                     <button special="cancel" string="Back"/>
                 </footer>
             </form>

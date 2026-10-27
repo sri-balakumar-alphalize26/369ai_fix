@@ -26,11 +26,80 @@ class JobCard(models.Model):
     wb_return_by = fields.Date('Return by', readonly=True, copy=False)
     wb_returned = fields.Boolean('Returned to customer', readonly=True, copy=False)
 
-    def _wb_lines_total(self):
-        """Repairs + parts; of two grades offered for one part, only the one chosen counts."""
+    def _wb_with_tax(self):
+        """Billed with tax (Easy Sales): the booking's choice (online_order_review.py)."""
         self.ensure_one()
-        return sum(l.unit_price * l.quantity for l in self.service_line_ids) + \
-            sum(l.unit_price * l.quantity for l in self.spare_part_line_ids.filtered(lambda l: not l.fix_alt_off))
+        order = self.sudo().online_order_id
+        return bool(order) and order._wb_with_tax()
+
+    def _wb_line_taxes(self, line):
+        """A line's taxes: its own, else the company's sale tax (VAT)."""
+        company = self.company_id or self.env.company
+        taxes = line.tax_ids.filtered(lambda t: not t.company_id or t.company_id == company)
+        return taxes or company.account_sale_tax_id
+
+    def _wb_billed_lines(self):
+        """The repairs and the parts that count: of two grades offered for one part, the chosen one."""
+        self.ensure_one()
+        return self.service_line_ids, self.spare_part_line_ids.filtered(lambda l: not l.fix_alt_off)
+
+    def _wb_tax_split(self):
+        """(before tax, VAT, total with VAT) of the repairs and the chosen parts, by each line's
+        taxes - Odoo's own sums, so a tax included in the price is not added twice."""
+        self.ensure_one()
+        card = self.sudo()
+        currency = card.company_id.currency_id or self.env.company.currency_id
+        services, parts = card._wb_billed_lines()
+        excluded = included = 0.0
+        for line in list(services) + list(parts):
+            taxes = card._wb_line_taxes(line)
+            if taxes:
+                res = taxes.compute_all(line.unit_price, currency, line.quantity, product=line.product_id,
+                                        partner=card.partner_id)
+                excluded += res['total_excluded']
+                included += res['total_included']
+            else:
+                excluded += line.unit_price * line.quantity
+                included += line.unit_price * line.quantity
+        return currency.round(excluded), currency.round(included - excluded), currency.round(included)
+
+    def _wb_line_amount(self, line):
+        """One line's amount as the customer pays it: with its VAT when billed with tax."""
+        self.ensure_one()
+        amount = line.unit_price * line.quantity
+        taxes = self._wb_line_taxes(line) if self._wb_with_tax() else None
+        if not taxes:
+            return amount
+        currency = self.company_id.currency_id or self.env.company.currency_id
+        return taxes.compute_all(line.unit_price, currency, line.quantity, product=line.product_id,
+                                 partner=self.partner_id)['total_included']
+
+    def _wb_tax_total(self):
+        """The VAT on the repairs and parts when the booking is billed with tax, else 0."""
+        self.ensure_one()
+        return self._wb_tax_split()[1] if self._wb_with_tax() else 0.0
+
+    def _wb_tax_label(self):
+        """'VAT 5%' (the tax's own name), for the customer's price."""
+        self.ensure_one()
+        card = self.sudo()
+        services, parts = card._wb_billed_lines()
+        taxes = self.env['account.tax']
+        for line in list(services) + list(parts):
+            taxes |= card._wb_line_taxes(line)
+        names = ', '.join(dict.fromkeys(t.name for t in taxes))
+        return _("VAT %s", names) if names else _("VAT")
+
+    def _wb_lines_total(self, with_tax=None):
+        """Repairs + parts (of two grades offered for one part, only the one chosen counts), and
+        the VAT when the booking is billed with tax: what the customer sees, approves and pays."""
+        self.ensure_one()
+        if with_tax is None:
+            with_tax = self._wb_with_tax()
+        if with_tax:
+            return self._wb_tax_split()[2]
+        services, parts = self._wb_billed_lines()
+        return sum(l.unit_price * l.quantity for l in services) + sum(l.unit_price * l.quantity for l in parts)
 
     def _wb_alt_groups(self):
         """{key: lines} of the parts offered in two grades (original / compatible)."""

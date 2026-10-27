@@ -7,6 +7,9 @@ signed-in number (as customer_orders does), and the booking must be theirs on th
 
 customer_orders rows get ``time``: what the order page offers (pick, change, a parts question,
 waiting for parts), or None when there is nothing to pick.
+
+A new price after the technician's check works the same way: the WhatsApp link's /quote page,
+or "Review the price" on My orders (customer_quote, proven by the sign-in); rows get ``quote``.
 """
 from odoo import _, api, models
 from odoo.exceptions import AccessError
@@ -64,6 +67,37 @@ class OnlineServiceOrder(models.Model):
             return own.parts_answer(host, order.name, '', bool(yes))
         return own.slot_options(host, order.name, '')
 
+    @api.model
+    def customer_quote(self, host, phone, ref, action='', yes=False, choice=None):
+        """The new-price page for a signed-in customer (My orders): action '' = what the page shows,
+        'answer' = Approve (yes) / Decline, with the grade kept where a part is offered in two
+        (`choice`). The same page and answers as the WhatsApp link's /quote page."""
+        self._check_website_caller()
+        order = self._wb_customer_order(host, phone, ref)
+        if not order:
+            return {'ok': False, 'error': 'unknown'}
+        own = self.with_context(fix_customer_order=order.id)
+        if action == 'answer':
+            ids = [int(x) for x in (choice or []) if str(x).isdigit()]
+            return own.quote_answer(host, order.name, '', bool(yes), choice=ids)
+        return own.quote_options(host, order.name, '')
+
+    def _wb_quote_row(self):
+        """What My orders offers for a changed price: waiting for the customer's OK (a button that
+        opens the price), or None."""
+        self.ensure_one()
+        order = self.sudo()
+        if order.state in ('done', 'cancelled'):
+            return None
+        cards = order.job_card_ids.filtered(lambda c: c.quote_state == 'waiting')
+        if not cards:
+            return None
+        currency = (order.company_id or self.env.company).currency_id
+        return {'state': 'waiting', 'total': sum(cards.mapped(lambda c: c._wb_lines_total())),
+                'currency': currency.name, 'decimals': currency.decimal_places,
+                # the technician asks to take the device for a lab check (no price yet)
+                'lab': order._wb_lab_ask(cards)}
+
     def desk_slot(self, action='', slot_id=0, date=''):
         """Book a time from the Booking Desk, for the customer (on the phone, or when WhatsApp is
         down): the same windows, places, rules and messages as the customer's own booking; the
@@ -105,4 +139,5 @@ class OnlineServiceOrder(models.Model):
         for row in result['orders']:
             order = orders.get(row['ref'])
             row['time'] = order._wb_time_row() if order else None
+            row['quote'] = order._wb_quote_row() if order else None
         return result

@@ -1,8 +1,19 @@
 from odoo import _, fields, models
 
+# How a website booking is billed: IT & Mobile Repair's two bills (its "Create Invoice" asks)
+BILL_TYPES = [
+    ('estimate', 'Without tax (Estimate Sale)'),
+    ('easy', 'With tax (Easy Sales)'),
+]
+
 
 class ResCompany(models.Model):
     _inherit = 'res.company'
+
+    wb_bill_type_default = fields.Selection(
+        BILL_TYPES, 'Doorstep bills', default='estimate', required=True,
+        help="How a new website booking is billed at the door. The office can switch one booking on the "
+             "Booking Desk. With tax: the customer sees and approves the price including VAT.")
 
     wb_unassigned_employee_id = fields.Many2one(
         'hr.employee', string='Technician placeholder (website)',
@@ -35,3 +46,4 @@ class ResConfigSettings(models.TransientModel):
     wb_slot_change_hours = fields.Integer(related='company_id.wb_slot_change_hours', readonly=False)
     wb_unassigned_employee_id = fields.Many2one(related='company_id.wb_unassigned_employee_id', readonly=False)
     repair_requote_pct = fields.Float(related='company_id.repair_requote_pct', readonly=False)
+    wb_bill_type_default = fields.Selection(related='company_id.wb_bill_type_default', readonly=False)

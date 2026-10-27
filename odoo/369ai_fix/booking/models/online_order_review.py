@@ -15,6 +15,8 @@ from datetime import timedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+from .res_company import BILL_TYPES
+
 _logger = logging.getLogger(__name__)
 
 SLOT_LINK_DAYS = 7
@@ -52,6 +54,48 @@ class OnlineServiceOrder(models.Model):
     slot_seen_on = fields.Datetime(readonly=True, copy=False)
     call_numbers = fields.Char(compute='_compute_call_numbers')
     wb_requote_needed = fields.Boolean('Part dearer: re-price', readonly=True, copy=False)
+    # with tax (Easy Sales) or without (Estimate Sale): the office's choice, the company's by default
+    wb_bill_type = fields.Selection(
+        BILL_TYPES, 'Bill', tracking=True, copy=False,
+        help="With tax: every price the customer sees includes VAT, and the bill at the door is an Easy Sale. "
+             "Without tax: the bill at the door is an Estimate Sale. Empty: the company's default.")
+
+    def _wb_bill_type(self):
+        """The booking's bill: its own choice, else its company's default (Repair Settings)."""
+        self.ensure_one()
+        order = self.sudo()
+        return order.wb_bill_type or (order.company_id or self.env.company).wb_bill_type_default or 'estimate'
+
+    def _wb_with_tax(self):
+        self.ensure_one()
+        return self._wb_bill_type() == 'easy'
+
+    def _wb_billed(self):
+        """The bill made already (Easy Sales or Estimate Sale on a job card): the type is fixed then."""
+        self.ensure_one()
+        cards = self.sudo().job_card_ids
+        return bool(cards.easy_sales_id or cards.estimate_sale_id)
+
+    def _wb_set_bill_type(self, bill_type):
+        """The office switches the bill. A price already sent or agreed changes with the tax: the
+        customer is asked again (the new total), nothing is charged without their OK."""
+        self.ensure_one()
+        if bill_type not in dict(BILL_TYPES):
+            raise UserError(_("Choose the bill: with tax or without tax."))
+        if self._wb_billed():
+            raise UserError(_("The bill is already made for %s: it cannot change now.", self.name))
+        if self._wb_bill_type() == bill_type:
+            return False
+        order = self.sudo()
+        priced = order.job_card_ids.filtered(lambda c: c.state != 'cancelled' and c.quote_state in ('waiting', 'accepted')
+                                             and order.env.company.currency_id.compare_amounts(c._wb_lines_total(), 0.0) > 0)
+        order.wb_bill_type = bill_type
+        order.message_post(body=_("Bill set to %(type)s by %(who)s.", type=dict(BILL_TYPES)[bill_type],
+                                  who=self.env.user.name))
+        # the price the customer saw changed: ask them again (the same "new price" message and link)
+        for card in priced:
+            card._wb_send_new_price()
+        return True
 
     @api.depends('slot_id', 'slot_date')
     def _compute_slot_label(self):
@@ -113,6 +157,8 @@ class OnlineServiceOrder(models.Model):
         for card in self.sudo().job_card_ids.filtered(lambda c: c.state != 'cancelled'):
             for line in card.service_line_ids:
                 amount = line.unit_price * line.quantity
+                if not amount:
+                    continue        # a repair at 0 (e.g. Labour only, free): the customer reads only what is charged
                 total += amount
                 lines.append('• %s — %s' % (line.description or line.product_id.name, _money(currency, amount)))
             for line in card.spare_part_line_ids:
@@ -128,6 +174,14 @@ class OnlineServiceOrder(models.Model):
                     continue
                 total += amount
                 lines.append('• %s — %s' % (name, _money(currency, amount)))
+        cards = self.sudo().job_card_ids.filtered(lambda c: c.state != 'cancelled')
+        if self._wb_with_tax() and cards:
+            # billed with tax: the VAT, and the total the customer approves and pays
+            tax = sum(c._wb_tax_total() for c in cards)
+            total = sum(c._wb_lines_total(with_tax=True) for c in cards)     # the grade chosen so far counts
+            lines.append('%s — %s' % (cards[:1]._wb_tax_label(), _money(currency, tax)))
+            lines.append(_("Total (incl. VAT): %s", _money(currency, total)))
+            return '\n'.join(lines), total
         lines.append(_("Total: %s", _money(currency, total)))
         return '\n'.join(lines), total
 
@@ -141,7 +195,7 @@ class OnlineServiceOrder(models.Model):
                 out.append({'key': key, 'options': [{
                     'line_id': l.id, 'name': l.description or l.product_id.name,
                     'grade': grades.get(l.product_id.fix_part_grade, ''),
-                    'amount': l.unit_price * l.quantity, 'chosen': not l.fix_alt_off,
+                    'amount': card._wb_line_amount(l), 'chosen': not l.fix_alt_off,
                 } for l in lines.sorted(lambda l: (l.fix_alt_off, l.id))]})
         return out
 
@@ -208,8 +262,11 @@ class OnlineServiceOrder(models.Model):
         self.ensure_one()
         self._wb_check_open()
         cards = self.job_card_ids.filtered(lambda c: c.state != 'cancelled')
+        if not cards:
+            raise UserError(_("%s has no job card yet: approve it again and choose the brand.", self.name))
         if not cards.service_line_ids:
-            raise UserError(_("Add the repair (with its price) to the job card before approving."))
+            raise UserError(_("The job card of %s has no repair on it yet: open the job card, add the "
+                              "repair with its price, then approve.", self.name))
         if technician:
             cards.sudo().write({'assigned_to': technician.id})
         missing = self._wb_missing_parts()
@@ -464,7 +521,18 @@ class OnlineServiceOrder(models.Model):
                       if not l.fix_alt_off and l.product_id.qty_available < (l.quantity or 1)],
             'found': (waiting or cards).issue_type_ids.mapped('name'),
             'at_office': any(cards.mapped('wb_at_office')),
+            # a lab check waiting for the customer's OK to take the device: the reason, not a price
+            'lab': order._wb_lab_ask(waiting),
         }
+
+    def _wb_lab_ask(self, cards):
+        """{device, within, date} when the technician asks to take the device for a lab check, else None."""
+        self.ensure_one()
+        visit = cards.sudo().fs_visit_ids.filtered(lambda v: v.check_outcome == 'lab' and v.check_result == 'waiting')[:1]
+        if not visit:
+            return None
+        return {'device': visit.job_card_id._fix_device_name(), 'within': visit.pend_within or '',
+                'date': visit.pend_date.strftime('%a %d %b') if visit.pend_date else ''}
 
     @api.model
     def quote_answer(self, host, ref, token, yes, choice=None):
@@ -539,13 +607,31 @@ class OnlineServiceOrder(models.Model):
         state = super().alarm_state()
         if not self.env.user.has_group('mobile_repair.group_mobile_repair_receptionist'):
             state['slots'] = []
+            state['asks'] = []
             return state
+        # technicians waiting at a door for the office's answer about a part (visits/visit_result.py)
+        asks = self.env['fix.service.visit'].sudo().search([
+            ('state', '=', 'in_progress'), ('ask_state', '=', 'asked'),
+            ('company_id', 'in', self.env.companies.ids)], order='ask_on asc', limit=20)
+        state['asks'] = [{'id': v.id, 'order_id': v.order_id.id, 'order': v.order_id.name or v.name,
+                          'technician': v.technician_id.name or '', 'part': v.ask_name or '',
+                          'on': fields.Datetime.to_string(v.ask_on) if v.ask_on else ''}
+                         for v in asks if v.order_id]
         orders = self.sudo().search([('slot_booked_on', '!=', False), ('slot_seen_by_id', '=', False),
                                      ('state', '!=', 'cancelled'),
                                      ('company_id', 'in', self.env.companies.ids)], limit=20)
         state['slots'] = [{'id': o.id, 'name': o.name, 'customer': o.customer_name or o.phone or '',
                            'slot': o.slot_label or ''} for o in orders]
         return state
+
+    def _timeline_index(self):
+        """The customer's step: a price sent at the visit (the job card still "In Inspection")
+        is the Quotation step - waiting for their OK, approved, or declined."""
+        idx = super()._timeline_index()
+        card = self.job_card_id.sudo()
+        if idx == 2 and card and getattr(card, 'quote_state', 'none') in ('waiting', 'accepted', 'declined'):
+            return 3
+        return idx
 
     @api.model
     def customer_orders(self, host, phone):
@@ -569,7 +655,24 @@ class OnlineServiceOrder(models.Model):
             row['times'] = {k: fields.Datetime.to_string(v) if v else '' for k, v in
                             (('confirmed', order.confirmed_on), ('done', order.done_on))}
             row['bill'] = order._wb_customer_bill()
+            row['office'] = order._wb_office_row()
         return result
+
+    def _wb_office_row(self):
+        """The device at our office, for My orders: when and by whom it was taken, with what, and
+        the promised dates; None when it is not (or no longer) at the office."""
+        self.ensure_one()
+        card = self.sudo().job_card_ids.filtered(lambda c: c._wb_office_state())[:1]
+        if not card:
+            return None
+        return {
+            'taken_on': fields.Datetime.to_string(card.wb_taken_on) if card.wb_taken_on else '',
+            'technician': card._wb_taken_by_name(),
+            'accessories': card._wb_accessories_text(),
+            'received': bool(card.wb_received_on),
+            'price_by': fields.Date.to_string(card.wb_price_by) if card.wb_price_by else '',
+            'back_by': fields.Date.to_string(card.wb_return_by) if card.wb_return_by else '',
+        }
 
     def _wb_customer_bill(self):
         """The repairs and parts with their price, as the customer was told them: only once the
@@ -587,6 +690,8 @@ class OnlineServiceOrder(models.Model):
             return None     # no price on it yet: the page says the price comes after the check
         return {'lines': lines, 'total': card._wb_lines_total(), 'currency': currency.name,
                 'decimals': currency.decimal_places,
+                # billed with tax: the VAT line, and the total includes it
+                'tax': card._wb_tax_total(), 'tax_label': card._wb_tax_label() if card._wb_with_tax() else '',
                 'state': 'waiting' if card.quote_state == 'waiting' else 'agreed'}
 
     def _wb_parts_expected(self):

@@ -16,6 +16,9 @@ BOOKING_KEYS = [
     ('part_in_stock', 'Part in the office: fixed within N days'),
     ('office_part_wait', 'Device at the office, waiting for the part'),
     ('part_arrived_office', 'Part arrived, device at the office'),
+    # a lab check: the customer's OK first, before the technician takes the device
+    ('lab_permission', 'Lab check: may we take the device?'),
+    ('lab_pickup', 'Lab check approved later: pick a time to collect'),
 ]
 
 
