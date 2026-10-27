@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Once a day: a to-do for each device at our office whose promised date passed (the price after
+         a lab check, or the return), once per kind (booking/models/office_device.py). -->
+    <record id="cron_wb_overdue_office" model="ir.cron">
+        <field name="name">369 ai Fix: devices at the office past their promised date</field>
+        <field name="model_id" ref="mobile_repair.model_job_card"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_wb_overdue()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>
