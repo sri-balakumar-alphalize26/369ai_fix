@@ -31,8 +31,39 @@
 
                     <!-- my visits -->
                     <section class="fxd-list">
+                        <!-- search my visits of any date: VIS/…, OS/…, the job card, the customer, phone or area -->
+                        <div class="fxd-search" role="search">
+                            <i class="fa fa-search" aria-hidden="true"/>
+                            <input type="search" class="fxd-search-in" placeholder="Search VIS/01045, OS/01520, name or area"
+                                   aria-label="Search my visits" autocomplete="off" t-att-value="state.findQ"
+                                   t-on-input="onFind" t-on-keydown="onFindKey"/>
+                            <i class="fa fa-circle-o-notch fa-spin fxd-search-wait" t-if="state.finding" aria-hidden="true"/>
+                            <button type="button" class="fxd-search-x" t-elif="state.findQ" aria-label="Clear the search" t-on-click="clearFind"><i class="fa fa-times"/></button>
+                        </div>
+                        <t t-if="findActive">
+                            <div class="fxd-list-head">
+                                <div class="fxd-list-title">
+                                    <h2>Search results</h2>
+                                    <span class="fxd-found" t-if="state.findRows !== null" role="status">
+                                        <t t-esc="state.findCount"/> found<t t-if="state.findCount > state.findRows.length"> · newest <t t-esc="state.findRows.length"/> shown</t>
+                                    </span>
+                                </div>
+                                <small>Your visits of any date. Tap one to open it.</small>
+                            </div>
+                            <div class="fxd-empty" t-if="state.findRows !== null and !state.findRows.length">
+                                <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-search"/></span>
+                                No visit matches "<t t-esc="state.findQ.trim()"/>". Try the number only (e.g. 1045) or part of the name.
+                            </div>
+                            <t t-foreach="state.findRows or []" t-as="v" t-key="v.id">
+                                <t t-call="369ai_fix.TechCard"/>
+                            </t>
+                        </t>
+                        <t t-else="">
                         <div class="fxd-list-head">
-                            <h2>Today and upcoming</h2>
+                            <div class="fxd-list-title">
+                                <h2>Today and upcoming</h2>
+                                <FixSort options="sorts" value="state.sort" onChange="(key) => this.setSort(key)"/>
+                            </div>
                             <small>Tap a visit to open it. The same steps as your page on WhatsApp.</small>
                         </div>
                         <div class="fxd-empty" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
@@ -48,6 +79,7 @@
                             <t t-foreach="doneVisits" t-as="v" t-key="v.id">
                                 <t t-call="369ai_fix.TechCard"/>
                             </t>
+                        </t>
                         </t>
                     </section>
 
@@ -76,7 +108,9 @@
             </div>
             <div class="fxd-card-cust"><t t-esc="v.customer or 'Customer'"/><small t-if="v.area"> · <t t-esc="v.area"/></small></div>
             <div class="fxd-card-sum" t-if="v.summary" t-esc="v.summary"/>
-            <div class="fxd-card-meta" t-if="(state.manager and v.technician) or v.rating or v.paid">
+            <div class="fxd-card-meta" t-if="(state.manager and v.technician) or v.rating or v.paid or (findActive and v.order)">
+                <!-- in search results: the booking number too, so a search by OS/… shows which one matched -->
+                <span class="fxd-chip" t-if="findActive and v.order"><i class="fa fa-file-text-o"/> <t t-esc="v.order"/></span>
                 <span class="fxd-chip" t-if="state.manager and v.technician"><i class="fa fa-user"/> <t t-esc="v.technician"/></span>
                 <span class="fxd-chip fxt-stars" t-if="v.rating" t-esc="stars(v.rating)"/>
             </div>
@@ -141,15 +175,27 @@
                         <p class="fxd-muted fxt-hint" t-else="">Tap "Given" once you hand it over, while the work is in progress.</p>
                     </section>
 
-                    <section class="fxd-box" t-if="v.photos and v.photos.length">
-                        <h3><i class="fa fa-camera"/> Photos <small>(<t t-esc="v.photos.length"/>)</small></h3>
-                        <div class="fxt-thumbs">
+                    <!-- every part asked of the office for this booking, and the answer: at every step -->
+                    <section class="fxd-box fxd-asks" t-if="(v.ask_history or []).length">
+                        <h3><i class="fa fa-cogs"/> Part questions <small>(<t t-esc="v.ask_history.length"/>)</small></h3>
+                        <t t-set="asks" t-value="v.ask_history"/>
+                        <t t-set="cur" t-value="v.result and v.result.currency"/>
+                        <t t-call="369ai_fix.PartAskHistory"/>
+                    </section>
+
+                    <section class="fxd-box" t-if="(v.photos and v.photos.length) or v.video">
+                        <h3><i class="fa fa-camera"/> Photos <small t-if="v.photos and v.photos.length">(<t t-esc="v.photos.length"/>)</small><t t-if="v.video"> &amp; video</t></h3>
+                        <div class="fxt-thumbs" t-if="v.photos and v.photos.length">
                             <t t-foreach="v.photos" t-as="p" t-key="p.id">
                                 <button type="button" t-attf-class="fxt-thumb fxt-thumb-{{ p.kind }}" t-att-title="p.name" t-on-click="() => this.openPhoto(p_index)">
                                     <img t-att-src="p.uri" t-att-alt="p.name" width="80" height="80"/>
                                     <span t-esc="p.name"/>
                                 </button>
                             </t>
+                        </div>
+                        <div class="fxt-video" t-if="v.video">
+                            <small>Device video</small>
+                            <video t-att-src="v.video.url" controls="controls" preload="metadata" playsinline="playsinline"/>
                         </div>
                     </section>
                     <!-- a photo, big: tap a thumbnail; the arrows (or the keyboard) for the next, Esc closes -->
@@ -291,11 +337,54 @@
 
                             <!-- not repaired: the reason goes to the customer -->
                             <div class="fxt-sub" t-if="outcomeCloses">
-                                <p class="fxd-muted fxt-hint">Write above what you checked and why. The customer gets it on WhatsApp and the visit closes.</p>
-                                <button class="fxd-btn fxd-btn-danger-ghost fxt-big" t-att-disabled="state.busy" t-on-click="confirmOutcome"><i class="fa fa-flag-checkered"/> Close without a repair</button>
+                                <!-- No fault found: free, or the visit fee (paid at the door, then the customer's code) -->
+                                <t t-if="state.outcome === 'no_fault'">
+                                    <p class="fxt-paid" t-if="r.recheck"><i class="fa fa-refresh"/> Free re-check: this customer had "No fault found" on <t t-esc="r.recheck"/>. No visit fee.</p>
+                                    <t t-elif="noFaultFeeOffered">
+                                        <label class="fxt-tick">
+                                            <input type="checkbox" t-att-checked="!state.noFaultFee" t-att-disabled="state.busy" t-on-change="(ev) => state.noFaultFee = !ev.target.checked"/>
+                                            <span>No charge (free)</span>
+                                        </label>
+                                        <p class="fxd-muted fxt-hint" t-if="state.noFaultFee">Visit fee <b t-esc="money(r.visit_fee)"/>: the customer pays you at the door, then gives you the finish code.</p>
+                                    </t>
+                                </t>
+                                <p class="fxd-muted fxt-hint">Write above what you checked and why. The customer gets it on WhatsApp<t t-if="!chargingVisitFee"> and the visit closes</t>.</p>
+                                <button class="fxd-btn fxd-btn-primary fxt-big" t-if="chargingVisitFee" t-att-disabled="state.busy" t-on-click="confirmOutcome"><i class="fa fa-money"/> Charge the visit fee</button>
+                                <button class="fxd-btn fxd-btn-danger-ghost fxt-big" t-else="" t-att-disabled="state.busy" t-on-click="confirmOutcome"><i class="fa fa-flag-checkered"/> Close without a repair</button>
                             </div>
 
                             <t t-if="outcomePriced">
+                                <!-- Labour only: free by default; a charge goes to the customer for their OK first -->
+                                <t t-if="state.outcome === 'labour'">
+                                    <h4>Labour charge</h4>
+                                    <label class="fxt-tick">
+                                        <input type="checkbox" t-att-checked="labourFree" t-att-disabled="state.busy" t-on-change="(ev) => this.setLabourFree(ev.target.checked)"/>
+                                        <span>No labour charge (free)</span>
+                                    </label>
+                                    <!-- the office's fixed labour prices: one tap -->
+                                    <div class="fxt-presets" t-if="!labourFree and r.labour_presets and r.labour_presets.length">
+                                        <t t-foreach="r.labour_presets" t-as="p" t-key="p.id">
+                                            <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-class="{ 'fxt-preset-on': labourPresetOn(p) }"
+                                                    t-att-disabled="state.busy" t-on-click="() => this.useLabourPreset(p)">
+                                                <t t-esc="p.name"/> · <t t-esc="money(p.price)"/>
+                                            </button>
+                                        </t>
+                                    </div>
+                                    <div class="fxt-line" t-if="!labourFree">
+                                        <span>Charge for labour</span>
+                                        <span class="fxt-price">
+                                            <small t-esc="r.currency"/>
+                                            <input class="fxd-in" type="number" min="0" step="any" inputmode="decimal" aria-label="Labour charge"
+                                                   t-att-placeholder="r.labour and r.labour !== 'free' ? r.labour : '0'" t-model="state.labourPrice"/>
+                                            <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-disabled="state.busy" t-on-click="saveLabour">Save</button>
+                                        </span>
+                                    </div>
+                                    <p class="fxd-muted fxt-hint" t-if="labourFree">Free for the customer: fix it and tap Fixed on the spot.</p>
+                                    <p class="fxd-muted fxt-hint" t-elif="r.labour and r.labour !== 'free'">Charge <t t-esc="money(r.labour)"/>: send it for the customer's OK below, before the repair.</p>
+                                    <p class="fxd-muted fxt-hint" t-elif="r.labour_presets and r.labour_presets.length">Tap a price, or type your own and Save. The customer approves it before the repair.</p>
+                                    <p class="fxd-muted fxt-hint" t-else="">Type the charge and Save. The customer approves it before the repair.</p>
+                                </t>
+                                <t t-else="">
                                 <!-- the repairs and their price (labour) -->
                                 <h4>Repair price <small>(type it when it is “price after check” or not right)</small></h4>
                                 <t t-foreach="r.services" t-as="svc" t-key="svc.line_id or svc.product_id">
@@ -317,6 +406,7 @@
                                         <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-disabled="state.busy" t-on-click="addLabour">Add</button>
                                     </span>
                                 </div>
+                                </t>
 
                                 <!-- the parts -->
                                 <t t-if="outcomeNeedsParts">
@@ -355,19 +445,53 @@
                                     <t t-foreach="r.suggested or []" t-as="part" t-key="part.product_id">
                                         <t t-call="369ai_fix.TechPart"/>
                                     </t>
-                                    <form class="fxt-search" t-on-submit="search">
-                                        <input class="fxd-in" type="search" placeholder="Not listed? Search a part" t-model="state.query"/>
-                                        <button type="submit" class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-disabled="state.busy">Search</button>
-                                    </form>
+                                    <!-- searched as you type: the parts (or "not found") show right under the box -->
+                                    <div class="fxt-search">
+                                        <i class="fa fa-search" aria-hidden="true"/>
+                                        <input class="fxd-in" type="search" placeholder="Not listed? Type a part name or code" aria-label="Search a part"
+                                               autocomplete="off" t-att-value="state.query" t-on-input="onQuery" t-on-keydown="onQueryKey"/>
+                                        <i class="fa fa-circle-o-notch fa-spin fxt-search-wait" t-if="state.searching" aria-hidden="true"/>
+                                    </div>
+                                    <div class="fxt-search-none" t-if="state.searched and !state.searching and !state.found.length" role="status">
+                                        <span>No part found for "<b t-esc="state.searched"/>". Try another word, or</span>
+                                        <button type="button" class="fxd-link" t-on-click="() => this.askOfficeFor(state.searched)">ask the office for it</button>
+                                    </div>
                                     <t t-foreach="state.found" t-as="part" t-key="part.product_id">
                                         <t t-call="369ai_fix.TechPart"/>
                                     </t>
 
-                                    <!-- no matching part: the office finds and prices it -->
-                                    <button class="fxd-link fxt-more" t-on-click="() => state.reqOpen = !state.reqOpen">
-                                        <i class="fa fa-question-circle"/> No matching part? Ask the office
+                                    <!-- a part asked of the office: wait at the door for its answer (it shows here by itself) -->
+                                    <t t-set="ask" t-value="r.ask"/>
+                                    <div t-if="ask" t-attf-class="fxt-ask fxt-ask-{{ ask.state }}" role="status" aria-live="polite">
+                                        <t t-if="ask.state === 'asked'">
+                                            <b><i class="fa fa-circle-o-notch fa-spin"/> Asked the office: <t t-esc="ask.name"/></b>
+                                            <span>Waiting for the answer. It shows here by itself.</span>
+                                            <div class="fxt-ask-acts">
+                                                <a t-if="officeTel" class="fxd-btn fxd-btn-primary fxd-btn-sm" t-att-href="officeTel"><i class="fa fa-phone"/> Call the office</a>
+                                                <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-disabled="state.busy" t-on-click="requestPart"><i class="fa fa-clock-o"/> Don't wait, close the visit</button>
+                                                <button class="fxd-link" t-att-disabled="state.busy" t-on-click="cancelAsk">Take the question back</button>
+                                            </div>
+                                        </t>
+                                        <t t-elif="ask.state === 'found'">
+                                            <b><i class="fa fa-check-circle"/> The office added: <t t-esc="ask.part"/> · <t t-esc="money(ask.part_price)"/></b>
+                                            <span t-if="ask.reply" t-esc="ask.reply"/>
+                                            <span>It is in the parts above: fix it, or send the quotation.</span>
+                                        </t>
+                                        <t t-else="">
+                                            <b><i class="fa fa-times-circle"/> The office: <t t-esc="ask.name"/> is not available</b>
+                                            <span t-if="ask.reply" t-esc="ask.reply"/>
+                                            <span>Choose what next: e.g. "Not worth repairing" or "Needs lab check" above.</span>
+                                            <div class="fxt-ask-acts" t-if="officeTel">
+                                                <a class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-href="officeTel"><i class="fa fa-phone"/> Call the office</a>
+                                            </div>
+                                        </t>
+                                    </div>
+
+                                    <!-- no matching part: ask the office (and wait), or let it find the part later -->
+                                    <button class="fxd-link fxt-more" t-if="!ask or ask.state !== 'asked'" t-on-click="() => state.reqOpen = !state.reqOpen">
+                                        <i class="fa fa-question-circle"/> <t t-esc="ask ? 'Ask the office about another part' : 'No matching part? Ask the office'"/>
                                     </button>
-                                    <div class="fxt-sub fxt-req" t-if="state.reqOpen">
+                                    <div class="fxt-sub fxt-req" t-if="state.reqOpen and (!ask or ask.state !== 'asked')">
                                         <label class="fxt-field">Part name
                                             <input class="fxd-in" maxlength="120" placeholder="e.g. iPad 10 charging flex" t-model="state.reqName"/>
                                         </label>
@@ -382,7 +506,8 @@
                                                 <input type="file" accept="image/*" capture="environment" class="d-none" t-on-change="(ev) => this.pickReqPhoto(ev)"/>
                                             </label>
                                         </div>
-                                        <button class="fxd-btn fxd-btn-primary" t-att-disabled="state.busy" t-on-click="requestPart"><i class="fa fa-paper-plane"/> Ask the office (closes the visit)</button>
+                                        <button class="fxd-btn fxd-btn-primary" t-att-disabled="state.busy" t-on-click="askOffice"><i class="fa fa-paper-plane"/> Send to the office and wait</button>
+                                        <button class="fxd-link" t-att-disabled="state.busy" t-on-click="requestPart">Don't wait: the office finds it later (closes the visit)</button>
                                     </div>
                                 </t>
 
@@ -467,6 +592,11 @@
                                     </label>
                                 </t>
                             </div>
+                            <!-- counted, so the office and the customer can check every item comes back -->
+                            <p class="fxt-acc-count" role="status">
+                                <t t-if="state.noAcc">Device only: no accessories</t>
+                                <t t-else=""><b t-esc="state.accIds.length"/> accessor<t t-esc="state.accIds.length === 1 ? 'y' : 'ies'"/> taken<t t-if="!state.accIds.length"> - tick them, or "Device only"</t></t>
+                            </p>
                             <button class="fxd-btn fxd-btn-primary fxt-big" t-att-disabled="state.busy" t-on-click="takeDevice"><i class="fa fa-building"/> Take the device</button>
                         </section>
                     </t>
@@ -474,8 +604,10 @@
                     <!-- finish: after photo -> payment -> the customer's finish code -->
                     <section class="fxd-box fxt-finish" t-if="close">
                         <h3><i class="fa fa-flag-checkered"/> Finish the visit</h3>
-                        <p class="fxd-muted fxt-hint">The customer got a 4-digit finish code on WhatsApp. They give it to you when they are happy with the repair.</p>
+                        <p class="fxd-muted fxt-hint" t-if="close.no_fault">No fault found: the customer pays the visit fee, then gives you the 4-digit finish code they got on WhatsApp.</p>
+                        <p class="fxd-muted fxt-hint" t-else="">The customer got a 4-digit finish code on WhatsApp. They give it to you when they are happy with the repair.</p>
 
+                        <t t-if="!close.no_fault">
                         <h4>1. Photo of the repaired device <small>(1 to <t t-esc="close.photos_max"/>)</small></h4>
                         <div class="fxt-line">
                             <span t-if="close.photos" class="fxt-ok"><i class="fa fa-check"/> <t t-esc="close.photos"/> photo(s)</span>
@@ -488,11 +620,12 @@
                                 <button class="fxd-link" t-if="close.photos" t-on-click="() => this.act('close_clear')">Take again</button>
                             </span>
                         </div>
+                        </t>
 
-                        <h4>2. Payment</h4>
+                        <h4><t t-if="!close.no_fault">2. </t>Payment</h4>
                         <div class="fxt-paid" t-if="close.paid"><i class="fa fa-check-circle"/> <t t-esc="close.paid_text"/></div>
                         <t t-elif="close.to_pay">
-                            <div class="fxt-total"><span>To pay</span><b t-esc="closeMoney(close.due)"/></div>
+                            <div class="fxt-total"><span>To pay<small t-if="close.with_tax"> · incl. VAT</small></span><b t-esc="closeMoney(close.due)"/></div>
                             <div class="fxt-paybox">
                                 <div class="fxt-methods" role="radiogroup" aria-label="Paid by">
                                     <t t-foreach="close.methods" t-as="m" t-key="m.id">
@@ -512,7 +645,7 @@
                             <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-disabled="state.busy" t-on-click="noCharge">No charge</button>
                         </div>
 
-                        <h4>3. The customer's finish code</h4>
+                        <h4><t t-if="!close.no_fault">3. </t>The customer's finish code</h4>
                         <div class="fxt-code">
                             <input class="fxd-in" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" t-model="state.finishCode" aria-label="Finish code"/>
                             <small class="fxd-muted"><t t-esc="close.tries_left"/> tries left</small>

@@ -23,11 +23,22 @@ import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
 import { Layout } from "@web/search/layout";
 import { errorText } from "../screen/fix_popup";
+import { FixSort, readSort, saveSort, sortRows } from "../list_sort";
 
 const MODEL = "fix.service.visit";
+// the visits' order, chosen above the list: [key, label, field, direction]
+const SORTS = [
+    ["visit_soon", _t("Visit time: soonest"), (v) => v.slot && v.slot.start, "asc"],
+    ["visit_late", _t("Visit time: latest"), (v) => v.slot && v.slot.start, "desc"],
+    ["newest", _t("Newest booking first"), "created", "desc"],
+    ["oldest", _t("Oldest booking first"), "created", "asc"],
+];
+const SORT_KEY = "fix_tech_sort";
 const POLL_MS = 30000;
+const ASK_POLL_MS = 10000;  // how often the office's answer about a part is looked for
 const FEW_ISSUES = 12;
 const VIDEO_BYTES = 30 * 1024 * 1024;
+const SEARCH_MS = 300;      // the parts search waits this long after the last key
 
 // the one button of a step: [label, action, hint]
 const STEP = {
@@ -51,7 +62,7 @@ const OUTCOME_ICONS = { parts: "fa-cogs", labour: "fa-wrench", lab: "fa-flask", 
 
 export class FixTech extends Component {
     static template = "369ai_fix.Tech";
-    static components = { Layout };
+    static components = { Layout, FixSort };
     static props = ["*"];
 
     setup() {
@@ -65,6 +76,11 @@ export class FixTech extends Component {
             manager: false,
             me: "",
             selectedId: 0,
+            sort: readSort(SORT_KEY, SORTS),
+            findQ: "",          // the search box: my visits of any date
+            finding: false,
+            findRows: null,     // its visits (null: not searched yet)
+            findCount: 0,       // how many match in all (the newest 50 are listed)
             view: null,
             showDetail: false,
             busy: false,
@@ -78,6 +94,8 @@ export class FixTech extends Component {
             issueWord: "",
             query: "",
             found: [],
+            searching: false,   // a search for what is typed is on its way
+            searched: "",       // the words the parts below were found for
             plan: "",
             days: 3,
             unit: "days",
@@ -91,6 +109,8 @@ export class FixTech extends Component {
             labUnit: "days",
             prices: {},         // typed labour prices, by repair line
             labourPrice: "",
+            labourOpen: false,  // Labour only: the charge box open (before a charge is saved)
+            noFaultFee: false,  // No fault found: charge the visit fee (else free)
             alts: [],           // other grades offered for one part
             altsFor: 0,
             reqOpen: false,
@@ -133,6 +153,8 @@ export class FixTech extends Component {
                 this.load();
             }
         }, POLL_MS);
+        // waiting for the office's answer about a part: it shows here by itself
+        this.askTimer = setInterval(() => this.refreshAsk(), ASK_POLL_MS);
         // the photo popup's keys: before Odoo's own shortcuts (capture), which take Escape otherwise
         useExternalListener(window, "keydown", (ev) => {
             if (this.state.photo.ix < 0 || !["Escape", "ArrowRight", "ArrowLeft"].includes(ev.key)) {
@@ -148,6 +170,9 @@ export class FixTech extends Component {
         }, { capture: true });
         onWillUnmount(() => {
             clearInterval(this.pollTimer);
+            clearTimeout(this.searchTimer);
+            clearTimeout(this.findTimer);
+            clearInterval(this.askTimer);
             this.stopGps();
         });
     }
@@ -167,7 +192,73 @@ export class FixTech extends Component {
     }
 
     get openVisits() {
-        return this.state.visits.filter((v) => v.state !== "done");
+        return sortRows(this.state.visits.filter((v) => v.state !== "done"), SORTS, this.state.sort);
+    }
+
+    get sorts() {
+        return SORTS;
+    }
+
+    // ------------------------------------------------------------------ search my visits (any date)
+    get findActive() {
+        return this.state.findQ.trim().length >= 2;
+    }
+
+    onFind(ev) {
+        this.state.findQ = ev.target.value;
+        clearTimeout(this.findTimer);
+        if (!this.findActive) {
+            this.findSeq = (this.findSeq || 0) + 1;
+            Object.assign(this.state, { findRows: null, findCount: 0, finding: false });
+            return;
+        }
+        this.state.finding = true;
+        this.findTimer = setTimeout(() => this.runFind(), SEARCH_MS);
+    }
+
+    onFindKey(ev) {
+        if (ev.key === "Enter") {
+            ev.preventDefault();
+            clearTimeout(this.findTimer);
+            this.runFind();
+        } else if (ev.key === "Escape") {
+            this.clearFind();
+        }
+    }
+
+    async runFind() {
+        const query = this.state.findQ.trim();
+        if (query.length < 2) {
+            return;
+        }
+        const seq = (this.findSeq = (this.findSeq || 0) + 1);       // only the latest words' answer is shown
+        this.state.finding = true;
+        try {
+            const res = await this.orm.silent.call(MODEL, "fix_tech_search", [], { query });
+            if (seq === this.findSeq) {
+                this.state.findRows = res.rows || [];
+                this.state.findCount = res.count || 0;
+            }
+        } catch (err) {
+            if (seq === this.findSeq) {
+                this.notification.add(errorText(err), { type: "danger" });
+            }
+        } finally {
+            if (seq === this.findSeq) {
+                this.state.finding = false;
+            }
+        }
+    }
+
+    clearFind() {
+        clearTimeout(this.findTimer);
+        this.findSeq = (this.findSeq || 0) + 1;
+        Object.assign(this.state, { findQ: "", findRows: null, findCount: 0, finding: false });
+    }
+
+    setSort(key) {
+        this.state.sort = key;
+        saveSort(SORT_KEY, key);
     }
 
     get doneVisits() {
@@ -177,9 +268,10 @@ export class FixTech extends Component {
     async open(visit) {
         this.state.selectedId = visit.id;
         this.state.showDetail = true;
-        Object.assign(this.state, { message: "", code: "", found: [], query: "", plan: "", accIds: [], noAcc: false,
+        this.clearSearch();
+        Object.assign(this.state, { message: "", code: "", plan: "", accIds: [], noAcc: false,
                                     issuesOpen: false, issueWord: "", brandId: 0, partDaysSet: false,
-                                    outcome: "", prices: {}, labourPrice: "", alts: [], altsFor: 0, reqOpen: false,
+                                    outcome: "", prices: {}, labourPrice: "", labourOpen: false, alts: [], altsFor: 0, reqOpen: false,
                                     reqName: "", reqPrice: "", reqPhoto: "", payMethod: 0, payAmount: "", finishCode: "" });
         try {
             this.show(await this.orm.call(MODEL, "fix_tech_view", [[visit.id]]));
@@ -403,9 +495,9 @@ export class FixTech extends Component {
         return r && r.to_order ? PLANS_ORDER : PLANS_HERE;
     }
 
-    money(value) {
+    money(value, currency = "") {
         const r = this.result || {};
-        return `${r.currency || ""} ${Number(value || 0).toFixed(r.decimals ?? 2)}`.trim();
+        return `${currency || r.currency || ""} ${Number(value || 0).toFixed(r.decimals ?? 3)}`.trim();
     }
 
     whereText(part) {
@@ -445,15 +537,65 @@ export class FixTech extends Component {
         }
     }
 
-    async search(ev) {
-        if (ev) {
+    // ------------------------------------------------------------------ the parts search, as you type
+    onQuery(ev) {
+        this.state.query = ev.target.value;
+        clearTimeout(this.searchTimer);
+        if (this.state.query.trim().length < 2) {
+            this.clearSearch(false);
+            return;
+        }
+        this.state.searching = true;
+        this.searchTimer = setTimeout(() => this.search(), SEARCH_MS);
+    }
+
+    onQueryKey(ev) {
+        if (ev.key === "Enter") {
             ev.preventDefault();
+            clearTimeout(this.searchTimer);
+            this.search();
         }
-        const res = await this.act("result_parts", { query: this.state.query });
-        this.state.found = (res && res.parts) || [];
-        if (res && res.ok !== false && !this.state.found.length) {
-            this.state.message = _t("No part found. Try another word.");
+    }
+
+    async search() {
+        const id = this.state.selectedId;
+        const query = this.state.query.trim();
+        if (!id || query.length < 2) {
+            return;
         }
+        const seq = ++this.searchSeq;      // only the answer for the latest words is shown
+        this.state.searching = true;
+        try {
+            const res = await this.orm.silent.call(MODEL, "fix_tech_act", [[id], "result_parts"], { query });
+            if (seq !== this.searchSeq) {
+                return;
+            }
+            this.state.found = (res && res.parts) || [];
+            this.state.searched = query;
+        } catch {
+            if (seq === this.searchSeq) {
+                this.state.found = [];
+                this.state.searched = "";
+            }
+        } finally {
+            if (seq === this.searchSeq) {
+                this.state.searching = false;
+            }
+        }
+    }
+
+    clearSearch(words = true) {
+        clearTimeout(this.searchTimer);
+        this.searchSeq = (this.searchSeq || 0) + 1;
+        Object.assign(this.state, { found: [], searching: false, searched: "" });
+        if (words) {
+            this.state.query = "";
+        }
+    }
+
+    askOfficeFor(words) {
+        // not in the list: open "Ask the office" with the part's name filled in
+        Object.assign(this.state, { reqOpen: true, reqName: this.state.reqName || words });
     }
 
     async addPart(part) {
@@ -462,8 +604,7 @@ export class FixTech extends Component {
         }
         const res = await this.act("result_add_part", { product_id: part.product_id, brand_id: this.state.brandId || false });
         if (res && res.ok !== false) {
-            this.state.found = [];
-            this.state.query = "";
+            this.clearSearch();
         }
     }
 
@@ -536,6 +677,16 @@ export class FixTech extends Component {
         return NO_REPAIR.includes(this.state.outcome);
     }
 
+    // No fault found: the visit fee can be charged (not on a free re-check)
+    get noFaultFeeOffered() {
+        const r = this.result;
+        return this.state.outcome === "no_fault" && !!r && !!r.visit_fee && !r.recheck;
+    }
+
+    get chargingVisitFee() {
+        return this.noFaultFeeOffered && this.state.noFaultFee;
+    }
+
     outcomeIcon(key) {
         return OUTCOME_ICONS[key] || "fa-circle";
     }
@@ -557,10 +708,14 @@ export class FixTech extends Component {
                 this.state.message = _t("Write what you checked and why it is not repaired: the customer reads it.");
                 return;
             }
-            if (!(await this.popup.confirm(_t("Close the visit without a repair? The customer gets your reason on WhatsApp.")))) {
+            const fee = this.chargingVisitFee;
+            if (!(await this.popup.confirm(fee
+                ? _t("Charge the visit fee? The customer gets your reason and a finish code; they pay you, then give you the code.")
+                : _t("Close the visit without a repair? The customer gets your reason on WhatsApp.")))) {
                 return;
             }
-            await this.act("result_outcome", { outcome: key, note: this.state.note });
+            await this.act("result_outcome", { outcome: key, note: this.state.note, fee,
+                                               brand_id: this.state.brandId || false });
         } else if (key === "lab") {
             const days = Number(this.state.labDays);
             if (!(this.state.labUnit === "weeks" ? days >= 1 && days <= 8 : days >= 1 && days <= 60)) {
@@ -624,6 +779,53 @@ export class FixTech extends Component {
         }
     }
 
+    // ------------------------------------------------------------------ Labour only: free, or a charge
+    get labourFree() {
+        const r = this.result;
+        return !!r && r.labour === "free" && !this.state.labourOpen;
+    }
+
+    async setLabourFree(free) {
+        if (free) {
+            this.state.labourOpen = false;
+            this.state.labourPrice = "";
+            await this.act("result_labour", { price: 0, brand_id: this.state.brandId || false });
+        } else {
+            this.state.labourOpen = true;      // the charge box shows; nothing is charged until Save
+        }
+    }
+
+    async saveLabour() {
+        if (this.needBrand()) {
+            return;
+        }
+        const price = Number(this.state.labourPrice);
+        if (this.state.labourPrice === "" || !(price >= 0)) {
+            this.state.message = _t("Type the labour charge.");
+            return;
+        }
+        const res = await this.act("result_labour", { price, brand_id: this.state.brandId || false });
+        if (res && res.ok !== false) {
+            Object.assign(this.state, { labourPrice: "", labourOpen: false });
+        }
+    }
+
+    // a fixed labour price from the office's list: the server sets its name and price
+    async useLabourPreset(preset) {
+        if (this.needBrand()) {
+            return;
+        }
+        const res = await this.act("result_labour", { preset_id: preset.id, brand_id: this.state.brandId || false });
+        if (res && res.ok !== false) {
+            Object.assign(this.state, { labourPrice: "", labourOpen: false });
+        }
+    }
+
+    labourPresetOn(preset) {
+        const r = this.result;
+        return !!r && r.labour !== "free" && Number(r.labour) === Number(preset.price);
+    }
+
     // ------------------------------------------------------------------ two grades of a part
     async showAlts(line) {
         if (this.state.altsFor === line.line_id) {
@@ -666,7 +868,8 @@ export class FixTech extends Component {
         }
     }
 
-    async requestPart() {
+    /** Ask the office and wait at the door: the desk rings, the answer shows here by itself. */
+    async askOffice() {
         if (this.needBrand()) {
             return;
         }
@@ -674,11 +877,64 @@ export class FixTech extends Component {
             this.state.message = _t("Type the part's name.");
             return;
         }
-        if (!(await this.popup.confirm(_t("Ask the office for this part? The visit closes; the customer is told the price follows.")))) {
+        const res = await this.act("result_ask", { name: this.state.reqName.trim(), price: Number(this.state.reqPrice) || 0,
+                                                   data: this.state.reqPhoto || "", note: this.state.note,
+                                                   brand_id: this.state.brandId || false });
+        if (res && res.ok !== false) {
+            Object.assign(this.state, { reqOpen: false, reqName: "", reqPrice: "", reqPhoto: "" });
+            this.clearSearch();
+        }
+    }
+
+    async cancelAsk() {
+        await this.act("result_ask_cancel");
+    }
+
+    /** "Don't wait": the office finds and prices the part later; the visit closes. */
+    async requestPart() {
+        if (this.needBrand()) {
             return;
         }
-        await this.act("result_request", { name: this.state.reqName.trim(), price: Number(this.state.reqPrice) || 0,
-                                           data: this.state.reqPhoto || "", note: this.state.note, brand_id: this.state.brandId || false });
+        const asked = this.result && this.result.ask && this.result.ask.state === "asked";
+        if (!asked && this.state.reqName.trim().length < 2) {
+            this.state.message = _t("Type the part's name.");
+            return;
+        }
+        if (!(await this.popup.confirm(_t("Don't wait for the office? The visit closes; the office finds the part and the customer is told the price follows.")))) {
+            return;
+        }
+        // the question already sent carries its name, price and photo
+        await this.act("result_request", asked ? { note: this.state.note } : {
+            name: this.state.reqName.trim(), price: Number(this.state.reqPrice) || 0,
+            data: this.state.reqPhoto || "", note: this.state.note, brand_id: this.state.brandId || false });
+    }
+
+    get officeTel() {
+        const phone = (this.result && this.result.office_phone) || "";
+        return phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : "";
+    }
+
+    /** While the technician waits for the office: the open visit is read again every few seconds. */
+    async refreshAsk() {
+        const r = this.result;
+        const id = this.state.selectedId;
+        if (!r || !r.ask || r.ask.state !== "asked" || this.state.busy || document.hidden || !id) {
+            return;
+        }
+        try {
+            const view = await this.orm.silent.call(MODEL, "fix_tech_view", [[id]]);
+            if (this.state.selectedId === id && !this.state.busy && view && view.ref) {
+                this.show(view);
+                const ask = view.result && view.result.ask;
+                if (ask && ask.state === "found") {
+                    this.notification.add(_t("The office added %s to the job card.", ask.part), { type: "success" });
+                } else if (ask && ask.state === "none") {
+                    this.notification.add(_t("The office: %s is not available.", ask.name), { type: "warning" });
+                }
+            }
+        } catch {
+            // the next tick tries again
+        }
     }
 
     // ------------------------------------------------------------------ finish
@@ -744,6 +1000,17 @@ export class FixTech extends Component {
     }
 
     // ------------------------------------------------------------------ words
+    /** "14:05", or "Tue 27 Oct 14:05" on another day (a server time, UTC). */
+    when(value) {
+        if (!value) {
+            return "";
+        }
+        const d = new Date(value.replace(" ", "T") + "Z");
+        const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        return d.toDateString() === new Date().toDateString()
+            ? time : d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) + " " + time;
+    }
+
     slotText(slot) {
         if (!slot || !slot.start) {
             return "";

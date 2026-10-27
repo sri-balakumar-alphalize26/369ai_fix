@@ -41,6 +41,9 @@
     .fxt-tick small { font-weight: 500; color: var(--fxd-muted); }
     .fxt-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; }
     .fxt-line > span { min-width: 0; }
+    /* the office's fixed labour prices: one tap */
+    .fxt-presets { display: flex; flex-wrap: wrap; gap: 8px; }
+    .fxt-presets .fxt-preset-on { border-color: var(--fxd-green); color: var(--fxd-green); font-weight: 700; }
     .fxt-ok { color: var(--fxd-green); font-weight: 700; }
     .fxt-no { color: var(--fxd-red); font-weight: 700; }
     .fxt-where { display: block; font-weight: 600; }
@@ -58,8 +61,27 @@
     .fxt-chip:hover { border-color: var(--fxd-green); }
     .fxt-chip-on { background: var(--fxd-green); border-color: var(--fxd-green); color: #fff; }
     .fxt-find, .fxt-note { width: 100%; }
-    .fxt-search { display: flex; gap: 8px; margin: 4px 0; }
-    .fxt-search input { flex: 1; min-width: 0; }
+    .fxt-acc-count { margin: 4px 0 0; color: var(--fxd-ink); font-size: 14px; }
+    .fxt-acc-count b { color: var(--fxd-green); font-size: 16px; }
+    /* a part asked of the office: waiting, then its answer */
+    .fxt-ask { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; padding: 12px 14px; border-radius: 12px; border: 1px solid transparent; font-size: 13.5px; }
+    .fxt-ask b { font-size: 14px; }
+    .fxt-ask span { color: var(--fxd-ink); }
+    .fxt-ask-asked { background: var(--fxd-amber-soft); border-color: rgba(176, 106, 0, .35); color: var(--fxd-amber); }
+    .fxt-ask-found { background: var(--fxd-soft); color: var(--fxd-green); }
+    .fxt-ask-none { background: var(--fxd-red-soft); color: var(--fxd-red); }
+    .fxt-ask-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+    .fxt-asks { margin: 4px 0; }
+    .fxt-asks summary { cursor: pointer; color: var(--fxd-muted); font-size: 13px; font-weight: 700; padding: 4px 0; }
+    .fxt-asks[open] summary { margin-bottom: 6px; }
+    /* the parts search: a search icon in the box, a spinner while it looks, "not found" just under it */
+    .fxt-search { position: relative; display: flex; margin: 4px 0; }
+    .fxt-search input { flex: 1; min-width: 0; padding-left: 36px; padding-right: 36px; }
+    .fxt-search > .fa-search { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--fxd-muted); pointer-events: none; }
+    .fxt-search-wait { position: absolute; right: 13px; top: 50%; margin-top: -7px; color: var(--fxd-muted); }
+    .fxt-search-none { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin: 0 0 4px; padding: 8px 12px;
+                       border-radius: 10px; background: var(--fxd-amber-soft); color: var(--fxd-amber); font-size: 13px; }
+    .fxt-search-none b { color: var(--fxd-ink); }
     .fxt-field { display: grid; gap: 6px; margin: 0; font-weight: 600; }
     .fxt-span { display: flex; gap: 8px; }
     .fxt-span input { flex: 1; min-width: 0; }
@@ -78,6 +100,10 @@
     .fxt-thumb span { margin-top: 3px; font-size: 11px; color: var(--fxd-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .fxt-thumb span { display: block; }
     .fxt-thumb-after img { border-color: var(--fxd-green); }
+    /* the device video, played here */
+    .fxt-video { margin-top: 12px; }
+    .fxt-video video { display: block; width: 100%; max-height: 320px; border-radius: 10px; background: #000; }
+    .fxt-video small { display: block; margin-bottom: 4px; font-size: 11px; color: var(--fxd-muted); }
     /* a photo, big */
     .fxt-lb { position: fixed; inset: 0; z-index: 1070; display: flex; align-items: center; justify-content: center; padding: 56px 64px 24px;
               background: rgba(9, 22, 14, .82); backdrop-filter: blur(3px); animation: fxp-in .15s ease-out; }
