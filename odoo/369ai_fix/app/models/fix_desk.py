@@ -41,6 +41,7 @@ STAGES = [
 WORKING_CARD_STATES = ('inspection', 'quotation', 'repair')
 PARTS_BADGES = {'ask': 'Parts: customer asked', 'ordering': 'Parts on order'}
 MAX_ORDERS = 500
+SEARCH_LIMIT = 50       # the desk's search box shows the newest this many (and says how many matched)
 # The two alarms (new booking, visit time booked): on/off, ring and pause in seconds.
 DEFAULT_SOUND = {'new_on': True, 'ring': 20, 'repeat': 15,
                  'slot_on': True, 'slot_ring': 20, 'slot_repeat': 15}
@@ -152,6 +153,8 @@ class OnlineServiceOrder(models.Model):
             return 'working'
         if vstate == 'assigned':
             return 'assigned'
+        if vstate == 'done' and cards.filtered(lambda c: c.wb_at_office and not c.wb_returned):
+            return 'working'        # the device is at our office: checked, priced, repaired there
         if vstate == 'done':
             return 'done_today' if visit.done_on and visit.done_on >= today else None
         if not order.slot_id:
@@ -211,11 +214,48 @@ class OnlineServiceOrder(models.Model):
             'rows': rows,
             'since': stamp,
             'technicians': self._fix_desk_technicians(),
+            # technicians waiting at a door for the office's answer about a part: the desk rings
+            'part_asks': len(orders.sudo().visit_ids.filtered(lambda v: v.state == 'in_progress' and v.ask_state == 'asked')),
             'now': _dt(fields.Datetime.now()),
             'has_calling': 'desk_calling' in self._fields,
         }
         data.update(self._fix_desk_settings())
         return data
+
+    @api.model
+    def fix_desk_search(self, query=''):
+        """The desk's search box: bookings of every stage and date whose customer name, phone,
+        booking number (OS/01520 or 1520) or visit number (VIS/01045 or 1045) matches.
+        Returns {count (all that match), rows (the newest SEARCH_LIMIT)}."""
+        words = ' '.join(str(query or '').split())[:60]
+        if len(words) < 2:
+            return {'count': 0, 'rows': []}
+        domain = [('company_id', 'in', self.env.companies.ids),
+                  '|', '|', '|', '|', ('name', 'ilike', words), ('customer_name', 'ilike', words),
+                  ('phone', 'ilike', words), ('visit_ids.name', 'ilike', words),
+                  ('job_card_ids.name', 'ilike', words)]
+        count = self.search_count(domain)
+        orders = self.search(domain, order='id desc', limit=SEARCH_LIMIT)
+        today = _today_start()
+        rows = []
+        for order in orders:
+            stage = order._fix_desk_stage(today)
+            row = order._fix_desk_row(stage or 'other', today)
+            row['stage_label'] = _(dict(STAGES)[stage]) if stage else \
+                dict(order._fields['state'].selection).get(order.state, '')
+            # the visit numbers too, so a search by VIS/… shows which one matched
+            row['visits'] = ', '.join(order.sudo().visit_ids.mapped('name'))
+            rows.append(row)
+        return {'count': count, 'rows': rows}
+
+    def _fix_desk_office(self, cards):
+        """The device at our office, for a card and the detail: {office: 'on_way'|'received'|'',
+        office_by, overdue: 'price'|'return'|''} (booking/models/office_device.py)."""
+        card = cards.filtered(lambda c: c._wb_office_state())[:1]
+        if not card:
+            return {'office': '', 'office_by': '', 'overdue': ''}
+        return {'office': card._wb_office_state(), 'office_by': card.wb_received_by_id.name or '',
+                'overdue': card._wb_overdue()}
 
     def _fix_desk_row(self, stage=None, today=None):
         """One card of the list."""
@@ -258,6 +298,17 @@ class OnlineServiceOrder(models.Model):
             'needs_screen': getattr(order, 'desk_needs_screen', '') or '',
             'poll_error': bool(getattr(order, 'poll_error', '')),
             'created': _dt(order.create_date),
+            # a device at our office: on the way (not received yet) / received, and a promised date passed
+            **order._fix_desk_office(cards),
+            # Labour only: 'free' or the charge (a note for the office; the customer approves a charge)
+            'labour': visit._vr_labour_note() if visit and visit.state in ('in_progress', 'done') else '',
+            # a free re-check: this customer had "No fault found" lately (the date), no visit fee
+            'recheck': visit._vr_recheck_view() if visit and visit.state not in ('done', 'cancelled') else '',
+            # the technician waits at the door for the office's answer about a part
+            'part_asked': (visit.ask_name or '') if visit and visit.state == 'in_progress' and visit.ask_state == 'asked' else '',
+            # the visit's time, for "Visit time" order in the list
+            'slot_start': _dt(visit.slot_start if visit and visit.slot_start else
+                              order.slot_id._window(order.slot_date)[0] if order.slot_id and order.slot_date else False),
         }
 
     # ------------------------------------------------------------------
@@ -294,10 +345,15 @@ class OnlineServiceOrder(models.Model):
             return acts + ['call']
         if stage == 'working':
             acts = []
+            if cards.filtered(lambda c: c._wb_office_state() == 'on_way'):
+                acts.append('office_received')      # the office confirms the device arrived
             if visit and visit.state == 'in_progress' and visit.close_stage == 'finish':
                 # repair done: the technician takes the photo, the payment and the customer's code
                 manager = self.env.user.has_group('mobile_repair.group_mobile_repair_manager')
                 return (['finish_skip'] if manager else []) + ['call']
+            if visit and visit.state == 'in_progress' and visit.ask_state == 'asked':
+                # the technician waits at the door: answer the part question first
+                acts += ['part_found', 'part_none']
             if visit and visit.state == 'in_progress':
                 # what the technician found -> the quotation first -> the customer's OK (visits/visit_result.py)
                 acts += {
@@ -421,6 +477,14 @@ class OnlineServiceOrder(models.Model):
                 [('order_id', '=', order.id)], order='id desc', limit=100)[::-1]._desk_rows(),
             'visit': None,
             'map': None,
+            # the bill: with tax (Easy Sales) or without (Estimate Sale); switchable until it is made
+            'bill_type': order._wb_bill_type(),
+            'bill_locked': order._wb_billed() or order.state in ('done', 'cancelled'),
+            # a part the technician asked of the office at the door: the office answers here
+            'ask': dict(visit._vr_ask_view(), visit_id=visit.id) if visit and visit.ask_state else None,
+            # every part question of this booking and its answer (kept for good)
+            'ask_history': visit._vr_ask_history() if visit else [a._row() for a in self.env['fix.part.ask'].sudo().search(
+                [('order_id', '=', order.id)], limit=50)],
         })
         if visit:
             tech = visit.technician_id
@@ -575,6 +639,23 @@ class OnlineServiceOrder(models.Model):
             self._fix_desk_require_visit()._vr_decide_later()
         elif action == 'take':
             return wizard(self._fix_desk_require_visit().action_open_take())
+        elif action == 'part_found':
+            visit = self._fix_desk_require_visit()
+            visit._vr_ask_require()
+            return wizard(visit.with_env(self.env).action_open_part_ask())
+        elif action == 'part_none':
+            self._fix_desk_require_visit()._vr_ask_none(reason)
+        elif action == 'office_received':
+            card = self._fix_desk_cards().filtered(lambda c: c._wb_office_state() == 'on_way')[:1]
+            if not card:
+                raise UserError(_("No device on the way to the office for %s.", self.name))
+            return wizard(card.with_env(self.env).action_wb_receive())
+        elif action == 'bill_type':
+            if not self.env.user.has_group('mobile_repair.group_mobile_repair_receptionist'):
+                raise UserError(_("Only the office chooses how a booking is billed."))
+            if self._wb_set_bill_type(kw.get('bill_type')):
+                warning = _("Bill changed. A price the customer already saw was sent to them again with the new total.") \
+                    if self.sudo().job_card_ids.filtered(lambda c: c.quote_state == 'waiting') else ''
         elif action == 'finish_skip':
             self._fix_desk_require_visit().with_env(self.env).action_finish_without_code(reason)
         elif action == 'cancel_visit':

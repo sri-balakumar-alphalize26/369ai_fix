@@ -66,6 +66,10 @@
               action="action_screen_services" sequence="1"/>
     <menuitem id="menu_fix_spare_parts" name="Spare Parts" parent="menu_fix_catalogue"
               action="action_screen_spare_parts" sequence="2"/>
+    <!-- fixed prices for labour-only jobs: the technician taps one at the door -->
+    <menuitem id="menu_fix_labour_prices" name="Labour Prices" parent="menu_fix_catalogue"
+              action="action_screen_labour_prices" sequence="3"
+              groups="mobile_repair.group_mobile_repair_manager"/>
     <menuitem id="menu_fix_categories" name="Device Categories" parent="menu_fix_catalogue"
               action="action_screen_categories" sequence="10"/>
     <menuitem id="menu_fix_brands" name="Brands" parent="menu_fix_catalogue"

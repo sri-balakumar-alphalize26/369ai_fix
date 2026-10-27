@@ -70,6 +70,7 @@ TOKENS = {
     'timeline': ('What happens next', 'Fixed within 3 days.'),
     'safety': ('Safety check line', ' Safety check done: gloves, mask.'),
     'fee': ('Visit fee line', 'Visit fee OMR 5.000'),
+    'recheck': ('Free re-check line', 'If the problem comes back within 7 days, book again: the check is free.'),
     'issue': ('Problem', 'Screen'),
     'price': ('Price line', 'From OMR 15.000.'),
     'doorstep': ('Visit time', 'same day'),
@@ -85,7 +86,8 @@ PRIZE_CODE = ('code', 'Prize code', 'SPIN-GUARD-7K3Q')
 OFFER_CODE = ('code', 'Offer code', '369FIX')
 MESSAGE_TOKENS = ['name', 'order', 'site', 'track_url', 'summary', 'job_card', 'status', 'technician', 'technician_phone',
                   'eta', 'code', 'date', 'slot', 'slot_url', 'quote_url', 'estimate', 'reason', 'device', 'part', 'parts',
-                  'days', 'within', 'next', 'timeline', 'safety', 'paid', 'warranty', 'rate_url', 'tech_url', 'area', 'address']
+                  'days', 'within', 'next', 'timeline', 'safety', 'paid', 'warranty', 'rate_url', 'tech_url', 'area', 'address',
+                  'fee', 'recheck']
 POPUP_TOKENS = {
     'flash_body': ['fee'], 'flash_wa_msg': ['site', OFFER_CODE],
     'wheel_eyebrow': ['site'], 'wheel_wa_msg': ['site', PRIZE_CODE],
@@ -168,10 +170,11 @@ SCREENS = {
         ],
         'buttons': [
             {'name': 'desk', 'label': 'Open on the Booking Desk', 'kind': 'ghost', 'icon': 'fa-desktop', 'client': 'desk'},
+            # no job card yet is fine: the Approve pop-up asks for the brand and makes it
             {'name': 'action_wb_approve', 'label': 'Approve', 'kind': 'primary', 'icon': 'fa-check',
-             'show': [('state', '=', 'new'), ('job_card_count', '>', 0)]},
+             'show': [('state', '=', 'new')]},
             {'name': 'action_wb_reject', 'label': 'Reject', 'kind': 'danger-ghost', 'icon': 'fa-times',
-             'show': [('state', '=', 'new'), ('job_card_count', '>', 0)]},
+             'show': [('state', '=', 'new')]},
             {'name': 'action_wb_call', 'label': 'Call', 'kind': 'ghost', 'icon': 'fa-phone', 'show': [('phone', '!=', False)]},
             {'name': 'action_wb_slot_seen', 'label': 'Seen', 'kind': 'primary', 'icon': 'fa-eye',
              'show': [('slot_booked_on', '!=', False), ('slot_seen_by_id', '=', False)]},
@@ -254,7 +257,8 @@ SCREENS = {
              'info': ['total_service_charge', 'total_spare_parts', 'total_amount', 'quote_state', 'estimate_total',
                       'estimate_accepted_on']},
             {'title': 'At the office', 'icon': 'fa-building',
-             'info': ['wb_at_office', 'wb_taken_on', 'wb_taken_by_id', 'wb_return_by', 'wb_returned']},
+             'info': ['wb_at_office', 'wb_taken_on', 'wb_taken_by_id', 'wb_received_on', 'wb_received_by_id',
+                      'wb_price_by', 'wb_return_by', 'wb_returned']},
         ],
         'buttons': [
             {'name': 'action_start_inspection', 'label': 'Start diagnosis', 'kind': 'primary', 'icon': 'fa-search',
@@ -468,6 +472,32 @@ SCREENS = {
         'pick_domain': {'device_series_id': [('brand_id', '=', '$device_brand_id')],
                         'device_model_id': [('series_id', '=', '$device_series_id')]},
     },
+    # fixed prices for labour-only jobs: the technician taps one at the door (the customer approves it first)
+    'labour_prices': {
+        'model': 'fix.labour.job',
+        'title': 'Labour Prices',
+        'icon': 'fa-hand-paper-o',
+        'groups': MANAGER,
+        'hint': 'Pick a repair service and its labour price. The technician taps it at the door; '
+                'the customer approves it first.',
+        'order': 'name',
+        'search': ['name'],
+        'columns': ['service_id', 'price', 'active'],
+        'create': True,
+        'create_fields': ['service_id', 'price'],
+        'pick_domain': {'service_id': [('type', '=', 'service')]},
+        'filters': [
+            {'key': 'active', 'label': 'In use', 'domain': [('active', '=', True)]},
+            {'key': 'archived', 'label': 'Archived', 'domain': [('active', '=', False)]},
+        ],
+        'default_filter': 'active',
+        'active_test': False,
+        'sections': [
+            {'title': 'Labour price', 'icon': 'fa-hand-paper-o', 'fields': ['service_id', 'price', 'active']},
+            {'title': 'Price per device type', 'icon': 'fa-mobile', 'lines': 'price_ids',
+             'columns': ['category_id', 'price']},
+        ],
+    },
     'spare_parts': {
         'model': 'product.product',
         'title': 'Spare Parts',
@@ -649,13 +679,14 @@ SCREENS = {
         'sections': [
             {'title': 'Company', 'icon': 'fa-building', 'fields': ['job_card_code']},
             {'title': 'Inspection and price', 'icon': 'fa-search',
-             'fields': ['inspection_charge_product_id', 'repair_visit_fee_mode', 'repair_requote_pct']},
+             'fields': ['inspection_charge_product_id', 'repair_visit_fee_mode', 'repair_requote_pct',
+                        'wb_bill_type_default']},
             {'title': 'Booking', 'icon': 'fa-calendar',
              'fields': ['wb_slot_days', 'wb_slot_lead_hours', 'wb_slot_change_hours', 'wb_unassigned_employee_id']},
             {'title': 'Doorstep visits', 'icon': 'fa-car',
              'fields': ['fs_speed_kmh', 'fs_stale_after_s', 'fs_position_keep_days', 'fs_arrival_otp', 'fs_show_tech_phone']},
             {'title': 'After the repair', 'icon': 'fa-star',
-             'fields': ['fix_warranty_days', 'fix_review_url']},
+             'fields': ['fix_warranty_days', 'fix_recheck_days', 'fix_review_url']},
             {'title': 'Spare parts', 'icon': 'fa-cogs',
              'fields': ['spare_request_assignee_id', 'spare_advance_account_id', 'spare_credit_account_id',
                         'spare_parts_journal_id']},
@@ -849,10 +880,28 @@ POPUPS = {
         'title': 'Approve the booking',
         'intro': 'The customer gets the estimate on WhatsApp with a link to pick a time.',
         'info': ['parts_html'],
-        'fields': ['technician_id', 'days'],
-        'watch': ['has_missing'],
-        'show': {'days': [('has_missing', '=', True)]},
+        # no job card yet (booked without a brand): the brand and model here make it
+        'fields': ['brand_id', 'model_id', 'technician_id', 'bill_type', 'days'],
+        'watch': ['has_missing', 'needs_card', 'category_id'],
+        'show': {'days': [('has_missing', '=', True)],
+                 'brand_id': [('needs_card', '=', True)], 'model_id': [('needs_card', '=', True)]},
+        'pick_domain': {'brand_id': [('category_id', '=', '$category_id')],
+                        'model_id': [('series_id.brand_id', '=', '$brand_id')]},
         'buttons': [{'name': 'action_confirm', 'label': 'Approve and tell the customer', 'kind': 'primary', 'icon': 'fa-check'}],
+    },
+    'fix.part.ask.wizard': {
+        'title': 'Answer the technician',
+        'intro': 'The technician is waiting at the door. Pick the part (or type a new one) and its price: '
+                 'it goes on the job card and their screen shows it.',
+        'info': ['asked'],
+        'fields': ['product_id', 'new_name', 'price', 'note'],
+        'watch': ['category_id'],
+        'show': {'new_name': [('product_id', '=', False)]},
+        # only parts that fit the customer's device type (or any device)
+        'pick_domain': {'product_id': [('type', '=', 'consu'), ('sale_ok', '=', True), '|',
+                                       ('fit_category_ids', '=', False), ('fit_category_ids', '=', '$category_id')]},
+        'buttons': [{'name': 'action_confirm', 'label': 'Add to the job card and tell the technician',
+                     'kind': 'primary', 'icon': 'fa-check'}],
     },
     'wb.reject.wizard': {
         'title': 'Reject the booking',
@@ -877,6 +926,14 @@ POPUPS = {
         'ticks': ['accessory_ids'],
         'show': {'accessory_ids': [('no_accessories', '=', False)]},
         'buttons': [{'name': 'action_confirm', 'label': 'Take it and tell the customer', 'kind': 'primary', 'icon': 'fa-building'}],
+    },
+    'wb.receive.wizard': {
+        'title': 'Received at the office',
+        'intro': 'Check the device and untick anything the technician took that did not arrive.',
+        'info': ['taken'],
+        'fields': ['accessory_ids', 'note'],
+        'ticks': ['accessory_ids'],
+        'buttons': [{'name': 'action_confirm', 'label': 'Received at the office', 'kind': 'primary', 'icon': 'fa-check'}],
     },
     'fix.service.visit.arrival': {
         'title': "Customer's arrival code",

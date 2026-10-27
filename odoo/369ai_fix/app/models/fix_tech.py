@@ -20,6 +20,7 @@ MANAGER = 'mobile_repair.group_mobile_repair_manager'
 # only these keys of the caller's context reach the steps: a client cannot pass flags such
 # as fix_checks_passed or wb_silent through My Visits
 KEEP_CONTEXT = ('lang', 'tz', 'allowed_company_ids')
+SEARCH_LIMIT = 50       # the search box lists the newest this many (and says how many matched)
 
 
 class ServiceVisit(models.Model):
@@ -54,6 +55,24 @@ class ServiceVisit(models.Model):
                       'currency': currency.name, 'decimals': currency.decimal_places},
         }
 
+    @api.model
+    def fix_tech_search(self, query=''):
+        """My Visits' search box: the technician's own visits of any date (a repair manager:
+        everyone's) whose visit number (VIS/01045 or 1045), booking number (OS/01520 or 1520),
+        job card, customer, phone or area matches. {count (all that match), rows (newest 50)}."""
+        words = ' '.join(str(query or '').split())[:60]
+        me = self._fix_tech_me()
+        if len(words) < 2 or (not me and not self.env.user.has_group(MANAGER)):
+            return {'count': 0, 'rows': []}
+        domain = ([('technician_id', 'in', me.ids)] if me else []) + [
+            '|', '|', '|', '|', '|', '|',
+            ('name', 'ilike', words), ('order_id.name', 'ilike', words), ('job_card_id.name', 'ilike', words),
+            ('customer_name', 'ilike', words), ('order_id.customer_name', 'ilike', words),
+            ('phone', 'ilike', words), ('area', 'ilike', words)]
+        Visit = self.sudo()
+        return {'count': Visit.search_count(domain),
+                'rows': [v._fix_tech_row() for v in Visit.search(domain, order='id desc', limit=SEARCH_LIMIT)]}
+
     def _fix_tech_row(self):
         self.ensure_one()
         order = self.order_id
@@ -67,6 +86,7 @@ class ServiceVisit(models.Model):
             'area': self.area or '',
             'summary': order.summary or '',
             'slot': {'start': _iso(self.slot_start), 'end': _iso(self.slot_end)} if self.slot_start else None,
+            'created': _iso(order.create_date or self.create_date),     # when it was booked, for the list's order
             'technician': self.technician_id.name or '',
             'finishing': self.close_stage == 'finish' and self.state == 'in_progress',
             'paid': self.paid_amount or 0.0,
@@ -83,6 +103,12 @@ class ServiceVisit(models.Model):
         view['photos'] = visit._co_thumbs()
         view['map_embed'] = osm_embed(*point) if point else ''
         view['map_url'] = visit.customer_map_url or ''
+        # the device video from "Before you start", played in the page (its technician may read the visit)
+        # (its file only: reading the field would load the whole video on every refresh)
+        video = visit.env['ir.attachment'].search([('res_model', '=', visit._name), ('res_id', '=', visit.id),
+                                                   ('res_field', '=', 'device_video')], limit=1)
+        view['video'] = {'url': '/web/content/fix.service.visit/%d/device_video?unique=%s' % (
+            visit.id, video.checksum or '')} if video else False
         return view
 
     def _fix_tech_mine(self):

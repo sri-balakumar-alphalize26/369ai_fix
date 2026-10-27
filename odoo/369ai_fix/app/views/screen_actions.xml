@@ -38,6 +38,12 @@
         <field name="path">fix-spare-parts</field>
         <field name="context" eval="{'fix_screen': 'spare_parts'}"/>
     </record>
+    <record id="action_screen_labour_prices" model="ir.actions.client">
+        <field name="name">Labour Prices</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-labour-prices</field>
+        <field name="context" eval="{'fix_screen': 'labour_prices'}"/>
+    </record>
     <record id="action_screen_categories" model="ir.actions.client">
         <field name="name">Device Categories</field>
         <field name="tag">369ai_fix.screen</field>

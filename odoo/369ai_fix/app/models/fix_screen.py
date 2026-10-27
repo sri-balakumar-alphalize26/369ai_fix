@@ -648,7 +648,9 @@ class FixScreen(models.AbstractModel):
             rec = Wizard.browse(int(res_id)).exists()
             values = self._values(rec, names)[0] if rec else {}
         else:
-            defaults = Wizard.default_get([n for n in names if n in Wizard._fields])
+            # every field's default, as create() takes them: the order a wizard is for comes as
+            # default_order_id and its other fields are computed from it
+            defaults = Wizard.default_get(list(Wizard._fields))
             rec = Wizard.new(defaults)
             values = {}
             for name in names:
@@ -845,6 +847,11 @@ class FixScreen(models.AbstractModel):
         """'What did you find?': the same steps as the technician's page."""
         visit = self._visit(visit_id)
         extra, message = {}, None
+        if action == 'result_parts':
+            # searched as you type: the parts only, not the whole result each time
+            if visit.state != 'in_progress':
+                return {'parts': [], 'message': _("This is done while the work is in progress.")}
+            return {'parts': visit._vr_parts((args or {}).get('query') or '')}
         if action:
             if visit.state != 'in_progress':
                 message = _("This is done while the work is in progress.")
