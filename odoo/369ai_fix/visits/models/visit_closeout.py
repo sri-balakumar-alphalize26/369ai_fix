@@ -5,9 +5,10 @@
 Finish, and the visit stays Working until:
 
 1. a photo of the repaired device is taken (1 to 3),
-2. the money is collected: the job card's bill is made in Easy Sales the way the office's
-   "Create invoice" makes it (mobile_repair `_create_easy_sales`), with the payment line the
-   technician chose (Cash / Card / Bank Transfer); confirming it posts the invoice and the
+2. the money is collected: the job card's bill is made the way the office's "Create invoice"
+   makes it - an Easy Sale with its VAT when the booking is billed with tax, else an Estimate
+   Sale (mobile_repair `_create_easy_sales` / `_create_estimate_sale`) - with the payment line
+   the technician chose (Cash / Card / Bank Transfer); confirming it posts the invoice and the
    payment. Nothing to pay (price 0): the technician confirms "no charge" instead,
 3. the customer reads out the 4-digit finish code they got on WhatsApp and My orders.
 
@@ -49,9 +50,14 @@ class ServiceVisit(models.Model):
     finish_skip_reason = fields.Char('Finished without the code because', readonly=True, copy=False)
     after_photo_ids = fields.One2many('fix.visit.check.photo', 'visit_id', string='After repair',
                                       domain=[('kind', '=', 'after')])
+    # the bill made at the door: an Easy Sale (with tax) or an Estimate Sale (without), as the
+    # booking says (booking/: wb_bill_type)
     pay_sale_id = fields.Many2one('easy.sales', 'Bill', readonly=True, copy=False)
+    pay_estimate_id = fields.Many2one('estimate.sale', 'Bill (without tax)', readonly=True, copy=False)
     paid_amount = fields.Float('Paid', digits='Product Price', readonly=True, copy=False)
     paid_method_id = fields.Many2one('easy.sales.payment.method', 'Paid by', readonly=True, copy=False)
+    paid_estimate_method_id = fields.Many2one('estimate.sale.payment.method', 'Paid by (without tax)',
+                                              readonly=True, copy=False)
     paid_on = fields.Datetime(readonly=True, copy=False)
     paid_by_id = fields.Many2one('res.users', 'Collected by', readonly=True, copy=False)
     paid_free = fields.Boolean('No charge', readonly=True, copy=False)
@@ -68,10 +74,53 @@ class ServiceVisit(models.Model):
         with_order = self.filtered(lambda v: v.sudo().order_id)
         super(ServiceVisit, self - with_order)._vr_after_fixed()
         for visit in with_order.sudo():
-            visit.write({'close_stage': 'finish', 'finish_code': self._fs_new_code(), 'finish_tries': 0})
-            visit.with_context(osm_extra={'code': visit.finish_code})._fs_notify('visit_finish_code')
-            visit.message_post(body=_("Repair done: finishing (after photo, payment, the customer's code)."),
-                               subtype_xmlid='mail.mt_note')
+            visit._co_open_finish('visit_finish_code',
+                                  _("Repair done: finishing (after photo, payment, the customer's code)."))
+
+    def _co_open_finish(self, message_key, note, **extra):
+        """Into Finish: a new finish code, sent to the customer with `message_key`."""
+        visit = self.sudo()
+        visit.write({'close_stage': 'finish', 'finish_code': self._fs_new_code(), 'finish_tries': 0})
+        visit.with_context(osm_extra=dict(extra, code=visit.finish_code))._fs_notify(message_key)
+        visit.message_post(body=note, subtype_xmlid='mail.mt_note')
+
+    # ------------------------------------------------------------------ no fault found, with the visit fee
+    def _vr_no_fault_fee(self, brand=None):
+        """No fault found, the visit fee charged (the technician's choice): the job card keeps only
+        the visit fee - the booked repairs at 0, no parts - and the visit goes to Finish: the
+        customer pays at the door and gives the finish code. A visit without a website booking
+        closes; the office bills the fee from the job card."""
+        self.ensure_one()
+        visit = self.sudo()
+        fee = visit._vr_visit_fee()
+        if not fee:
+            raise UserError(_("No visit fee is set in Repair Settings."))
+        if visit._vr_recheck_of():
+            raise UserError(_("This is a free re-check: no visit fee this time."))
+        card = visit._vr_card(brand=brand)
+        if card.spare_request_ids.filtered(lambda r: r.state == 'issued'):
+            raise UserError(_("Parts were issued for %s: give them back to the office first.", card.name))
+        card.spare_part_line_ids.unlink()
+        card.service_line_ids.filtered(self._vr_is_labour_line).unlink()
+        card.service_line_ids.write({'unit_price': 0.0})
+        card.inspection_type = 'paid'               # _co_due(): the visit fee
+        visit.check_outcome = 'no_fault'
+        visit._vr_clear_plan()
+        visit._vr_set('no_repair')
+        currency = visit._co_currency()
+        fee_text = _("Visit fee %(cur)s %(amount)s", cur=currency.name,
+                     amount='%.*f' % (currency.decimal_places, visit._co_due()))
+        card.message_post(body=_("No fault found at the visit: only the visit fee. %s", visit.check_found or ''))
+        if not visit.order_id:
+            visit.action_done()
+            return True
+        visit._co_open_finish(
+            'visit_no_fault_fee', _("No fault found, %s: finishing (payment, the customer's code).", fee_text),
+            reason=visit.check_found or '', fee=fee_text)
+        return True
+
+    def _co_no_fault(self):
+        return self.sudo().check_outcome == 'no_fault'
 
     def _co_require(self):
         self.ensure_one()
@@ -87,27 +136,55 @@ class ServiceVisit(models.Model):
             raise UserError(_("This visit has no job card to bill."))
         return card
 
+    def _co_with_tax(self):
+        """Billed with tax (an Easy Sale) or without (an Estimate Sale): the booking's choice."""
+        self.ensure_one()
+        card = self.sudo().job_card_id
+        return bool(card) and card._wb_with_tax()
+
     def _co_due(self):
         """What the customer pays: the bill once it is made, else what it will be (repairs + the
-        paid inspection, if any, + parts) - the same sum as mobile_repair's `_create_easy_sales`."""
+        paid inspection, if any, + parts; with the VAT when billed with tax) - the price the
+        customer approved, the same sum mobile_repair's bills make."""
         self.ensure_one()
         card = self.sudo().job_card_id
         if not card:
             return 0.0
         if card.easy_sales_id:
             return card.easy_sales_id.amount_total
-        due = sum(l.unit_price * l.quantity for l in card.service_line_ids)
-        if card.inspection_type == 'paid':
-            fee = self.env['ir.config_parameter'].sudo().get_param('mobile_repair.inspection_charge_product_id')
-            product = self.env['product.product'].sudo().browse(int(fee)).exists() if fee and str(fee).isdigit() else None
-            due += product.lst_price if product else 0.0
-        return due + sum(l.unit_price * l.quantity for l in card.spare_part_line_ids.filtered(lambda l: not l.fix_alt_off))
+        if card.estimate_sale_id:
+            return card.estimate_sale_id.amount_total
+        due = card._wb_lines_total()
+        fee = self._co_fee_product()
+        if fee:
+            taxes = self._co_fee_taxes(fee) if card._wb_with_tax() else None
+            currency = self._co_currency()
+            due += taxes.compute_all(fee.lst_price, currency, 1.0, product=fee)['total_included'] if taxes else fee.lst_price
+        return due
+
+    def _co_fee_taxes(self, product):
+        company = self.company_id or self.env.company
+        return product.taxes_id.filtered(lambda t: t.company_id == company) or company.account_sale_tax_id
+
+    def _co_fee_product(self):
+        """The paid inspection (visit fee) the bill adds, or an empty record."""
+        self.ensure_one()
+        card = self.sudo().job_card_id
+        Product = self.env['product.product'].sudo()
+        if not card or card.inspection_type != 'paid':
+            return Product
+        fee = self.env['ir.config_parameter'].sudo().get_param('mobile_repair.inspection_charge_product_id')
+        return Product.browse(int(fee)).exists() if fee and str(fee).isdigit() else Product
 
     def _co_methods(self):
+        """How the customer can pay: the payment methods of this booking's bill (the one the office
+        already made, else the one the booking gets)."""
         company = self.company_id or self.env.company
-        methods = self.env['easy.sales.payment.method'].sudo().search(
+        card = self.sudo().job_card_id
+        easy = bool(card.easy_sales_id) if card and (card.easy_sales_id or card.estimate_sale_id) else self._co_with_tax()
+        model = 'easy.sales.payment.method' if easy else 'estimate.sale.payment.method'
+        return self.env[model].sudo().search(
             [('company_id', 'in', [company.id, False]), ('is_customer_account', '=', False)])
-        return methods
 
     def _co_currency(self):
         return (self.company_id or self.env.company).currency_id
@@ -119,7 +196,8 @@ class ServiceVisit(models.Model):
             return _("No charge")
         currency = visit._co_currency()
         amount = '%s %s' % (currency.name, '%.*f' % (currency.decimal_places, visit.paid_amount))
-        return '%s (%s)' % (amount, visit.paid_method_id.name) if visit.paid_method_id else amount
+        method = visit.paid_method_id or visit.paid_estimate_method_id
+        return '%s (%s)' % (amount, method.name) if method else amount
 
     # ------------------------------------------------------------------ the steps
     def _co_photo(self, data):
@@ -145,9 +223,11 @@ class ServiceVisit(models.Model):
         return True
 
     def _co_pay(self, method_id, amount=None):
-        """The money collected at the door: the bill (Easy Sales) with this payment, confirmed -
-        which posts the invoice and the payment. If confirming fails (stock, accounts...) the
-        payment is still recorded on the bill and the office is asked to confirm it."""
+        """The money collected at the door: the bill with this payment, confirmed - which posts
+        the invoice and the payment. The bill is the booking's: an Easy Sale with its VAT (with
+        tax) or an Estimate Sale (without), the two bills of mobile_repair's "Create Invoice".
+        If confirming fails (stock, accounts...) the payment is still recorded on the bill and
+        the office is asked to confirm it."""
         self._co_require()
         visit = self.sudo()
         if visit.paid_on:
@@ -168,7 +248,8 @@ class ServiceVisit(models.Model):
             raise UserError(_("Type the amount paid."))
         if currency.compare_amounts(amount, 0.0) <= 0 or currency.compare_amounts(amount, due) > 0:
             raise UserError(_("The amount must be more than 0 and at most %s.", '%.*f' % (currency.decimal_places, due)))
-        sale = card.easy_sales_id
+        with_tax = visit._co_with_tax()
+        sale = card.easy_sales_id or card.estimate_sale_id
         if sale and sale.state != 'draft':
             raise UserError(_("The office has already billed this job (%s).", sale.name))
         if not sale:
@@ -177,13 +258,21 @@ class ServiceVisit(models.Model):
                 if card._check_spare_prices():
                     raise UserError(_("A part on the job card is priced below its cost: the office must fix "
                                       "the price before the bill is made."))
-            sale = card.with_company(card.company_id)._create_easy_sales()
+            full = currency.compare_amounts(amount, due) == 0
+            if with_tax:
+                sale = card.with_company(card.company_id)._create_easy_sales()
+                visit._co_tax_easy_sale(sale)
+            else:
+                sale = card.with_company(card.company_id)._create_estimate_sale()
+            if full:
+                amount = sale.amount_total      # the bill's own rounding of the same total
         sale.payment_line_ids.unlink()
         sale.write({'quick_payment_method_id': method.id})
-        self.env['easy.sales.payment.line'].sudo().create(
-            {'sales_id': sale.id, 'payment_method_id': method.id, 'amount': amount})
-        visit.write({'pay_sale_id': sale.id, 'paid_amount': amount, 'paid_method_id': method.id,
-                     'paid_on': fields.Datetime.now(), 'paid_by_id': self.env.uid})
+        line_model = 'easy.sales.payment.line' if sale._name == 'easy.sales' else 'estimate.sale.payment.line'
+        self.env[line_model].sudo().create({'sales_id': sale.id, 'payment_method_id': method.id, 'amount': amount})
+        bill = {'pay_sale_id': sale.id, 'paid_method_id': method.id} if sale._name == 'easy.sales' \
+            else {'pay_estimate_id': sale.id, 'paid_estimate_method_id': method.id}
+        visit.write(dict(bill, paid_amount=amount, paid_on=fields.Datetime.now(), paid_by_id=self.env.uid))
         confirmed = True
         try:
             with self.env.cr.savepoint():
@@ -205,6 +294,31 @@ class ServiceVisit(models.Model):
                                    user_id=(visit.order_id.approved_by_id or self.env.user).id)
         return True
 
+    def _co_tax_easy_sale(self, sale):
+        """mobile_repair's Easy Sale from a job card carries no taxes: put on each line the tax the
+        customer's price counted (the part's own, the repairs', else the company's VAT), so the
+        bill's total is the price the customer approved."""
+        self.ensure_one()
+        card = self.sudo().job_card_id
+        company = card.company_id or self.env.company
+        services, parts = card._wb_billed_lines()
+        service_taxes = self.env['account.tax']
+        for line in services:
+            service_taxes |= card._wb_line_taxes(line)
+        fee = self._co_fee_product()
+        if fee:
+            service_taxes |= self._co_fee_taxes(fee)
+        for sline in sale.line_ids:
+            if getattr(sline, 'display_type', False):
+                continue                # a section or a note
+            if sline.is_spare_issued:
+                part = parts.filtered(lambda l: l.product_id == sline.product_id)[:1]
+                taxes = card._wb_line_taxes(part) if part else company.account_sale_tax_id
+            else:
+                # the combined "Service Charges" line: the repairs' (and the visit fee's) tax
+                taxes = service_taxes[:1] or company.account_sale_tax_id
+            sline.tax_ids = [(6, 0, taxes.ids)]
+
     def _co_free(self):
         """Nothing to pay (e.g. a free fix): the technician confirms it."""
         self._co_require()
@@ -223,7 +337,7 @@ class ServiceVisit(models.Model):
         self.ensure_one()
         visit = self.sudo()
         missing = []
-        if not visit.after_photo_ids.filtered('image'):
+        if not visit._co_no_fault() and not visit.after_photo_ids.filtered('image'):    # nothing repaired: no photo
             missing.append(_("Photo of the repaired device"))
         if not visit.paid_on:
             missing.append(_("Payment"))
@@ -248,15 +362,20 @@ class ServiceVisit(models.Model):
                 return {'ok': False, 'error': 'wrong_code', 'tries_left': left,
                         'message': _("Wrong code. %s tries left.", left)}
         today = fields.Date.context_today(self)
-        days = (visit.company_id or self.env.company).fix_warranty_days
+        no_fault = visit._co_no_fault()
+        days = 0 if no_fault else (visit.company_id or self.env.company).fix_warranty_days   # nothing repaired
         visit.write({'close_stage': 'closed', 'finished_on': fields.Datetime.now(),
                      'finish_skip_reason': skip_reason or False,
                      'warranty_until': fields.Date.add(today, days=days) if days and days > 0 else False})
         card = visit.job_card_id
         if card and card.state not in ('completed', 'cancelled'):
-            # as the job card's own "Complete" (done): the customer's "completed" message, the booking Done
-            self.env['job.card.completion.wizard'].sudo().create(
-                {'job_card_id': card.id, 'result': 'done'}).action_confirm()
+            # as the job card's own "Complete" (done): the customer's "completed" message, the booking Done.
+            # No fault found: quietly - the customer gets the no-fault receipt below instead
+            Wizard = self.env['job.card.completion.wizard'].sudo().with_context(wb_silent=no_fault)
+            Wizard.create({'job_card_id': card.id, 'result': 'done'}).action_confirm()
+        order = visit.order_id
+        if no_fault and order and order.state not in ('done', 'cancelled'):
+            order._set_state('done')
         if visit.state != 'done':
             visit.action_done()
         visit._co_send_receipt()
@@ -269,6 +388,10 @@ class ServiceVisit(models.Model):
         self.ensure_one()
         visit = self.sudo()
         link = visit._co_rate_link()
+        if visit._co_no_fault():
+            visit.with_context(osm_extra={'paid': visit._co_paid_text(), 'recheck': visit._vr_recheck_line(),
+                                          'rate_url': link})._fs_notify('visit_no_fault_receipt')
+            return
         warranty = (_("Warranty: your repair is covered until %s.", visit.warranty_until.strftime('%a %d %b %Y'))
                     if visit.warranty_until else '')
         visit.with_context(osm_extra={'paid': visit._co_paid_text(), 'warranty': warranty,
@@ -371,11 +494,13 @@ class ServiceVisit(models.Model):
             'currency': currency.name,
             'decimals': currency.decimal_places,
             'to_pay': currency.compare_amounts(due, 0.0) > 0,
+            'with_tax': visit._co_with_tax(),       # "incl. VAT" by the amount
             'methods': [{'id': m.id, 'name': m.name, 'default': m.is_default} for m in visit._co_methods()],
             'paid': bool(visit.paid_on),
             'paid_text': visit._co_paid_text() if visit.paid_on else '',
             'tries_left': max(MAX_CODE_TRIES - visit.finish_tries, 0),
             'missing': visit._co_missing(),
+            'no_fault': visit._co_no_fault(),      # no photo step, the visit fee only
         }
 
     def _co_steps(self):

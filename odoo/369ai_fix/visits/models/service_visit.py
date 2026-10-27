@@ -502,6 +502,12 @@ class ServiceVisit(models.Model):
             return None
         raw = base64.b64decode(image)
         mime = guess_mimetype(raw, default='image/png')
+        if mime in ('text/xml', 'application/xml', 'text/plain') and b'<svg' in raw[:1024]:
+            # no photo uploaded: Odoo's own avatar (the initials) is an SVG it files as XML; a browser
+            # only draws it as an image under its image type
+            mime = 'image/svg+xml'
+        if not mime.startswith('image/'):
+            return None         # not a picture: the page shows the plain round placeholder
         return 'data:%s;base64,%s' % (mime, image.decode() if isinstance(image, bytes) else image)
 
     def _fs_track_block(self):

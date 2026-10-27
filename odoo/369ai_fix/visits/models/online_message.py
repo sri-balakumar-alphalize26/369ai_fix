@@ -11,6 +11,8 @@ VISIT_KEYS = [
     ('visit_lab_check', 'Visit: device taken to the lab for a check'),
     ('visit_no_repair', 'Visit: not repaired (with the reason)'),
     ('visit_part_sourcing', 'Visit: part asked of the office, price follows'),
+    ('visit_no_fault_fee', 'Visit: no fault found, the visit fee and the finish code'),
+    ('visit_no_fault_receipt', 'Visit: no fault found, receipt and rating link'),
 ]
 
 

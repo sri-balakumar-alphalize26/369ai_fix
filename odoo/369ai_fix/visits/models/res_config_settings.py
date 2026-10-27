@@ -11,4 +11,5 @@ class ResConfigSettings(models.TransientModel):
     fs_arrival_otp = fields.Boolean(related='company_id.fs_arrival_otp', readonly=False)
     fs_show_tech_phone = fields.Boolean(related='company_id.fs_show_tech_phone', readonly=False)
     fix_warranty_days = fields.Integer(related='company_id.fix_warranty_days', readonly=False)
-    fix_review_url = fields.Char(related='company_id.fix_review_url', readonly=False)
+    fix_recheck_days = fields.Integer(related='company_id.fix_recheck_days', readonly=False)
+    fix_review_url =fields.Char(related='company_id.fix_review_url', readonly=False)

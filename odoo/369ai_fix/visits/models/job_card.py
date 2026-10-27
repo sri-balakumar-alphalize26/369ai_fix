@@ -12,6 +12,8 @@ class JobCard(models.Model):
     _inherit = 'job.card'
 
     fs_visit_ids = fields.One2many('fix.service.visit', 'job_card_id', string='Doorstep visits')
+    # parts the technician asked of the office at the visit, and the answers (visit_result.py)
+    part_ask_ids = fields.One2many('fix.part.ask', 'job_card_id', string='Part questions', readonly=True)
     fs_visit_count = fields.Integer(compute='_compute_fs_visit_count')
 
     @api.depends('fs_visit_ids')

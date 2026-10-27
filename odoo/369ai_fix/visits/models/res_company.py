@@ -25,6 +25,10 @@ class ResCompany(models.Model):
         'Repair warranty (days)', default=30,
         help="The customer's receipt after a doorstep repair says the repair is under warranty until "
              "this many days later. 0: no warranty line.")
+    fix_recheck_days = fields.Integer(
+        'Free re-check (days)', default=7,
+        help="After \"No fault found\", the customer is told: if the problem comes back within this many "
+             "days, book again and the check is free (no visit fee). 0: no free re-check.")
     fix_review_url = fields.Char(
         'Review link (Google)',
         help="Customers who give 4 or 5 stars after a visit are also offered this link "

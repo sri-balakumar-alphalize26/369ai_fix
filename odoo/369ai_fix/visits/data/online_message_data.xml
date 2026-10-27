@@ -48,14 +48,31 @@ How did {technician} do? Rate the visit: {rate_url}</field>
         <field name="key">visit_lab_check</field>
         <field name="sequence">16</field>
         <field name="body">Hi {name}, your {device} needs a closer check in our lab 🔬 (order {order}).
-{technician} has taken it with them. We will send you the price within {days}, before any repair.</field>
+{technician} has taken it with them, with: {accessories}. We will send you the price within {days} (by {date}), before any repair.</field>
     </record>
     <record id="msg_visit_no_repair" model="online.service.message">
         <field name="key">visit_no_repair</field>
         <field name="sequence">17</field>
         <field name="body">Hi {name}, {technician} has checked your device (order {order}).
 {reason}
+{recheck}
 Thank you for choosing {site}.</field>
+    </record>
+    <!-- No fault found, with the visit fee: paid at the door, then the finish code (visit_closeout.py). -->
+    <record id="msg_visit_no_fault_fee" model="online.service.message">
+        <field name="key">visit_no_fault_fee</field>
+        <field name="sequence">19</field>
+        <field name="body">Hi {name}, {technician} has checked your device (order {order}) and found no fault.
+{reason}
+{fee}. After paying, give them this code: {code}</field>
+    </record>
+    <record id="msg_visit_no_fault_receipt" model="online.service.message">
+        <field name="key">visit_no_fault_receipt</field>
+        <field name="sequence">20</field>
+        <field name="body">Thank you {name}! Order {order}: no fault found.
+Paid: {paid}
+{recheck}
+How did {technician} do? Rate the visit: {rate_url}</field>
     </record>
     <record id="msg_visit_part_sourcing" model="online.service.message">
         <field name="key">visit_part_sourcing</field>
