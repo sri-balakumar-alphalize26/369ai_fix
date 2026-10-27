@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.22.0',
+    'version': '19.0.2.24.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """
@@ -77,6 +77,7 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
         'visits/views/service_visit_views.xml',
         'visits/views/visit_checks_views.xml',
         'visits/wizard/visit_result_wizard_views.xml',
+        'visits/wizard/part_ask_wizard_views.xml',
         'visits/views/online_order_views.xml',
         'visits/views/job_card_views.xml',
         'visits/views/res_config_settings_views.xml',
@@ -84,6 +85,7 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
         # booking
         'booking/security/ir.model.access.csv',
         'booking/data/online_message_data.xml',
+        'booking/data/office_cron.xml',
         'booking/wizard/review_wizard_views.xml',
         'booking/views/online_order_views.xml',
         'booking/views/booking_slot_views.xml',
@@ -124,6 +126,7 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
             '369ai_fix/static/src/app/screen/fix_record.js',
             '369ai_fix/static/src/app/screen/fix_screen.js',
             '369ai_fix/static/src/app/screen/fix_screen.xml',
+            '369ai_fix/static/src/app/list_sort.js',
             '369ai_fix/static/src/app/desk/fix_desk.scss',
             '369ai_fix/static/src/app/desk/fix_desk.js',
             '369ai_fix/static/src/app/desk/fix_desk.xml',
