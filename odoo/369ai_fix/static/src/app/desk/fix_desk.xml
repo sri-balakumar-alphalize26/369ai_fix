@@ -1,6 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
+    <!-- the list's order (Booking Desk, My Visits): our own menu, not the browser's dropdown -->
+    <t t-name="369ai_fix.FixSort">
+        <div class="fxd-sort" t-att-class="{ 'fxd-sort-open': state.open }" t-ref="root">
+            <button type="button" class="fxd-sort-btn" aria-haspopup="listbox" title="Order of the list"
+                    t-att-aria-expanded="state.open ? 'true' : 'false'" t-on-click="toggle" t-on-keydown="onKey">
+                <i class="fa fa-sort-amount-desc fxd-sort-ic" aria-hidden="true"/>
+                <span class="fxd-sort-label" t-esc="current[1]"/>
+                <i class="fa fa-chevron-down fxd-sort-caret" aria-hidden="true"/>
+            </button>
+            <ul class="fxd-sort-menu" role="listbox" aria-label="Order of the list" t-if="state.open">
+                <li class="fxd-sort-title" role="presentation">Show first</li>
+                <t t-foreach="props.options" t-as="opt" t-key="opt[0]">
+                    <li role="option" t-att-aria-selected="opt[0] === props.value ? 'true' : 'false'"
+                        t-att-class="{ 'fxd-sort-on': opt[0] === props.value, 'fxd-sort-active': opt_index === state.active }"
+                        t-on-click="() => this.pick(opt[0])" t-on-mouseenter="() => state.active = opt_index">
+                        <span t-esc="opt[1]"/>
+                        <i class="fa fa-check" t-if="opt[0] === props.value" aria-hidden="true"/>
+                    </li>
+                </t>
+            </ul>
+        </div>
+    </t>
+
+    <!-- the part questions of a booking and their answers (Booking Desk, My Visits): `asks`, `cur`;
+         the component gives `when(at)` and `money(amount, currency)` -->
+    <t t-name="369ai_fix.PartAskHistory">
+        <ul class="fxd-ask-list">
+            <t t-foreach="asks" t-as="a" t-key="a.id">
+                <li t-attf-class="fxd-ask-row fxd-ask-row-{{ a.state }}">
+                    <div class="fxd-ask-q">
+                        <b t-esc="a.name"/>
+                        <small><t t-esc="a.technician or 'Technician'"/> · <t t-esc="when(a.asked_on)"/><t t-if="a.rough_price"> · about <t t-esc="money(a.rough_price, a.currency || cur)"/></t><t t-if="a.visit"> · <t t-esc="a.visit"/></t></small>
+                    </div>
+                    <div class="fxd-ask-a">
+                        <span class="fxd-ask-badge" t-esc="a.state_label"/>
+                        <span t-if="a.state === 'found'"><t t-esc="a.part"/> · <t t-esc="money(a.price, a.currency || cur)"/></span>
+                        <span t-if="a.reply" t-esc="a.reply"/>
+                        <small t-if="a.by"><t t-esc="a.by"/><t t-if="a.answered_on"> · <t t-esc="when(a.answered_on)"/></t></small>
+                    </div>
+                </li>
+            </t>
+        </ul>
+    </t>
+
     <!-- ================================================================ the screen -->
     <t t-name="369ai_fix.Desk">
         <Layout display="{ controlPanel: {} }" className="'o_fxd h-100'">
@@ -14,12 +58,19 @@
                             <small>Every website booking, from new to done</small>
                         </div>
                     </div>
-                    <span class="fxd-pill fxd-pill-new" t-att-class="{ 'fxd-pulse': state.counts.new }" role="status">
+                    <!-- each pill opens its tab (and leaves any search) -->
+                    <button type="button" class="fxd-pill fxd-pill-new" t-att-class="{ 'fxd-pulse': state.counts.new }"
+                            title="Open the New tab" t-on-click="() => this.goTo('new')">
                         <i class="fa fa-bell"/> <t t-esc="state.counts.new || 0"/> new
-                    </span>
-                    <span class="fxd-pill fxd-pill-slot" t-att-class="{ 'fxd-pulse': state.counts.booked }" role="status">
+                    </button>
+                    <button type="button" class="fxd-pill fxd-pill-slot" t-att-class="{ 'fxd-pulse': state.counts.booked }"
+                            title="Open the Time booked tab" t-on-click="() => this.goTo('booked')">
                         <i class="fa fa-calendar-check-o"/> <t t-esc="state.counts.booked || 0"/> times booked
-                    </span>
+                    </button>
+                    <button type="button" class="fxd-pill fxd-pill-ask fxd-pulse" t-if="state.partAsks" t-on-click="() => this.goTo('working', (row) => row.part_asked)"
+                            title="Technicians waiting at a door for the office's answer about a part: open the booking">
+                        <i class="fa fa-cogs"/> <t t-esc="state.partAsks"/> part<t t-if="state.partAsks > 1">s</t> asked
+                    </button>
                     <span class="fxd-pill fxd-pill-poll" t-if="state.pollReady" title="New bookings are posted to the staff WhatsApp group with a poll">
                         <i class="fa fa-whatsapp"/> WhatsApp poll on
                     </span>
@@ -53,17 +104,53 @@
 
                     <!-- the cards of the stage -->
                     <section class="fxd-list">
-                        <div class="fxd-list-head">
-                            <h2 t-esc="stageLabel(state.stage)"/>
-                            <small t-esc="stageHint(state.stage)"/>
+                        <!-- search every booking (any stage, any date): name, phone, OS/…, VIS/… or the job card -->
+                        <div class="fxd-search" role="search">
+                            <i class="fa fa-search" aria-hidden="true"/>
+                            <input type="search" class="fxd-search-in" placeholder="Search name, phone, OS/01520 or VIS/01045"
+                                   aria-label="Search bookings" autocomplete="off" t-att-value="state.searchQ"
+                                   t-on-input="onSearch" t-on-keydown="onSearchKey"/>
+                            <i class="fa fa-circle-o-notch fa-spin fxd-search-wait" t-if="state.searching" aria-hidden="true"/>
+                            <button type="button" class="fxd-search-x" t-elif="state.searchQ" aria-label="Clear the search" t-on-click="clearSearch"><i class="fa fa-times"/></button>
                         </div>
-                        <div class="fxd-empty" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
-                        <div class="fxd-empty" t-elif="!state.rows.length">
-                            <span class="fxd-empty-mark"><i class="fa fa-check"/></span>
-                            <span>Nothing here. New bookings appear on their own.</span>
-                        </div>
-                        <t t-foreach="state.rows" t-as="row" t-key="row.id">
-                            <article t-att-class="cardClass(row)" t-on-click="() => this.select(row)" role="button" tabindex="0">
+                        <t t-if="searchActive">
+                            <div class="fxd-list-head">
+                                <div class="fxd-list-title">
+                                    <h2>Search results</h2>
+                                    <span class="fxd-found" t-if="state.found !== null" role="status">
+                                        <t t-esc="state.foundCount"/> found<t t-if="state.foundCount > state.found.length"> · newest <t t-esc="state.found.length"/> shown</t>
+                                    </span>
+                                </div>
+                                <small>All bookings, every stage and date. Tap one to open it.</small>
+                            </div>
+                            <div class="fxd-empty" t-if="state.found !== null and !state.found.length">
+                                <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-search"/></span>
+                                <span>No booking matches "<t t-esc="state.searchQ.trim()"/>". Try the number only (e.g. 1520) or part of the name.</span>
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <div class="fxd-list-head">
+                                <div class="fxd-list-title">
+                                    <h2 t-esc="stageLabel(state.stage)"/>
+                                    <FixSort options="sorts" value="state.sort" onChange="(key) => this.setSort(key)"/>
+                                </div>
+                                <small t-esc="stageHint(state.stage)"/>
+                            </div>
+                            <div class="fxd-empty" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
+                            <div class="fxd-empty" t-elif="!state.rows.length">
+                                <span class="fxd-empty-mark"><i class="fa fa-check"/></span>
+                                <span>Nothing here. New bookings appear on their own.</span>
+                            </div>
+                        </t>
+                        <!-- the cards; in search results each stage gets its own heading line ("Working · 1") -->
+                        <t t-foreach="listItems" t-as="it" t-key="it.key">
+                            <t t-set="row" t-value="it.row"/>
+                            <div t-if="it.head" t-attf-class="fxd-group-head fxd-stage-{{ it.stage }}" role="heading" aria-level="3">
+                                <span class="fxd-group-dot"/>
+                                <span class="fxd-group-label" t-esc="it.head"/>
+                                <span class="fxd-group-count" t-esc="it.count"/>
+                            </div>
+                            <article t-else="" t-att-class="cardClass(row)" t-on-click="() => this.select(row)" role="button" tabindex="0">
                                 <div class="fxd-card-top">
                                     <b class="fxd-ref" t-esc="row.name"/>
                                     <span class="fxd-mode" t-esc="row.mode_label"/>
@@ -72,15 +159,21 @@
                                 <div class="fxd-card-cust"><t t-esc="row.customer or 'No name given'"/><small t-if="row.area"> · <t t-esc="row.area"/></small></div>
                                 <div class="fxd-card-sum" t-if="row.summary" t-esc="row.summary"/>
                                 <div class="fxd-card-meta">
+                                    <span class="fxd-chip" t-if="searchActive and row.visits"><i class="fa fa-car"/> <t t-esc="row.visits"/></span>
                                     <span class="fxd-chip fxd-chip-blue" t-if="row.slot" t-att-class="{ 'fxd-chip-pulse': row.slot_unseen }"><i class="fa fa-calendar"/> <t t-esc="row.slot"/></span>
                                     <span class="fxd-chip" t-if="row.total"><t t-esc="money(row.total, row.currency)"/></span>
                                     <span class="fxd-chip fxd-chip-amber" t-if="row.parts_badge" t-esc="row.parts_badge"/>
                                     <span class="fxd-chip" t-if="row.technician"><i t-if="row.stale" class="fxd-stale" title="Signal lost"/><i t-else="" class="fa fa-user"/> <t t-esc="row.technician"/></span>
                                     <span class="fxd-chip fxd-chip-blue" t-if="row.eta">ETA <t t-esc="row.eta"/> min</span>
                                     <span class="fxd-chip fxd-chip-amber" t-if="row.calling_by">Calling: <t t-esc="row.calling_by"/></span>
+                                    <span class="fxd-chip fxd-chip-amber" t-if="row.office === 'on_way'"><i class="fa fa-truck"/> On the way to the office</span>
+                                    <span class="fxd-chip fxd-chip-red" t-if="row.overdue"><i class="fa fa-exclamation-circle"/> Overdue: <t t-esc="row.overdue === 'price' ? 'price' : 'return'"/></span>
+                                    <span class="fxd-chip" t-if="row.labour"><i class="fa fa-wrench"/> Labour: <t t-esc="row.labour === 'free' ? 'free' : money(row.labour, row.currency)"/></span>
+                                    <span class="fxd-chip fxd-chip-amber" t-if="row.recheck" t-att-title="'No fault found on ' + row.recheck"><i class="fa fa-refresh"/> Free re-check</span>
+                                    <span class="fxd-chip fxd-chip-red fxd-chip-pulse" t-if="row.part_asked" t-att-title="row.part_asked"><i class="fa fa-bell"/> Part asked: <t t-esc="row.part_asked"/></span>
                                     <span class="fxd-chip fxd-chip-red" t-if="row.reject_pending">Reject: reason needed</span>
                                     <span class="fxd-chip fxd-chip-red" t-if="row.needs_screen" t-att-title="row.needs_screen">Finish here</span>
-                                    <span class="fxd-chip" t-if="row.at_office"><i class="fa fa-building"/> At the office</span>
+                                    <span class="fxd-chip" t-if="row.at_office and row.office !== 'on_way'" t-att-title="row.office_by and ('Received by ' + row.office_by)"><i class="fa fa-building"/> At the office<t t-if="row.office_by"> · received by <t t-esc="row.office_by"/></t></span>
                                     <span class="fxd-chip" t-if="row.visit_label and row.stage !== 'new'" t-esc="row.visit_label"/>
                                 </div>
                             </article>
@@ -191,6 +284,28 @@
             </t>
 
             <t t-else="">
+            <!-- a part the technician asked for at the door: answer it here (Part found / Not available) -->
+            <section t-if="d.ask" t-attf-class="fxd-ask fxd-ask-{{ d.ask.state }}" role="status">
+                <img t-if="d.ask.photo" class="fxd-ask-photo" t-attf-src="/web/image/fix.service.visit/{{ d.ask.visit_id }}/ask_photo/160x160"
+                     alt="Photo of the part" t-on-click="() => this.openMedia('image', 'fix.service.visit/' + d.ask.visit_id + '/ask_photo')"/>
+                <div class="fxd-ask-text">
+                    <t t-if="d.ask.state === 'asked'">
+                        <b><i class="fa fa-bell"/> <t t-esc="d.technician or 'The technician'"/> is waiting at the door for a part</b>
+                        <span><t t-esc="d.ask.name"/><t t-if="d.ask.price"> · about <t t-esc="money(d.ask.price, d.currency)"/></t></span>
+                        <small>Asked <t t-esc="when(d.ask.on)"/>. Answer below: Part found, or Not available.</small>
+                    </t>
+                    <t t-elif="d.ask.state === 'found'">
+                        <b><i class="fa fa-check-circle"/> Part sent to the technician</b>
+                        <span><t t-esc="d.ask.part"/> · <t t-esc="money(d.ask.part_price, d.currency)"/></span>
+                        <small>By <t t-esc="d.ask.by"/><t t-if="d.ask.reply"> · <t t-esc="d.ask.reply"/></t></small>
+                    </t>
+                    <t t-else="">
+                        <b><i class="fa fa-times-circle"/> Not available: <t t-esc="d.ask.name"/></b>
+                        <span t-esc="d.ask.reply"/>
+                        <small>By <t t-esc="d.ask.by"/>. The technician chooses what next.</small>
+                    </t>
+                </div>
+            </section>
             <!-- buttons of this stage -->
             <div class="fxd-actions" t-if="d.actions.length">
                 <t t-foreach="d.actions" t-as="key" t-key="key">
@@ -217,6 +332,13 @@
                             <button class="fxd-btn fxd-btn-ghost" t-on-click="() => state.askCancel = false">Keep it</button>
                         </div>
                     </t>
+                    <t t-elif="key === 'part_none' and state.askNone">
+                        <div class="fxd-assign fxd-cancel">
+                            <input class="fxd-in" type="text" placeholder="Why not? The technician reads it (e.g. no supplier for this model)" t-model="state.noneReason"/>
+                            <button class="fxd-btn fxd-btn-danger" t-att-disabled="state.busy or !state.noneReason.trim()" t-on-click="() => this.act('part_none')"><i class="fa fa-times"/> Tell the technician</button>
+                            <button class="fxd-btn fxd-btn-ghost" t-on-click="() => state.askNone = false">Back</button>
+                        </div>
+                    </t>
                     <t t-elif="key === 'finish_skip' and state.askFinish">
                         <div class="fxd-assign fxd-cancel">
                             <input class="fxd-in" type="text" placeholder="Why without the customer's code? (kept on the visit)" t-model="state.finishReason"/>
@@ -232,6 +354,18 @@
             <div class="fxd-note fxd-note-red" t-if="d.needs_screen">Accepted on WhatsApp, but <t t-esc="d.needs_screen"/>.</div>
             <div class="fxd-note fxd-note-amber" t-if="d.calling_by">Calling the customer: <b t-esc="d.calling_by"/></div>
             <div class="fxd-note fxd-note-red" t-if="d.reject_reason">Rejected by <t t-esc="d.rejected_by"/>: <t t-esc="d.reject_reason"/></div>
+            <!-- a device at our office -->
+            <div class="fxd-note fxd-note-amber" t-if="d.office === 'on_way'">The technician is bringing the device to the office. Press <b>Received at the office</b> when it arrives and check the accessories.</div>
+            <div class="fxd-note fxd-note-red" t-if="d.overdue === 'price'">Overdue: the customer was promised the price by now. Check the device and send the price.</div>
+            <div class="fxd-note fxd-note-red" t-if="d.overdue === 'return'">Overdue: the customer was promised the device back by now.</div>
+
+            <!-- every part the technician asked of the office, and the answer (kept for good) -->
+            <section class="fxd-box fxd-asks" t-if="(d.ask_history or []).length">
+                <h3><i class="fa fa-cogs"/> Part questions <small>(<t t-esc="d.ask_history.length"/>)</small></h3>
+                <t t-set="asks" t-value="d.ask_history"/>
+                <t t-set="cur" t-value="d.currency"/>
+                <t t-call="369ai_fix.PartAskHistory"/>
+            </section>
 
             <div class="fxd-grid">
                 <!-- customer -->
@@ -267,8 +401,21 @@
                             </li>
                         </t>
                     </ul>
-                    <div class="fxd-total" t-if="d.total">Estimate <b t-esc="money(d.total, d.currency)"/><small t-if="d.approved_by"> · approved by <t t-esc="d.approved_by"/> <t t-esc="when(d.approved_on)"/></small></div>
+                    <div class="fxd-total" t-if="d.total">Estimate <b t-esc="money(d.total, d.currency)"/><small t-if="d.bill_type === 'easy'"> incl. VAT</small><small t-if="d.approved_by"> · approved by <t t-esc="d.approved_by"/> <t t-esc="when(d.approved_on)"/></small></div>
                     <div class="fxd-muted" t-else="">No priced repair on the job card yet.</div>
+                    <!-- how it is billed: with tax (Easy Sales) or without (Estimate Sale); the office's choice -->
+                    <div class="fxd-bill" t-if="d.bill_type">
+                        <span>Bill</span>
+                        <div class="fxd-seg" role="group" aria-label="Bill with or without tax">
+                            <button type="button" t-att-class="{ on: d.bill_type === 'estimate' }" t-att-aria-pressed="d.bill_type === 'estimate' ? 'true' : 'false'"
+                                    t-att-disabled="d.bill_locked or state.busy" t-on-click="() => this.setBill('estimate')">Without tax</button>
+                            <button type="button" t-att-class="{ on: d.bill_type === 'easy' }" t-att-aria-pressed="d.bill_type === 'easy' ? 'true' : 'false'"
+                                    t-att-disabled="d.bill_locked or state.busy" t-on-click="() => this.setBill('easy')">With tax</button>
+                        </div>
+                        <small t-if="d.bill_locked">The bill is made: it cannot change.</small>
+                        <small t-elif="d.bill_type === 'easy'">Easy Sales · the customer sees prices incl. VAT</small>
+                        <small t-else="">Estimate Sale · no tax</small>
+                    </div>
                     <ul class="fxd-parts" t-if="d.parts.length">
                         <t t-foreach="d.parts" t-as="part" t-key="part_index">
                             <li>

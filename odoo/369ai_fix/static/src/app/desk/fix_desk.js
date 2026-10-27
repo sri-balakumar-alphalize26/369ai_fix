@@ -24,10 +24,29 @@ import { AlarmLoop, FixAlarm, NEW_TONE, SLOT_TONE, setDeskOpen } from "./desk_al
 import { destroyMap, hasLeaflet, mountMap, updateMap } from "./leaflet_map";
 import { FixRecord } from "../screen/fix_record";
 import { errorText } from "../screen/fix_popup";
+import { FixSort, readSort, saveSort, sortRows } from "../list_sort";
 
 const MODEL = "online.service.order";
 const POLL_MS = 20000;
 const PRESENCE_EVENT = "fix_desk_presence";
+// the cards' order, chosen above the list: [key, label, field, direction]
+const SORTS = [
+    ["oldest", _t("Oldest first"), "created", "asc"],
+    ["newest", _t("Newest first"), "created", "desc"],
+    ["visit_soon", _t("Visit time: soonest"), "slot_start", "asc"],
+    ["visit_late", _t("Visit time: latest"), "slot_start", "desc"],
+];
+// Each tab starts in the order that suits it: waiting customers - the longest wait first; a visit
+// time fixed - the next visit first; finished - the latest first. A choice made on a tab is kept
+// (in this browser) for that tab only.
+const STAGE_SORT = {
+    new: "oldest", calling: "oldest", approved: "oldest",
+    booked: "visit_soon", to_assign: "visit_soon", assigned: "visit_soon", live: "visit_soon", working: "visit_soon",
+    done_today: "newest", rejected: "newest",
+};
+const SORT_KEY = "fix_desk_sort";
+const SEARCH_MS = 300;      // the search waits this long after the last key
+const sortFor = (stage) => readSort(`${SORT_KEY}:${stage}`, SORTS, STAGE_SORT[stage] || "oldest");
 
 // What each stage means, under its title.
 const HINTS = {
@@ -65,12 +84,15 @@ const BUTTONS = {
     take: { label: "Take the device", kind: "primary", icon: "fa-building" },
     office: { label: "Repair at office", kind: "ghost", icon: "fa-building" },
     cancel_visit: { label: "Cancel visit", kind: "danger-ghost", icon: "fa-ban" },
+    office_received: { label: "Received at the office", kind: "primary", icon: "fa-building" },
+    part_found: { label: "Part found: add it", kind: "primary", icon: "fa-check" },
+    part_none: { label: "Not available", kind: "danger-ghost", icon: "fa-times" },
     finish_skip: { label: "Finish without code", kind: "ghost", icon: "fa-flag-checkered" },
 };
 
 export class FixDesk extends Component {
     static template = "369ai_fix.Desk";
-    static components = { Layout, FixRecord };
+    static components = { Layout, FixRecord, FixSort };
     static props = ["*"];
 
     setup() {
@@ -87,6 +109,7 @@ export class FixDesk extends Component {
             stages: [],
             counts: {},
             rows: [],
+            sort: sortFor("new"),
             since: "",
             technicians: [],
             ring: 20,
@@ -109,6 +132,13 @@ export class FixDesk extends Component {
             cancelReason: "",
             askFinish: false,
             finishReason: "",
+            askNone: false,     // "Not available" for a part the technician asked: the reason box
+            noneReason: "",
+            partAsks: 0,        // technicians waiting at a door for the office's answer about a part
+            searchQ: "",        // the search box (every booking, any stage and date)
+            searching: false,
+            found: null,        // the search's bookings (null: not searched yet)
+            foundCount: 0,      // how many match in all (the newest 50 are listed)
             media: null,      // the customer's photo / video open in the viewer
             // the pane's tabs: the overview, or the booking / a job card / the visit drawn by
             // the green record screen, or the notes of all three
@@ -150,6 +180,7 @@ export class FixDesk extends Component {
             this.slotLoop.stop();
             clearInterval(this._poller);
             clearInterval(this._clock);
+            clearTimeout(this.searchTimer);
             this.bus.unsubscribe("fix_desk/refresh", this._onBus);
             this.bus.unsubscribe("danatfix_booking/refresh", this._onBus);
             this.bus.unsubscribe("online_service/refresh", this._onBus);
@@ -181,6 +212,101 @@ export class FixDesk extends Component {
         );
     }
 
+    // ------------------------------------------------------------------ the list's order
+    get sorts() {
+        return SORTS;
+    }
+
+    get sortedRows() {
+        return sortRows(this.state.rows, SORTS, this.state.sort);
+    }
+
+    /** What the list draws: the tab's cards; while searching, the results grouped by stage in
+     *  the rail's order (older done / cancelled bookings last), each group under a heading line. */
+    get listItems() {
+        if (!this.searchActive) {
+            return this.sortedRows.map((row) => ({ key: row.id, row }));
+        }
+        const order = this.state.stages.map((s) => s.key);
+        const groups = new Map();
+        for (const row of this.state.found || []) {
+            const key = row.stage !== "other" ? row.stage : `other:${row.stage_label}`;
+            if (!groups.has(key)) {
+                groups.set(key, { key, stage: row.stage, head: row.stage_label || _t("Other"), rows: [] });
+            }
+            groups.get(key).rows.push(row);
+        }
+        const rank = (g) => (g.stage === "other" ? order.length : Math.max(0, order.indexOf(g.stage)));
+        const items = [];
+        for (const g of [...groups.values()].sort((a, b) => rank(a) - rank(b))) {
+            items.push({ key: `head:${g.key}`, head: g.head, stage: g.stage, count: g.rows.length });
+            items.push(...g.rows.map((row) => ({ key: row.id, row })));
+        }
+        return items;
+    }
+
+    // ------------------------------------------------------------------ search every booking
+    get searchActive() {
+        return this.state.searchQ.trim().length >= 2;
+    }
+
+    onSearch(ev) {
+        this.state.searchQ = ev.target.value;
+        clearTimeout(this.searchTimer);
+        if (!this.searchActive) {
+            this.searchSeq = (this.searchSeq || 0) + 1;
+            Object.assign(this.state, { found: null, foundCount: 0, searching: false });
+            return;
+        }
+        this.state.searching = true;
+        this.searchTimer = setTimeout(() => this.runSearch(), SEARCH_MS);
+    }
+
+    onSearchKey(ev) {
+        if (ev.key === "Enter") {
+            ev.preventDefault();
+            clearTimeout(this.searchTimer);
+            this.runSearch();
+        } else if (ev.key === "Escape") {
+            this.clearSearch();
+        }
+    }
+
+    async runSearch() {
+        const query = this.state.searchQ.trim();
+        if (query.length < 2) {
+            return;
+        }
+        const seq = (this.searchSeq = (this.searchSeq || 0) + 1);   // only the latest words' answer is shown
+        this.state.searching = true;
+        try {
+            const res = await this.orm.silent.call(MODEL, "fix_desk_search", [], { query });
+            if (seq === this.searchSeq) {
+                this.state.found = res.rows || [];
+                this.state.foundCount = res.count || 0;
+            }
+        } catch (err) {
+            if (seq === this.searchSeq) {
+                this.notification.add(errorText(err), { type: "danger" });
+            }
+        } finally {
+            if (seq === this.searchSeq) {
+                this.state.searching = false;
+            }
+        }
+    }
+
+    clearSearch() {
+        clearTimeout(this.searchTimer);
+        this.searchSeq = (this.searchSeq || 0) + 1;
+        Object.assign(this.state, { searchQ: "", found: null, foundCount: 0, searching: false });
+    }
+
+    setSort(key) {
+        this.state.sort = key;
+        saveSort(`${SORT_KEY}:${this.state.stage}`, key);
+    }
+
     // ------------------------------------------------------------------ data
     async load({ force = false } = {}) {
         let data;
@@ -204,6 +330,7 @@ export class FixDesk extends Component {
         s.stages = data.stages;
         s.counts = data.counts;
         s.technicians = data.technicians;
+        s.partAsks = data.part_asks || 0;
         s.pollReady = data.poll_ready;
         s.hasCalling = data.has_calling;
         // each alarm has its own switch, ring and pause (Booking Desk Settings)
@@ -228,7 +355,7 @@ export class FixDesk extends Component {
         s.since = data.since;
         if (changed) {
             s.rows = data.rows;
-            if (s.selectedId && s.detail && !s.rows.some((r) => r.id === s.selectedId)) {
+            if (s.selectedId && s.detail && !this.searchActive && !s.rows.some((r) => r.id === s.selectedId)) {
                 // the booking moved to another stage: keep its detail, say so
                 s.detail.moved = true;
             }
@@ -272,22 +399,36 @@ export class FixDesk extends Component {
         this.state.detailLoading = false;
     }
 
+    /** A pill at the top ("5 new", "2 times booked", "1 part asked"): its tab, out of any search;
+     *  `pick(row)` opens the first booking it matches (the one waiting on a part answer). */
+    async goTo(stage, pick = null) {
+        await this.setStage(stage);
+        const row = pick && this.sortedRows.find(pick);
+        if (row) {
+            this.select(row);
+        }
+    }
+
+    /** A tab (the rail, or a pill): always out of the search, so the tab's list shows. */
     setStage(key) {
+        this.clearSearch();
         if (key === this.state.stage) {
-            return;
+            return Promise.resolve();
         }
         this.state.stage = key;
+        this.state.sort = sortFor(key);
         this.state.rows = [];
         this.state.since = "";
         this.state.loading = true;
         this.closeDetail();
-        this.load({ force: true });
+        return this.load({ force: true });
     }
 
     select(row) {
         this.state.selectedId = row.id;
         this.state.showDetail = true;
         this.state.askCancel = false;
+        this.state.askNone = false;
         this.state.detail = null;
         this.state.paneTab = "overview";
         this.state.paneCard = 0;
@@ -300,6 +441,20 @@ export class FixDesk extends Component {
         this.state.showDetail = false;
         this.state.askCancel = false;
         this.state.paneTab = "overview";
+    }
+
+    /** The bill: with tax (Easy Sales) or without (Estimate Sale). A price already sent changes. */
+    async setBill(type) {
+        const d = this.state.detail;
+        if (!d || d.bill_type === type || d.bill_locked) {
+            return;
+        }
+        const text = type === "easy"
+            ? _t("Bill %s with tax (Easy Sales)? The customer's price then includes VAT; a price already sent goes to them again with the new total.", d.name)
+            : _t("Bill %s without tax (Estimate Sale)? A price already sent goes to the customer again with the new total.", d.name);
+        if (await this.popup.confirm(text)) {
+            await this.act("bill_type", { bill_type: type });
+        }
     }
 
     // ------------------------------------------------------------------ buttons
@@ -321,6 +476,12 @@ export class FixDesk extends Component {
             this.state.finishReason = "";
             return;
         }
+        if (what === "part_none" && !this.state.askNone) {
+            // "Not available": the technician reads why
+            this.state.askNone = true;
+            this.state.noneReason = "";
+            return;
+        }
         if (what === "book_time") {
             // staff pick the visit time for the customer (on the phone): the green time picker
             if (await this.popup.pickSlot(id)) {
@@ -340,6 +501,9 @@ export class FixDesk extends Component {
             if (what === "finish_skip") {
                 kwargs.reason = this.state.finishReason;
             }
+            if (what === "part_none") {
+                kwargs.reason = this.state.noneReason;
+            }
             let res;
             try {
                 res = await this.orm.silent.call(MODEL, "fix_desk_act", [[id], what], kwargs);
@@ -350,6 +514,7 @@ export class FixDesk extends Component {
             }
             this.state.askCancel = false;
             this.state.askFinish = false;
+            this.state.askNone = false;
             if (res && res.action) {
                 // a wizard: drawn as a green pop-up (only what stays in Odoo goes to Odoo)
                 await this.popup.doAction(res.action, { onClose: () => this.load({ force: true }) });
@@ -423,7 +588,8 @@ export class FixDesk extends Component {
         } else {
             this.newLoop.stop();
         }
-        if (s.slotOn && s.counts.booked > 0) {
+        // a booked time nobody has seen, or a technician waiting at a door for a part answer
+        if (s.slotOn && (s.counts.booked > 0 || s.partAsks > 0)) {
             // half a cycle later, so the two tones never sound together
             this.slotLoop.start(s.slotRing, s.slotRepeat, newRings ? ((s.ring + s.repeat) * 1000) / 2 : 0);
         } else {
