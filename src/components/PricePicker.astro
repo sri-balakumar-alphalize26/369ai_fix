@@ -1,0 +1,293 @@
+---
+// "Review the price" from My orders: one tap on a [data-review-price="<order ref>"] button opens this
+// on the same page (a sheet from the bottom on phones, a window in the middle on a computer), as the
+// time picker does (SlotPicker.astro). What the technician found, the repairs and parts with their
+// price, a part offered in two grades to choose, and Approve / Decline - the same answer as the
+// WhatsApp link's /quote page, through /api/my-quote for the signed-in customer.
+// After answering, `danat-orders-refresh` tells My orders to load again.
+---
+
+<div class="pq" data-pq data-no-fx hidden>
+  <div class="pq-bg" data-pq-x></div>
+  <section class="pq-sheet" role="dialog" aria-modal="true" aria-labelledby="pq-title">
+    <span class="pq-grip" aria-hidden="true"></span>
+    <header class="pq-head">
+      <div>
+        <small data-pq-ref></small>
+        <h2 id="pq-title" data-pq-title>New price</h2>
+      </div>
+      <button type="button" class="pq-x" data-pq-x aria-label="Close">×</button>
+    </header>
+
+    <div class="pq-body">
+      <div class="pq-load" data-pq-view="load"><i></i><i></i><i></i><span>Loading the price…</span></div>
+
+      <!-- the price to approve -->
+      <div class="pq-price" data-pq-view="price" hidden>
+        <p class="pq-found" data-pq-found hidden></p>
+        <ul class="pq-lines" data-pq-lines></ul>
+        <!-- a part offered in two grades (original / compatible): the customer keeps one -->
+        <div class="pq-choices" data-pq-choices hidden></div>
+        <p class="pq-total"><span data-pq-totallabel>Total</span><b data-pq-total></b></p>
+        <p class="pq-old" data-pq-old hidden></p>
+        <p class="pq-note" data-pq-parts hidden></p>
+        <p class="pq-note" data-pq-office hidden>Your device is at our office.</p>
+      </div>
+
+      <!-- a lab check: may we take the device? (no price yet) -->
+      <div class="pq-card" data-pq-view="lab" hidden>
+        <span class="pq-ico" aria-hidden="true">🔬</span>
+        <h3>May we take your device to our lab?</h3>
+        <p>Our technician needs a closer check of your <b data-pq-labdev></b> at our lab.</p>
+        <p data-pq-labdate></p>
+        <p>Nothing is repaired before you approve the price.</p>
+      </div>
+
+      <!-- answered -->
+      <div class="pq-card pq-done" data-pq-view="yes" hidden>
+        <span class="pq-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span>
+        <h3 data-pq-yestitle>Approved, thank you!</h3>
+        <p data-pq-yestext>We go ahead with the repair. If a part must be ordered, we order it now and you pick the visit time when it arrives.</p>
+      </div>
+      <div class="pq-card" data-pq-view="no" hidden>
+        <span class="pq-ico" aria-hidden="true">👋</span>
+        <h3 data-pq-notitle>You declined the new price</h3>
+        <p data-pq-notext>Nothing is repaired or ordered. We will be in touch.</p>
+      </div>
+      <div class="pq-card" data-pq-view="none" hidden>
+        <span class="pq-ico" aria-hidden="true">🧾</span>
+        <h3>No new price waiting</h3>
+        <p>If anything changes after checking your device, it shows here and we message you on WhatsApp.</p>
+      </div>
+
+      <p class="pq-msg" data-pq-msg role="alert" hidden></p>
+    </div>
+
+    <footer class="pq-foot" data-pq-foot hidden>
+      <p>Nothing is repaired or ordered before you approve.</p>
+      <div class="pq-two">
+        <button type="button" class="pq-btn ghost" data-pq-no>Decline</button>
+        <button type="button" class="pq-btn" data-pq-yes>Approve</button>
+      </div>
+    </footer>
+    <footer class="pq-foot" data-pq-close hidden>
+      <button type="button" class="pq-btn" data-pq-x>Done</button>
+    </footer>
+  </section>
+</div>
+
+<script>
+  const pq = document.querySelector<HTMLElement>('[data-pq]');
+  if (pq) {
+    const $ = <T extends HTMLElement>(s: string) => pq.querySelector<T>(s)!;
+    const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+    const ERR: Record<string, string> = {
+      unknown: "We couldn't find this booking. Please refresh the page.",
+      'sign in': 'Please sign in again to answer the price.',
+      cancelled: 'This booking is closed.',
+      unavailable: "Can't reach our system right now. Please try again in a moment.",
+    };
+    let ref = '', data: any = null, opener: HTMLElement | null = null;
+
+    const view = (k: string) => {
+      pq.querySelectorAll<HTMLElement>('[data-pq-view]').forEach((el) => (el.hidden = el.dataset.pqView !== k));
+      $('[data-pq-foot]').hidden = k !== 'price' && k !== 'lab';
+      $('[data-pq-close]').hidden = !['yes', 'no', 'none'].includes(k);
+    };
+    const say = (m: string) => { const el = $('[data-pq-msg]'); el.textContent = m; el.hidden = !m; };
+    const money = (v: number) => `${data?.currency || ''} ${Number(v || 0).toFixed(data?.decimals ?? 3)}`.trim();
+    const api = async (body?: unknown) => {
+      try {
+        const r = await fetch(body ? '/api/my-quote' : `/api/my-quote?ref=${encodeURIComponent(ref)}`, body
+          ? { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ref, ...(body as object) }) }
+          : { credentials: 'same-origin', cache: 'no-store' });
+        let j: any = {}; try { j = await r.json(); } catch {}
+        return r.status === 401 ? { ok: false, error: 'sign in' } : j;
+      } catch { return { ok: false, error: 'unavailable' }; }
+    };
+    const picked = () => [...pq.querySelectorAll<HTMLInputElement>('[data-pq-choices] input:checked')].map((x) => Number(x.value));
+
+    function total() {
+      // the total follows the grades chosen (the server's total counts the ones chosen so far)
+      let sum = Number(data.total || 0);
+      const ids = new Set(picked());
+      for (const g of data.choices || []) for (const op of g.options) {
+        if (op.chosen) sum -= op.amount;
+        if (ids.has(op.line_id)) sum += op.amount;
+      }
+      $('[data-pq-total]').textContent = money(sum);
+    }
+
+    function draw() {
+      const found = $('[data-pq-found]');
+      found.hidden = !(data.found || []).length;
+      found.innerHTML = found.hidden ? '' : `What we found: <b>${esc(data.found.join(', '))}</b>`;
+      // the lines: the last one is the total (shown below)
+      const all: string[] = (data.lines || []).map((l: string) => l.replace(/^•\s*/, '').trim());
+      const lines = all.filter((l: string) => l && !/^total/i.test(l));
+      // billed with tax: the last line reads "Total (incl. VAT): ..."
+      $('[data-pq-totallabel]').textContent = all.some((l) => /^total \(incl/i.test(l)) ? 'Total (incl. VAT)' : 'Total';
+      $('[data-pq-lines]').innerHTML = lines.map((l) => {
+        const at = l.lastIndexOf(' — ');
+        return at > 0 ? `<li><span>${esc(l.slice(0, at))}</span><b>${esc(l.slice(at + 3))}</b></li>` : `<li><span>${esc(l)}</span></li>`;
+      }).join('');
+      const groups: any[] = data.choices || [];
+      const box = $('[data-pq-choices]');
+      box.hidden = !groups.length;
+      box.innerHTML = groups.map((g: any, i: number) => `<fieldset><legend>Choose one</legend>${g.options.map((op: any) => `
+        <label><input type="radio" name="pqc${i}" value="${op.line_id}" ${op.chosen ? 'checked' : ''} />
+          <span><b>${esc(op.name)}</b>${op.grade ? ` <small>${esc(op.grade)}</small>` : ''}</span><em>${esc(money(op.amount))}</em></label>`).join('')}</fieldset>`).join('');
+      total();
+      const old = $('[data-pq-old]');
+      old.hidden = !Number(data.old_total);
+      old.textContent = `Estimate you agreed before: ${money(data.old_total)}`;
+      const parts = $('[data-pq-parts]');
+      parts.hidden = !(data.parts || []).length;
+      parts.innerHTML = parts.hidden ? '' : `<b>${esc(data.parts.join(', '))}</b> must be ordered first. Approving lets us order it, and you pick a new visit time when it arrives.`;
+      $('[data-pq-office]').hidden = !data.at_office;
+    }
+
+    async function load() {
+      view('load'); say('');
+      const r = await api();
+      if (!r.ok) { view(''); say(ERR[r.error] || ERR.unavailable); return; }
+      data = r;
+      if (r.state === 'accepted') { $('[data-pq-title]').textContent = 'Price approved'; view('yes'); return; }
+      if (r.state === 'declined') { $('[data-pq-title]').textContent = 'Price declined'; view('no'); return; }
+      if (r.state !== 'waiting') { $('[data-pq-title]').textContent = 'Your price'; view('none'); return; }
+      labTexts(!!r.lab);
+      if (r.lab) {
+        // the technician asks to take the device for a lab check: the reason and the date, no price yet
+        $('[data-pq-title]').textContent = 'A lab check';
+        $('[data-pq-labdev]').textContent = r.lab.device || 'device';
+        $('[data-pq-labdate]').textContent = r.lab.date ? `You'll get the price by ${r.lab.date}${r.lab.within ? ` (within ${r.lab.within})` : ''}.` : '';
+        view('lab');
+        return;
+      }
+      $('[data-pq-title]').textContent = 'New price to approve';
+      draw(); view('price');
+    }
+
+    /** The words of the answer buttons and cards: a price, or the OK to take the device to the lab. */
+    let isLab = false;
+    function labTexts(lab: boolean) {
+      isLab = lab;
+      $('[data-pq-yes]').textContent = lab ? 'Yes, take it' : 'Approve';
+      $('[data-pq-no]').textContent = lab ? 'No thanks' : 'Decline';
+      $('[data-pq-yestitle]').textContent = lab ? 'Thank you!' : 'Approved, thank you!';
+      $('[data-pq-yestext]').textContent = lab
+        ? 'Our technician takes your device to our lab. We send you the price before any repair.'
+        : 'We go ahead with the repair. If a part must be ordered, we order it now and you pick the visit time when it arrives.';
+      $('[data-pq-notitle]').textContent = lab ? "You'd rather keep your device" : 'You declined the new price';
+      $('[data-pq-notext]').textContent = lab ? 'Nothing is taken or repaired. We will be in touch.' : 'Nothing is repaired or ordered. We will be in touch.';
+    }
+
+    function open(r: string, from?: HTMLElement | null) {
+      ref = r; data = null; opener = from || null;
+      $('[data-pq-ref]').textContent = `Booking ${r}`;
+      $('[data-pq-title]').textContent = 'New price';
+      pq.hidden = false;
+      requestAnimationFrame(() => pq.classList.add('in'));
+      document.documentElement.style.overflow = 'hidden';
+      load().then(() => pq.querySelector<HTMLElement>('[data-pq-yes], .pq-x')?.focus({ preventScroll: true }));
+    }
+    function close() {
+      pq.classList.remove('in');
+      document.documentElement.style.overflow = '';
+      setTimeout(() => { pq.hidden = true; }, 300);
+      opener?.focus({ preventScroll: true });
+    }
+    (window as any).__reviewPrice = open;
+    document.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-review-price]');
+      if (b) { e.preventDefault(); e.stopPropagation(); open(b.dataset.reviewPrice!, b); }
+    }, true);
+    pq.querySelectorAll('[data-pq-x]').forEach((b) => b.addEventListener('click', close));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !pq.hidden) close(); });
+    $('[data-pq-choices]').addEventListener('change', () => data && total());
+
+    async function answer(yes: boolean) {
+      if (!yes && !confirm(isLab ? "Keep your device? It won't be checked in our lab or repaired." : 'Decline the new price? Nothing will be repaired or ordered.')) return;
+      const btns = pq.querySelectorAll<HTMLButtonElement>('[data-pq-yes], [data-pq-no]');
+      btns.forEach((b) => (b.disabled = true));
+      const r = await api({ yes, choice: picked() });
+      btns.forEach((b) => (b.disabled = false));
+      if (!r.ok) { say(ERR[r.error] || 'That did not work. Please try again.'); return; }
+      $('[data-pq-title]').textContent = isLab ? (yes ? 'Lab check agreed' : 'Lab check declined') : yes ? 'Price approved' : 'Price declined';
+      view(yes ? 'yes' : 'no');
+      window.dispatchEvent(new CustomEvent('danat-orders-refresh'));
+    }
+    $('[data-pq-yes]').addEventListener('click', () => answer(true));
+    $('[data-pq-no]').addEventListener('click', () => answer(false));
+  }
+</script>
+
+<style>
+  .pq { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; }
+  .pq[hidden] { display: none; }
+  .pq-bg { position: absolute; inset: 0; background: rgba(8, 14, 12, .55); backdrop-filter: blur(4px); opacity: 0; transition: opacity .3s; }
+  .pq.in .pq-bg { opacity: 1; }
+  .pq-sheet {
+    position: relative; width: min(520px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+    display: flex; flex-direction: column; overflow: hidden;
+    background: var(--surface); color: var(--ink); border-radius: 24px; box-shadow: 0 40px 100px -30px rgba(0, 0, 0, .55);
+    transform: translateY(24px) scale(.97); opacity: 0; transition: transform .35s cubic-bezier(.2, 1, .3, 1), opacity .25s;
+  }
+  .pq.in .pq-sheet { transform: none; opacity: 1; }
+  .pq-grip { display: none; }
+  .pq-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px 12px; border-bottom: 1px solid var(--line); }
+  .pq-head small { font-size: 12.5px; font-weight: 700; letter-spacing: .04em; color: var(--ink-3); }
+  .pq-head h2 { margin: 2px 0 0; font-family: var(--display, inherit); font-size: 22px; letter-spacing: -.02em; }
+  .pq-x { flex: none; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--tint); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; }
+  .pq-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 22px 18px; display: grid; gap: 12px; align-content: start; }
+  .pq-price { display: grid; gap: 12px; }
+  [data-pq-view][hidden], .pq-msg[hidden], .pq-foot[hidden], .pq-found[hidden], .pq-old[hidden], .pq-note[hidden], .pq-choices[hidden] { display: none; }
+  .pq-found { margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft, var(--tint)); font-size: 14px; }
+  .pq-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .pq-lines :global(li) { display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; }
+  .pq-lines :global(li span) { color: var(--ink-2); }
+  .pq-total { display: flex; justify-content: space-between; margin: 0; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 16px; }
+  .pq-total b { font-family: var(--display, inherit); font-size: 20px; }
+  .pq-old, .pq-note { margin: 0; font-size: 13.5px; color: var(--ink-3); }
+  .pq-note { color: var(--ink-2); }
+  .pq-choices { display: grid; gap: 8px; }
+  .pq-choices :global(fieldset) { margin: 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; display: grid; gap: 6px; }
+  .pq-choices :global(legend) { padding: 0 6px; font-size: 13px; font-weight: 800; color: var(--ink); }
+  .pq-choices :global(label) { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+  .pq-choices :global(label span) { flex: 1; color: var(--ink); }
+  .pq-choices :global(label small) { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--tint); color: var(--ink-2); font-size: 12px; font-weight: 700; }
+  .pq-choices :global(label em) { font-style: normal; font-weight: 700; }
+  .pq-choices :global(input) { width: 20px; height: 20px; accent-color: var(--violet); }
+
+  .pq-card { display: grid; justify-items: center; gap: 8px; padding: 10px 6px; text-align: center; }
+  .pq-card h3 { margin: 0; font-size: 20px; }
+  .pq-card p { margin: 0; color: var(--ink-2); font-size: 14.5px; max-width: 420px; }
+  .pq-ico { font-size: 38px; }
+  .pq-check { display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: rgba(18, 161, 80, .12); animation: pqPop .45s cubic-bezier(.2, 1.4, .3, 1); }
+  .pq-check svg { width: 40px; height: 40px; fill: none; stroke: #12a150; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 24; stroke-dashoffset: 24; animation: pqTick .5s .15s forwards; }
+  @keyframes pqPop { from { transform: scale(.4); opacity: 0; } }
+  @keyframes pqTick { to { stroke-dashoffset: 0; } }
+  .pq-load { display: flex; align-items: center; gap: 6px; padding: 24px 0; color: var(--ink-3); font-size: 14px; }
+  .pq-load i { width: 8px; height: 8px; border-radius: 50%; background: var(--violet); animation: pqDot 1s infinite; }
+  .pq-load i:nth-child(2) { animation-delay: .15s; } .pq-load i:nth-child(3) { animation-delay: .3s; margin-right: 6px; }
+  @keyframes pqDot { 50% { opacity: .25; transform: translateY(-3px); } }
+  .pq-msg { margin: 0; padding: 10px 12px; border-radius: 12px; background: rgba(214, 58, 58, .08); color: #b42318; font-size: 14px; font-weight: 600; }
+
+  .pq-foot { display: grid; gap: 8px; padding: 12px 22px 18px; border-top: 1px solid var(--line); background: var(--surface); }
+  .pq-foot p { margin: 0; font-size: 12.5px; color: var(--ink-3); text-align: center; }
+  .pq-two { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; }
+  .pq-btn { height: 48px; padding: 0 20px; border: 0; border-radius: 14px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+  .pq-btn.ghost { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .pq-btn:disabled { opacity: .6; cursor: wait; }
+
+  @media (max-width: 640px) {
+    .pq { padding: 0; place-items: end stretch; }
+    .pq-sheet { width: 100%; max-height: 92vh; max-height: 92dvh; border-radius: 24px 24px 0 0; transform: translateY(100%); }
+    .pq.in .pq-sheet { transform: none; }
+    .pq-grip { display: block; justify-self: center; width: 42px; height: 5px; margin-top: 8px; border-radius: 99px; background: var(--line); }
+    .pq-head { padding: 10px 16px 10px; }
+    .pq-body { padding: 14px 16px 16px; }
+    .pq-foot { padding: 10px 16px calc(14px + env(safe-area-inset-bottom)); }
+  }
+  @media (prefers-reduced-motion: reduce) { .pq-sheet, .pq-bg { transition: none; } .pq-check, .pq-check svg, .pq-load i { animation: none; stroke-dashoffset: 0; } }
+</style>
