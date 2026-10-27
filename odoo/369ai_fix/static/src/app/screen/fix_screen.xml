@@ -755,11 +755,17 @@
                         </t>
                         <li class="fxd-muted" t-if="!v.lines.length">No parts added.</li>
                     </ul>
-                    <form class="fxp-search" t-on-submit="search">
-                        <input class="fxf-in" type="search" placeholder="Search a part, e.g. iPhone 13 screen" t-model="state.query"/>
-                        <button type="submit" class="fxd-btn fxd-btn-ghost fxd-btn-sm"><i class="fa fa-search"/> Search</button>
-                    </form>
-                    <ul class="fxp-parts" t-if="state.searched">
+                    <!-- searched as you type: the parts (or "not found") show right under the box -->
+                    <div class="fxp-search">
+                        <i class="fa fa-search" aria-hidden="true"/>
+                        <input class="fxf-in" type="search" placeholder="Type a part, e.g. iPhone 13 screen" aria-label="Search a part"
+                               autocomplete="off" t-att-value="state.query" t-on-input="onQuery" t-on-keydown="onQueryKey"/>
+                        <i class="fa fa-circle-o-notch fa-spin fxp-search-wait" t-if="state.searching" aria-hidden="true"/>
+                    </div>
+                    <p class="fxp-search-none" t-if="state.searched and !state.searching and !state.parts.length" role="status">
+                        No part found for "<b t-esc="state.searched"/>". Try another word.
+                    </p>
+                    <ul class="fxp-parts" t-if="state.parts.length">
                         <t t-foreach="state.parts" t-as="part" t-key="part.product_id">
                             <li>
                                 <span><t t-esc="part.name"/>
@@ -767,7 +773,6 @@
                                 <button class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-on-click="() => this.add(part)"><i class="fa fa-plus"/> Add</button>
                             </li>
                         </t>
-                        <li class="fxd-muted" t-if="!state.parts.length">No part found. Try another word.</li>
                     </ul>
 
                     <t t-if="v.lines.length">
@@ -831,6 +836,11 @@
                             <label class="fxf-tick"><input type="checkbox" t-model="state.acc[a.id]"/><span t-esc="a.name"/></label>
                         </t>
                     </div>
+                    <!-- counted, so the office and the customer can check every item comes back -->
+                    <p class="fxp-intro" role="status">
+                        <t t-if="state.noAcc">Device only: no accessories</t>
+                        <t t-else=""><b t-esc="accTaken"/> accessor<t t-esc="accTaken === 1 ? 'y' : 'ies'"/> taken</t>
+                    </p>
                     <div class="fxd-note fxd-note-red" t-if="state.error" t-esc="state.error"/>
                     <div class="fxp-btns">
                         <button class="fxd-btn fxd-btn-primary" t-att-disabled="state.busy" t-on-click="take"><i class="fa fa-building"/> Take the device</button>

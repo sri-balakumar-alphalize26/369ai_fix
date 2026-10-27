@@ -430,6 +430,7 @@ class ChecksPopup extends Component {
 }
 
 // ====================================================================== What did you find?
+const SEARCH_MS = 300;      // the parts search waits this long after the last key
 const PLANS_HERE = [
     ["now", "Fix now (the part is here)"],
     ["take", "Take the device to the office"],
@@ -448,7 +449,7 @@ class ResultPopup extends Component {
         this.orm = useService("orm");
         this.popupService = useService("fix_popup");
         this.state = useState({
-            data: null, busy: false, error: "", note: "", query: "", parts: [], searched: false, brand: "",
+            data: null, busy: false, error: "", note: "", query: "", parts: [], searched: "", searching: false, brand: "",
             plan: "", days: 3, unit: "days", partDays: 7, acc: {}, noAcc: false,
         });
         onWillStart(async () => {
@@ -459,10 +460,16 @@ class ResultPopup extends Component {
                 this.state.partDays = v.part_days || 7;
             }
         });
+        onWillUnmount(() => clearTimeout(this.searchTimer));
     }
 
     get v() {
         return (this.state.data && this.state.data.view) || null;
+    }
+
+    /** How many accessories are ticked to take with the device. */
+    get accTaken() {
+        return Object.values(this.state.acc || {}).filter(Boolean).length;
     }
 
     get plans() {
@@ -515,11 +522,57 @@ class ResultPopup extends Component {
         }
     }
 
-    async search(ev) {
-        ev && ev.preventDefault();
-        const data = await this.call("result_parts", { query: this.state.query });
-        this.state.parts = (data && data.parts) || [];
-        this.state.searched = true;
+    // the parts search, as you type: only the answer for the latest words is shown
+    onQuery(ev) {
+        this.state.query = ev.target.value;
+        clearTimeout(this.searchTimer);
+        if (this.state.query.trim().length < 2) {
+            this.clearSearch(false);
+            return;
+        }
+        this.state.searching = true;
+        this.searchTimer = setTimeout(() => this.search(), SEARCH_MS);
+    }
+
+    onQueryKey(ev) {
+        if (ev.key === "Enter") {
+            ev.preventDefault();
+            clearTimeout(this.searchTimer);
+            this.search();
+        }
+    }
+
+    async search() {
+        const query = this.state.query.trim();
+        if (query.length < 2) {
+            return;
+        }
+        const seq = (this.searchSeq = (this.searchSeq || 0) + 1);
+        this.state.searching = true;
+        try {
+            const data = await this.orm.silent.call(MODEL, "screen_result", [this.props.popup.visit_id, "result_parts", { query }]);
+            if (seq === this.searchSeq) {
+                this.state.parts = (data && data.parts) || [];
+                this.state.searched = query;
+            }
+        } catch (err) {
+            if (seq === this.searchSeq) {
+                this.state.error = errorText(err);
+            }
+        } finally {
+            if (seq === this.searchSeq) {
+                this.state.searching = false;
+            }
+        }
+    }
+
+    clearSearch(words = true) {
+        clearTimeout(this.searchTimer);
+        this.searchSeq = (this.searchSeq || 0) + 1;
+        Object.assign(this.state, { parts: [], searching: false, searched: "" });
+        if (words) {
+            this.state.query = "";
+        }
     }
 
     async add(part) {
@@ -531,9 +584,7 @@ class ResultPopup extends Component {
             product_id: part.product_id, brand_id: Number(this.state.brand) || null,
         });
         if (data && !data.message) {
-            this.state.parts = [];
-            this.state.query = "";
-            this.state.searched = false;
+            this.clearSearch();
         }
     }
 

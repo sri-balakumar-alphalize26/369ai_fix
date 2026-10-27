@@ -417,8 +417,14 @@
     .fxp-parts li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; background: var(--fxd-card); border: 1px solid var(--fxd-line); font-size: 13.5px; }
     .fxp-parts li small { display: block; }
     .fxp-warn { color: var(--fxd-amber); font-weight: 700; }
-    .fxp-search { display: flex; gap: 8px; }
-    .fxp-search .fxf-in { flex: 1; }
+    /* the parts search: a search icon in the box, a spinner while it looks, "not found" just under it */
+    .fxp-search { position: relative; display: flex; }
+    .fxp-search .fxf-in { flex: 1; padding-left: 36px; padding-right: 36px; }
+    .fxp-search > .fa-search { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--fxd-muted); pointer-events: none; }
+    .fxp-search-wait { position: absolute; right: 13px; top: 50%; margin-top: -7px; color: var(--fxd-muted); }
+    .fxp-search-none { margin: 6px 0 0; padding: 8px 12px; border-radius: 10px; background: var(--fxd-amber-soft);
+                       color: var(--fxd-amber); font-size: 13px; }
+    .fxp-search-none b { color: var(--fxd-ink); }
     .fxp-plans { flex-direction: column; }
     .fxp-span { display: flex; gap: 8px; }
     .fxp-span .fxf-select { max-width: 140px; }
