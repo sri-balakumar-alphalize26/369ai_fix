@@ -30,8 +30,15 @@ class TestVisitCloseout(DoorstepCase):
             cls.env['stock.quant']._update_available_quantity(product, warehouse.lot_stock_id, 5)
         journal = cls.env['account.journal'].search(
             [('type', '=', 'cash'), ('company_id', '=', cls.env.company.id)], limit=1)
-        cls.cash = cls.env['easy.sales.payment.method'].create(
-            {'name': 'CO Cash', 'journal_id': journal.id, 'company_id': cls.env.company.id})
+        # bookings here are billed without tax (an Estimate Sale); test_bill_type.py covers "with tax"
+        cls.env.company.wb_bill_type_default = 'estimate'
+        # an Estimate Sale method allows one per journal: the database's own, else one for the test
+        Est = cls.env['estimate.sale.payment.method']
+        cls.cash = Est.search([('journal_id', '=', journal.id), ('company_id', '=', cls.env.company.id),
+                               ('is_customer_account', '=', False)], limit=1) \
+            or Est.create({'name': 'CO Cash', 'journal_id': journal.id, 'company_id': cls.env.company.id})
+        cls.easy_cash = cls.env['easy.sales.payment.method'].create(
+            {'name': 'CO Cash (tax)', 'journal_id': journal.id, 'company_id': cls.env.company.id})
         cls.env.company.fix_warranty_days = 30
         cls.env.company.fix_review_url = 'https://g.page/r/co-test/review'
 
@@ -58,6 +65,67 @@ class TestVisitCloseout(DoorstepCase):
         visit._vr_fixed()
         self.assertEqual(visit.close_stage, 'finish')
         return order, visit, token
+
+    # ------------------------------------------------------------------ with tax / without tax
+    def _vat(self):
+        """A 5% VAT as the company's sale tax (as on the real companies), for these tests."""
+        tax = self.env['account.tax'].create({'name': 'CO VAT 5%', 'amount': 5.0, 'amount_type': 'percent',
+                                              'type_tax_use': 'sale', 'price_include_override': 'tax_excluded',
+                                              'company_id': self.env.company.id})
+        self.env.company.account_sale_tax_id = tax
+        return tax
+
+    def test_bill_follows_the_company_then_the_office(self):
+        order, _visit, _token = self._working()
+        self.assertEqual(order._wb_bill_type(), 'estimate')           # the company's default
+        self.env.company.wb_bill_type_default = 'easy'
+        self.assertEqual(order._wb_bill_type(), 'easy')
+        order._wb_set_bill_type('estimate')                          # the office's choice wins
+        self.env.company.wb_bill_type_default = 'easy'
+        self.assertEqual(order._wb_bill_type(), 'estimate')
+        with self.assertRaises(UserError):
+            order._wb_set_bill_type('nonsense')
+
+    def test_with_tax_the_customer_sees_vat_and_pays_an_easy_sale(self):
+        self._vat()
+        order, visit, _token = self._working()
+        order._wb_set_bill_type('easy')
+        visit._vr_set_price(100.0)
+        card = visit.job_card_id
+        self.assertAlmostEqual(card._wb_lines_total(), 105.0)
+        text, total = order._wb_estimate()
+        self.assertAlmostEqual(total, 105.0)
+        self.assertIn('VAT', text)
+        self.assertIn('incl. VAT', text)
+        visit._vr_send_quote('now')
+        visit._vr_approved_here()
+        self.assertAlmostEqual(card.estimate_total, 105.0)            # what the customer approved
+        visit._vr_fixed()
+        self.assertAlmostEqual(visit._co_due(), 105.0)
+        self.assertTrue(visit._co_view()['with_tax'])
+        self.assertEqual(visit._co_methods()._name, 'easy.sales.payment.method')   # the Easy Sale's own methods
+        visit._co_pay(self.easy_cash.id)
+        sale = visit.pay_sale_id
+        self.assertEqual(sale, card.easy_sales_id)
+        self.assertFalse(card.estimate_sale_id)
+        self.assertAlmostEqual(sale.amount_total, 105.0)             # the bill is the price approved
+        self.assertTrue(all(l.tax_ids for l in sale.line_ids))         # each line carries its VAT
+        self.assertAlmostEqual(sale.amount_tax, 5.0)
+        self.assertAlmostEqual(visit.paid_amount, 105.0)
+        with self.assertRaises(UserError):
+            order._wb_set_bill_type('estimate')                      # the bill is made: fixed now
+
+    def test_switching_a_sent_price_asks_the_customer_again(self):
+        self._vat()
+        order, visit, _token = self._working()
+        visit._vr_set_price(100.0)
+        visit._vr_send_quote('now')
+        before = len(self.sent)
+        self.assertTrue(order._wb_set_bill_type('easy'))
+        texts = self._texts(before)
+        self.assertTrue(any('/quote?' in t and '105' in t for t in texts), texts)   # the new total, to approve
+        self.assertEqual(visit.job_card_id.quote_state, 'waiting')
+        self.assertFalse(order._wb_set_bill_type('easy'))            # no change: nothing sent
 
     # ------------------------------------------------------------------ labour price
     def test_labour_price_is_quoted_without_a_part(self):
@@ -103,8 +171,9 @@ class TestVisitCloseout(DoorstepCase):
             visit._co_pay(self.cash.id, 99)                    # more than due
         visit._co_pay(self.cash.id)
         self.assertEqual(visit.paid_amount, 15.0)
-        sale = visit.pay_sale_id
-        self.assertEqual(sale, card.easy_sales_id)
+        sale = visit.pay_estimate_id                           # billed without tax: an Estimate Sale
+        self.assertEqual(sale, card.estimate_sale_id)
+        self.assertFalse(card.easy_sales_id)
         self.assertEqual(sum(sale.payment_line_ids.mapped('amount')), 15.0)
         with self.assertRaises(UserError):
             visit._co_pay(self.cash.id)                        # once
@@ -121,7 +190,7 @@ class TestVisitCloseout(DoorstepCase):
         receipt = [t for t in self._texts(before) if '/rate?' in t]
         self.assertEqual(len(receipt), 1, self._texts(before))
         self.assertIn('15', receipt[0])
-        self.assertIn('CO Cash', receipt[0])
+        self.assertIn(self.cash.name, receipt[0])
         self.assertIn('Warranty', receipt[0])
         track = self._track()
         self.assertTrue(track['close']['paid'])
@@ -188,9 +257,80 @@ class TestVisitCloseout(DoorstepCase):
         self.assertTrue(any('Works fine after a restart' in t for t in texts), texts)
         self.assertFalse(any('cancelled' in t.lower() for t in texts), texts)
 
+    # ------------------------------------------------------------------ no fault found: free, or the visit fee
+    def _visit_fee(self, price=5.0):
+        fee = self.env['product.product'].create({'name': 'CO Visit fee', 'type': 'service', 'lst_price': price})
+        self.env['ir.config_parameter'].sudo().set_param('mobile_repair.inspection_charge_product_id', fee.id)
+        self.env.company.fix_recheck_days = 7
+        return fee
+
+    def _working_for(self, phone):
+        order, visit = self._visit(phone=phone)
+        visit.action_assign()
+        visit.action_on_the_way()
+        visit._fs_arrive(skip_code=True)
+        visit.with_context(fix_checks_passed=True).action_start()
+        visit._vr_card(brand=self.brand, category=self.category)
+        return order, visit
+
+    def test_no_fault_free_tells_the_free_recheck(self):
+        self._visit_fee()
+        _order, visit = self._working_for('+968 9123 7001')
+        self.assertEqual(visit._vr_view()['visit_fee'], 5.0)              # the technician may charge it
+        before = len(self.sent)
+        visit._vr_outcome('no_fault', note='Works fine after a restart')
+        self.assertEqual((visit.state, visit.job_card_id.state), ('done', 'cancelled'))
+        self.assertTrue(any('within 7 days' in t for t in self._texts(before)), self._texts(before))
+
+    def test_no_fault_with_the_visit_fee_is_paid_then_the_code(self):
+        self._visit_fee()
+        order, visit = self._working_for('+968 9123 7002')
+        before = len(self.sent)
+        visit._vr_outcome('no_fault', note='Works fine after a restart', fee=True)
+        self.assertEqual((visit.state, visit.close_stage), ('in_progress', 'finish'))   # paid at the door first
+        self.assertAlmostEqual(visit._co_due(), 5.0)                       # the visit fee only
+        self.assertTrue(visit._co_view()['no_fault'])
+        self.assertNotIn('Photo of the repaired device', ' '.join(visit._co_missing()))
+        texts = self._texts(before)
+        self.assertTrue(any('no fault' in t and visit.finish_code in t and '5.000' in t for t in texts), texts)
+        visit._co_pay(self.cash.id)
+        self.assertAlmostEqual(visit.paid_amount, 5.0)
+        before = len(self.sent)
+        self.assertTrue(visit._co_finish(code=visit.finish_code)['ok'])
+        self.assertEqual((visit.state, visit.job_card_id.state, order.state), ('done', 'completed', 'done'))
+        self.assertFalse(visit.warranty_until)                             # nothing repaired: no warranty
+        texts = self._texts(before)
+        self.assertTrue(any('no fault found' in t and 'within 7 days' in t for t in texts), texts)
+        self.assertFalse(any('repair for order' in t or 'completed' in t.lower() for t in texts), texts)
+
+    def test_no_visit_fee_set_cannot_charge_it(self):
+        self.env['ir.config_parameter'].sudo().set_param('mobile_repair.inspection_charge_product_id', '')
+        _order, visit = self._working_for('+968 9123 7003')
+        self.assertFalse(visit._vr_view()['visit_fee'])
+        with self.assertRaises(UserError):
+            visit._vr_outcome('no_fault', note='Fine', fee=True)
+
+    def test_the_problem_comes_back_the_check_is_free(self):
+        self._visit_fee()
+        _order, first = self._working_for('+968 9123 7004')
+        first._vr_outcome('no_fault', note='Works fine after a restart')
+        order, again = self._working_for('+968 9123 7004')                # booked again, same customer
+        self.assertTrue(again._vr_view()['recheck'])
+        self.assertTrue(order._fix_desk_row()['recheck'])                  # the office sees it too
+        with self.assertRaises(UserError):
+            again._vr_outcome('no_fault', note='Fine again', fee=True)     # no visit fee on a re-check
+        self.env.company.fix_recheck_days = 0                               # switched off: a normal visit
+        self.assertFalse(again._vr_view()['recheck'])
+
     def test_lab_check_takes_the_device(self):
         _order, visit, _token = self._working()
+        before = len(self.sent)
         visit._vr_outcome('lab', days=3)
+        self.assertEqual(visit.check_result, 'waiting')                     # the customer's OK first
+        self.assertTrue(any('/quote?' in t and 'lab' in t for t in self._texts(before)), self._texts(before))
+        with self.assertRaises(UserError):
+            visit._vr_take(no_accessories=True)                             # not before they agree
+        visit._vr_approved_here()                                           # they agreed at the door
         self.assertEqual(visit.check_result, 'to_take')
         before = len(self.sent)
         visit._vr_take(no_accessories=True)
@@ -198,6 +338,40 @@ class TestVisitCloseout(DoorstepCase):
         self.assertTrue(visit.job_card_id.wb_at_office)
         texts = self._texts(before)
         self.assertTrue(any('lab' in t and '3 days' in t for t in texts), texts)
+
+    def test_lab_check_on_the_link_my_orders_or_declined(self):
+        """The OK to take the device for a lab check: the WhatsApp link's page and My orders show the
+        reason (not a price); approved there, the Take step opens; declined, the visit closes."""
+        from .test_visit import PHONE
+        order, visit, token = self._working()
+        visit._vr_outcome('lab', days=2)
+        Order = self.env['online.service.order']
+        row = [r for r in Order.customer_orders(HOST, PHONE)['orders'] if r['ref'] == order.name][0]
+        self.assertTrue(row['quote']['lab'])                                # "May we take your device?"
+        page = Order.customer_quote(HOST, PHONE, order.name)
+        self.assertEqual(page['state'], 'waiting')
+        self.assertTrue(page['lab']['date'])
+        Order.customer_quote(HOST, PHONE, order.name, action='answer', yes=True)
+        self.assertEqual(visit.check_result, 'to_take')                     # the technician takes it now
+        self.assertTrue(visit.job_card_id.wb_lab_ok)
+        # another booking: the customer says no -> the visit closes, nothing taken
+        order2, visit2, _t2 = self._working()
+        visit2._vr_outcome('lab', days=2)
+        visit2._vr_declined_here()
+        self.assertEqual(visit2.state, 'done')
+        self.assertEqual(visit2.check_result, 'declined')
+        self.assertFalse(visit2.job_card_id.wb_at_office)
+
+    def test_lab_check_agreed_after_the_technician_left(self):
+        order, visit, _token = self._working()
+        visit._vr_outcome('lab', days=2)
+        visit._vr_decide_later()                                            # no answer at the door
+        self.assertEqual(visit.state, 'done')
+        before = len(self.sent)
+        visit.job_card_id._wb_quote_approved()                              # yes, later on the link
+        self.assertEqual(visit.check_result, 'come_back')                   # we come back to collect it
+        self.assertTrue(any('/slot?' in t for t in self._texts(before)), self._texts(before))
+        self.assertTrue(visit.job_card_id.wb_lab_ok)
 
     def test_part_not_in_the_list_goes_to_the_office(self):
         _order, visit, _token = self._working()

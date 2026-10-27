@@ -185,6 +185,38 @@ class TestBookingDesk(TransactionCase):
         with self.assertRaises(UserError):
             order.fix_desk_act('fly')
 
+    def test_upgrade_opens_the_booking_desk(self):
+        """Upgrade in Apps reloads on 369 ai Fix's Booking Desk, not on the first app (Discuss)."""
+        from odoo.addons.base.models.ir_module import IrModuleModule
+        reload = {'type': 'ir.actions.client', 'tag': 'reload', 'params': {'menu_id': 1}}
+        Modules = self.env['ir.module.module']
+        with patch.object(IrModuleModule, 'button_immediate_upgrade', lambda self: dict(reload)):
+            ours = Modules.search([('name', '=', '369ai_fix')]).button_immediate_upgrade()
+            other = Modules.search([('name', '=', 'base')]).button_immediate_upgrade()
+        self.assertEqual(ours['params'], {'menu_id': self.env.ref('369ai_fix.menu_fix_root').id,
+                                          'action_id': self.env.ref('369ai_fix.action_fix_desk').id})
+        self.assertEqual(other['params'], {'menu_id': 1})         # another app: Odoo's own choice
+
+    def test_search_every_booking(self):
+        """The desk's search box: name, booking number (with or without OS/), visit number; with the count."""
+        order = self._book(name='Zarqa Searchtest')
+        order.action_confirm()                                       # makes the visit
+        visit = order.visit_ids[:1]
+        self.assertTrue(visit)
+        Order = self.Order.with_user(self.desk_user)
+        found = Order.fix_desk_search('zarqa searchtest')
+        self.assertEqual(found['count'], 1)
+        self.assertEqual(found['rows'][0]['id'], order.id)
+        self.assertTrue(found['rows'][0]['stage_label'])
+        digits = order.name.split('/')[-1]
+        self.assertIn(order.id, [r['id'] for r in Order.fix_desk_search(order.name)['rows']])
+        self.assertIn(order.id, [r['id'] for r in Order.fix_desk_search(digits)['rows']])
+        by_visit = Order.fix_desk_search(visit.name)
+        self.assertIn(order.id, [r['id'] for r in by_visit['rows']])
+        self.assertIn(visit.name, by_visit['rows'][0]['visits'])
+        self.assertEqual(Order.fix_desk_search('x'), {'count': 0, 'rows': []})      # one letter: nothing yet
+        self.assertEqual(Order.fix_desk_search('no-such-customer-qq')['count'], 0)
+
     def test_approve_needs_a_new_order(self):
         order = self._book()
         approve = order.fix_desk_act('approve')['action']
@@ -196,6 +228,63 @@ class TestBookingDesk(TransactionCase):
             order.fix_desk_act('approve')
         with self.assertRaises(UserError):
             order.fix_desk_act('reject')
+
+    # ------------------------------------------------------------------ booked without a brand
+    def _tablets(self):
+        """A category with one brand, two close model names and a priced repair."""
+        category = self.env['device.category'].create({'name': 'Desk Tablets'})
+        brand = self.env['device.brand'].create({'name': 'Deskapple', 'category_id': category.id})
+        series = self.env['device.series'].create({'name': 'iPad Pro', 'brand_id': brand.id})
+        m4 = self.env['device.model'].create({'name': 'iPad Pro 13-inch (M4)', 'series_id': series.id})
+        self.env['device.model'].create({'name': 'iPad Pro 13-inch M4 (2024)', 'series_id': series.id})
+        repair = self.env['product.product'].create({
+            'name': 'Desk Screen / glass', 'type': 'service', 'sale_ok': True, 'lst_price': 45.0,
+            'repair_category_ids': [(6, 0, category.ids)]})
+        return category, brand, m4, repair
+
+    def test_brand_found_from_the_typed_model(self):
+        """A cart saved from the site's own list sends names only: Odoo finds the device."""
+        category, brand, m4, repair = self._tablets()
+        order = self._book(lines=[{'device': 'Tablets & iPads', 'model': 'Deskapple iPad iPad Pro 13" (M4)',
+                                   'issue': repair.name, 'qty': 1, 'category_id': category.id,
+                                   'product_id': repair.id}])
+        self.assertEqual((order.line_ids.brand_id, order.line_ids.model_id), (brand, m4))
+        card = order.job_card_ids
+        self.assertEqual((card.brand_id, card.model_id), (brand, m4))
+        self.assertEqual(card.service_line_ids.mapped('unit_price'), [45.0])
+
+    def test_approve_makes_the_missing_job_card(self):
+        category, brand, m4, repair = self._tablets()
+        order = self._book(lines=[{'device': 'Tablets & iPads', 'model': 'My tablet', 'issue': repair.name,
+                                   'qty': 1, 'category_id': category.id, 'product_id': repair.id}])
+        self.assertFalse(order.job_card_ids)                     # no brand: no job card
+        Wizard = self.env['wb.approve.wizard'].with_user(self.desk_user)
+        wizard = Wizard.create({'order_id': order.id})
+        self.assertTrue(wizard.needs_card)
+        self.assertEqual(wizard.category_id, category)
+        self.assertFalse(wizard.brand_id)                        # nothing to match in "My tablet"
+        with self.assertRaises(UserError):
+            wizard.action_confirm()                              # the brand is asked for
+        Wizard.create({'order_id': order.id, 'brand_id': brand.id, 'model_id': m4.id}).action_confirm()
+        card = order.job_card_ids
+        self.assertEqual((card.brand_id, card.model_id), (brand, m4))
+        self.assertEqual(card.service_line_ids.product_id, repair)
+        self.assertEqual(order.state, 'confirmed')
+        self.assertTrue(order.approved_on)
+
+    def test_approve_guesses_the_device(self):
+        category, brand, m4, repair = self._tablets()
+        order = self._book(lines=[{'device': 'Tablets & iPads', 'model': 'Deskapple iPad Pro 13" (M4)',
+                                   'issue': repair.name, 'qty': 1, 'category_id': category.id}])
+        order.line_ids.write({'brand_id': False, 'series_id': False, 'model_id': False})
+        wizard = self.env['wb.approve.wizard'].create({'order_id': order.id})
+        self.assertEqual((wizard.brand_id, wizard.model_id), (brand, m4))
+
+    def test_approve_card_without_a_repair(self):
+        order = self._book_with_card()                           # the repair is a name only: no line
+        self.assertFalse(order.job_card_ids.service_line_ids)
+        with self.assertRaisesRegex(UserError, 'no repair on it yet'):
+            order._wb_do_approve()
 
     # ------------------------------------------------------------------ the technician chosen at approval
     def _book_with_card(self):

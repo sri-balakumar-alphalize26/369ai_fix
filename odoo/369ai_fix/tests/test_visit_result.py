@@ -48,6 +48,9 @@ class TestVisitResult(DoorstepCase):
         self.assertEqual(visit.job_card_id.quote_state, 'waiting')
         texts = [t for _p, t in self.sent[before:]]
         self.assertTrue(any('/quote?' in t for t in texts), texts)
+        # the customer's order page: the Quotation step, though the job card is still in inspection
+        order = visit.order_id
+        self.assertEqual(order._timeline_index(), 3)
         return texts
 
     def _receive_parts(self, card):
@@ -73,6 +76,258 @@ class TestVisitResult(DoorstepCase):
         with self.assertRaises(UserError):
             wiz.action_fixed()
         self.assertEqual(visit.state, 'in_progress')
+
+    def test_search_offers_only_parts_for_the_device(self):
+        """A phone's search for "screen" never offers a laptop screen; a part for any device does show."""
+        _order, visit, _token = self._working()
+        laptops = self.env['device.category'].create({'name': 'VR Laptops'})
+        laptop_screen = self.env['product.product'].create({
+            'name': 'VR Screen for laptops', 'type': 'consu', 'sale_ok': True, 'lst_price': 60.0,
+            'fit_category_ids': [(6, 0, laptops.ids)]})
+        phone_screen = self.env['product.product'].create({
+            'name': 'VR Screen for phones', 'type': 'consu', 'sale_ok': True, 'lst_price': 25.0,
+            'fit_category_ids': [(6, 0, self.category.ids)]})
+        visit._vr_card(brand=self.brand)                          # the device: a VR Phones phone
+        found = [p['product_id'] for p in visit._vr_parts('VR Screen')]
+        self.assertIn(phone_screen.id, found)
+        self.assertIn(self.in_office.id, found)                   # fits any device
+        self.assertNotIn(laptop_screen.id, found)
+
+    # ------------------------------------------------------------------ a part asked of the office at the door
+    def test_ask_the_office_and_wait_then_found(self):
+        order, visit, token = self._working()
+        Visit = self.env['fix.service.visit']
+        page = Visit.tech_page(HOST, visit.name, token, action='result_ask', name='VR charging flex', price=4.0,
+                               brand_id=self.brand.id)
+        self.assertNotEqual(page.get('ok'), False, page)
+        self.assertEqual(visit.state, 'in_progress')                 # the technician waits at the door
+        self.assertEqual((visit.ask_state, visit.ask_name), ('asked', 'VR charging flex'))
+        self.assertEqual(page['result']['ask']['state'], 'asked')
+        # the Booking Desk: the badge, the count that rings, and the two answers
+        detail = order.fix_desk_detail()
+        self.assertEqual(detail['ask']['name'], 'VR charging flex')
+        self.assertIn('part_found', detail['actions'])
+        self.assertIn('part_none', detail['actions'])
+        self.assertTrue(self.env['online.service.order'].fix_desk_load(stage='working')['part_asks'] >= 1)
+        # the office answers with a part from the list, at its own price
+        self.env['fix.part.ask.wizard'].create({'visit_id': visit.id, 'product_id': self.in_office.id,
+                                                'price': 18.0, 'note': 'In the drawer'}).action_confirm()
+        line = visit.job_card_id.spare_part_line_ids.filtered(lambda l: l.product_id == self.in_office)
+        self.assertEqual(line.unit_price, 18.0)
+        self.assertEqual(visit.ask_state, 'found')
+        page = Visit.tech_page(HOST, visit.name, token)
+        self.assertEqual(page['result']['ask']['part_price'], 18.0)
+        self.assertEqual(page['result']['ask']['reply'], 'In the drawer')
+        self.assertNotIn('part_found', order.fix_desk_detail()['actions'])     # answered: no more buttons
+        # kept for good: the question and the answer, on the desk, the technician's page and the job card
+        row = visit.part_ask_ids
+        self.assertEqual((row.state, row.name, row.product_id, row.price, row.reply),
+                         ('found', 'VR charging flex', self.in_office, 18.0, 'In the drawer'))
+        self.assertEqual(row.job_card_id, visit.job_card_id)
+        self.assertEqual([a['state'] for a in order.fix_desk_detail()['ask_history']], ['found'])
+        self.assertEqual(page['result']['ask_history'][0]['part'], self.in_office.display_name)
+        self.assertEqual(page['ask_history'][0]['state'], 'found')          # on the page at every step
+
+    def test_ask_the_office_rings_on_every_page(self):
+        """The alarm service's state lists the question (the "Technician waiting for a part" card)
+        until the office answers it."""
+        order, visit, _token = self._working()
+        visit._vr_ask_office('VR earpiece', brand=self.brand)
+        Order = self.env['online.service.order']
+        asks = [a for a in Order.alarm_state()['asks'] if a['id'] == visit.id]
+        self.assertEqual(len(asks), 1)
+        self.assertEqual((asks[0]['order_id'], asks[0]['part']), (order.id, 'VR earpiece'))
+        visit._vr_ask_found(product=self.in_office, price=7.0)
+        self.assertFalse([a for a in Order.alarm_state()['asks'] if a['id'] == visit.id])
+
+    def test_ask_the_office_new_part_or_not_available(self):
+        _order, visit, _token = self._working()
+        visit._vr_ask_office('VR hinge', brand=self.brand)
+        with self.assertRaises(UserError):
+            visit._vr_ask_found(new_name='VR hinge kit')              # a new part needs its price
+        visit._vr_ask_found(new_name='VR hinge kit', price=9.0)
+        part = visit.job_card_id.spare_part_line_ids.product_id.filtered(lambda p: p.name == 'VR hinge kit')
+        self.assertTrue(part)
+        self.assertEqual(part.fit_category_ids, self.category)        # found again for this device type only
+        visit._vr_ask_office('VR rare board')
+        with self.assertRaises(UserError):
+            visit._vr_ask_none('')                                    # the technician reads why
+        visit._vr_ask_none('No supplier for this model')
+        self.assertEqual((visit.ask_state, visit.ask_reply), ('none', 'No supplier for this model'))
+        # both questions kept, newest first, each with its own answer
+        self.assertEqual([(a.name, a.state) for a in visit.part_ask_ids.sorted('id', reverse=True)],
+                         [('VR rare board', 'none'), ('VR hinge', 'found')])
+        self.assertEqual(visit.part_ask_ids.filtered(lambda a: a.state == 'none').reply, 'No supplier for this model')
+        visit._vr_outcome('not_worth', note='Board not available')   # the technician closes it
+        self.assertEqual(visit.state, 'done')
+
+    def test_a_question_from_before_the_history_is_kept_when_answered(self):
+        _order, visit, _token = self._working()
+        visit._vr_ask_office('VR speaker', brand=self.brand)
+        visit.part_ask_ids.unlink()                                   # as asked before the history was kept
+        visit.ask_id = False
+        visit._vr_ask_none('Out of stock everywhere')
+        self.assertEqual((visit.part_ask_ids.name, visit.part_ask_ids.state), ('VR speaker', 'none'))
+
+    def test_an_answered_question_from_before_the_history_shows_on_the_desk(self):
+        order, visit, _token = self._working()
+        visit._vr_ask_office('VR battery', brand=self.brand)
+        visit._vr_ask_found(product=self.in_office, price=11.0, note='Shelf 2')
+        visit.part_ask_ids.unlink()                                   # answered before the history was kept
+        visit.ask_id = False
+        history = order.fix_desk_detail()['ask_history']
+        self.assertEqual([(a['name'], a['state'], a['price'], a['reply']) for a in history],
+                         [('VR battery', 'found', 11.0, 'Shelf 2')])
+        self.assertEqual(len(order.fix_desk_detail()['ask_history']), 1)       # made once only
+
+    def test_ask_the_office_then_dont_wait(self):
+        _order, visit, _token = self._working()
+        visit._vr_ask_office('VR mic flex', price=3.0, brand=self.brand)
+        visit._vr_request_part('')                                    # "Don't wait": the question's own part
+        self.assertEqual((visit.state, visit.check_result), ('done', 'sourcing'))
+        self.assertFalse(visit.ask_state)
+        request = self.env['spare.part.purchase.request'].search([('product_name', '=', 'VR mic flex')])
+        self.assertEqual(request.estimated_cost, 3.0)
+        self.assertEqual(visit.part_ask_ids.state, 'later')               # kept: the office finds it later
+        self.assertIn(request.name, visit.part_ask_ids.reply)
+
+    # ------------------------------------------------------------------ Labour only: free, or a charge with the customer's OK
+    def test_labour_only_is_free_by_default(self):
+        order, visit, _token = self._working()
+        visit._vr_outcome('labour', brand=self.brand)
+        card = visit.job_card_id
+        self.assertTrue(card)
+        self.assertEqual(card._wb_lines_total(), 0.0)
+        self.assertFalse(visit._vr_need()['needs_quote'])
+        self.assertEqual(visit._vr_view()['labour'], 'free')
+        self.assertEqual(order._fix_desk_row()['labour'], 'free')          # the office's note
+        visit._vr_fixed()                                                    # no quotation needed
+        self.assertEqual(visit.check_result, 'fixed')
+
+    def test_a_labour_charge_needs_the_customers_ok(self):
+        order, visit, _token = self._working()
+        visit._vr_outcome('labour', brand=self.brand)
+        visit._vr_labour_charge(15)
+        card = visit.job_card_id
+        labour = card.service_line_ids.filtered(lambda l: l.product_id.default_code == 'REPAIR-SERVICE')
+        self.assertEqual(labour.mapped('unit_price'), [15.0])
+        self.assertTrue(visit._vr_need()['needs_quote'])
+        with self.assertRaises(UserError):
+            visit._vr_fixed()                                                # the customer approves first
+        visit._vr_send_quote('now')
+        text, _total = order._wb_estimate()
+        self.assertIn('Labour', text)
+        visit._vr_approved_here()
+        self.assertEqual(visit.check_result, 'repairing')
+        self.assertEqual(order._fix_desk_row()['labour'], 15.0)
+        visit._vr_fixed()
+        self.assertEqual(visit.check_result, 'fixed')
+
+    def test_labour_back_to_free_and_back_to_parts(self):
+        _order, visit, _token = self._working()
+        card = visit._vr_card(brand=self.brand)
+        booked = self.env['product.product'].create({'name': 'VR Booked repair', 'type': 'service', 'lst_price': 30.0})
+        self.env['job.card.service.line'].create({'job_card_id': card.id, 'product_id': booked.id,
+                                                   'description': booked.name, 'quantity': 1, 'unit_price': 30.0})
+        visit._vr_outcome('labour')
+        self.assertEqual(card.service_line_ids.mapped('unit_price'), [0.0])  # free: the booked repair at 0
+        text, _total = visit.order_id._wb_estimate()
+        self.assertNotIn('VR Booked repair', text)                           # the customer reads only what is charged
+        visit._vr_labour_charge(10)
+        visit._vr_labour_charge(0)                                           # free again: the labour line goes
+        self.assertFalse(card.service_line_ids.filtered(lambda l: l.product_id.default_code == 'REPAIR-SERVICE'))
+        visit._vr_outcome('parts')                                           # back to the booked price
+        self.assertEqual(card.service_line_ids.mapped('unit_price'), [30.0])
+
+    def test_a_fixed_labour_price_is_one_tap_at_this_devices_price(self):
+        """Catalogue > Labour Prices: the technician taps "Cleaning"; the price is the device type's
+        own row, else the price for every device - always the office's, never the phone's."""
+        _order, visit, token = self._working()
+        laptops = self.env['device.category'].create({'name': 'VR Laptops'})
+        service = self.env['product.template'].create({'name': 'VR Cleaning', 'type': 'service', 'list_price': 20.0})
+        cleaning = self.env['fix.labour.job'].create({
+            'service_id': service.id, 'price': 3.0,
+            'price_ids': [(0, 0, {'category_id': laptops.id, 'price': 8.0})]})
+        self.assertEqual(cleaning.name, 'VR Cleaning')                       # the service picked from the list
+        self.assertEqual(cleaning._price_for(laptops), 8.0)
+        self.assertEqual(cleaning._price_for(self.category), 3.0)
+        self.assertEqual(service.list_price, 20.0)                           # the website price stays
+        visit._vr_outcome('labour', brand=self.brand)                        # a VR Phones phone
+        presets = [p for p in visit._vr_view()['labour_presets'] if p['id'] == cleaning.id]
+        self.assertEqual([p['price'] for p in presets], [3.0])
+        page = self.env['fix.service.visit'].tech_page(HOST, visit.name, token, action='result_labour',
+                                                       preset_id=cleaning.id, price=99, brand_id=self.brand.id)
+        self.assertNotEqual(page.get('ok'), False, page)
+        labour = visit._vr_labour_lines()
+        self.assertEqual([(l.description, l.unit_price) for l in labour], [('VR Cleaning', 3.0)])
+        self.assertEqual(visit._vr_labour_note(), 3.0)
+        self.assertTrue(visit._vr_need()['needs_quote'])                     # the customer approves it first
+        visit._vr_labour_charge(5)                                           # typed instead: plain "Labour"
+        self.assertEqual([(l.description, l.unit_price) for l in visit._vr_labour_lines()], [('Labour', 5.0)])
+        visit._vr_labour_charge(0)
+        self.assertFalse(visit._vr_labour_lines())
+        cleaning.active = False                                              # archived: no tap
+        with self.assertRaises(UserError):
+            visit._vr_labour_preset(cleaning.id)
+
+    # ------------------------------------------------------------------ a device at our office
+    def test_lab_take_receipt_received_and_overdue(self):
+        order, visit, _token = self._working()
+        charger = self.env['device.accessory'].create({'name': 'VR Charger'})
+        visit._vr_outcome('lab', days=2, brand=self.brand)
+        visit._vr_approved_here()                                            # the customer agreed at the door
+        before = len(self.sent)
+        visit._vr_take(accessories=charger)
+        card = visit.job_card_id
+        texts = [t for _p, t in self.sent[before:]]
+        self.assertTrue(any('VR Charger' in t for t in texts), texts)        # the customer's receipt
+        self.assertTrue(card.wb_price_by)                                    # the price promised by
+        # the desk: on the way to the office, until the office presses Received
+        self.assertEqual(order._fix_desk_row()['office'], 'on_way')
+        self.assertEqual(order._fix_desk_stage(), 'working')
+        self.assertIn('office_received', order.fix_desk_detail()['actions'])
+        self.assertEqual(order._wb_office_row()['accessories'], '1 accessory (VR Charger)')
+        self.env['wb.receive.wizard'].create({'job_card_id': card.id, 'accessory_ids': [(6, 0, [])],
+                                              'note': 'Scratch on the back'}).action_confirm()
+        self.assertEqual(card._wb_office_state(), 'received')
+        self.assertEqual(card.wb_received_by_id, self.env.user)
+        self.assertIn('Missing 1: VR Charger', ' '.join(card.message_ids.mapped('body')))
+        self.assertEqual(order._wb_office_row()['accessories'], '1 accessory (VR Charger)')   # counted
+        self.assertNotIn('office_received', order.fix_desk_detail()['actions'])
+        self.assertTrue(order._wb_office_row()['received'])
+        # the promised price date passed: Overdue, and one to-do however often the job runs
+        yesterday = fields.Date.add(fields.Date.context_today(card), days=-1)
+        card.wb_price_by = yesterday
+        self.assertEqual(card._wb_overdue(), 'price')
+        self.assertEqual(order._fix_desk_row()['overdue'], 'price')
+        Card = self.env['job.card']
+        Card._cron_wb_overdue()
+        Card._cron_wb_overdue()
+        todos = card.activity_ids.filtered(lambda a: 'Overdue: send the price' in (a.summary or ''))
+        self.assertEqual(len(todos), 1)
+        # the price approved, the return date passed: Overdue (return)
+        card.write({'quote_state': 'accepted', 'wb_return_by': yesterday})
+        self.assertEqual(card._wb_overdue(), 'return')
+
+    def test_the_customer_approves_the_price_on_my_orders(self):
+        """The new price on My orders (signed in), as on the WhatsApp link's page: Review, Approve."""
+        from .test_visit import PHONE
+        order, visit, _token = self._working()
+        self._quote(visit, [self.in_office], plan_here='come_back', days=2)
+        Order = self.env['online.service.order']
+        row = [r for r in Order.customer_orders(HOST, PHONE)['orders'] if r['ref'] == order.name][0]
+        self.assertEqual(row['quote']['state'], 'waiting')                  # "Review & approve" on the order
+        page = Order.customer_quote(HOST, PHONE, order.name)
+        self.assertEqual(page['state'], 'waiting')
+        self.assertTrue(page['lines'])
+        # another number cannot see or answer it
+        self.assertEqual(Order.customer_quote(HOST, '+968 9999 0000', order.name)['error'], 'unknown')
+        done = Order.customer_quote(HOST, PHONE, order.name, action='answer', yes=True)
+        self.assertEqual(done['state'], 'accepted')
+        self.assertEqual(visit.job_card_id.quote_state, 'accepted')
+        self.assertEqual(visit.check_result, 'come_back')                   # the plan went ahead
+        row = [r for r in Order.customer_orders(HOST, PHONE)['orders'] if r['ref'] == order.name][0]
+        self.assertIsNone(row['quote'])                                     # nothing left to answer
 
     def test_needs_a_brand_without_job_card(self):
         _order, visit, _token = self._working()
@@ -198,6 +453,7 @@ class TestVisitResult(DoorstepCase):
         found = Visit.tech_page(HOST, visit.name, token, action='result_parts', query='VR Screen')
         self.assertEqual(found['parts'][0]['product_id'], self.in_office.id)
         self.assertEqual(found['parts'][0]['status'], 'in_stock')
+        self.assertNotIn('result', found)          # searched as you type: the parts only, not the whole page
         page = Visit.tech_page(HOST, visit.name, token, action='result_add_part',
                                product_id=self.in_office.id, brand_id=self.brand.id)
         self.assertEqual(len(page['result']['lines']), 1)

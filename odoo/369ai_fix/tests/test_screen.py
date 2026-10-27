@@ -112,6 +112,8 @@ class TestScreens(TransactionCase):
             Screen.screen_meta('repair_settings')          # admins only
         with self.assertRaises(AccessError):
             Screen.screen_meta('slots')                    # managers only
+        with self.assertRaises(AccessError):
+            Screen.screen_meta('labour_prices')            # managers only
 
     def test_create_job_card_opens_the_green_screen(self):
         order = self._book()

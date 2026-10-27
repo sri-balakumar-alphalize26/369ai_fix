@@ -2,7 +2,7 @@
 """My Visits (app/models/fix_tech.py): the technician's own screen in Odoo runs the web page's
 steps with their login; only their own visits, and no flag can skip the safety check."""
 from odoo.exceptions import AccessError
-from odoo.tests import tagged
+from odoo.tests import new_test_user, tagged
 
 from .test_visit import DoorstepCase
 from .test_visit_checks import MP4, PNG, b64
@@ -44,12 +44,31 @@ class TestMyVisits(DoorstepCase):
         self.assertTrue(mine.fix_tech_act('check_safety_photo', data=b64(PNG))['ok'])
         for side in checks['sides']:
             mine.fix_tech_act('check_side_photo', photo_id=side['id'], data=b64(PNG))
+        self.assertFalse(mine.fix_tech_view()['video'])                     # no video yet: no player
         self.assertTrue(mine.fix_tech_act('check_video', name='device.mp4', data=b64(MP4))['ok'])
+        video = mine.fix_tech_view()['video']                                # played in My Visits
+        self.assertIn('/web/content/fix.service.visit/%d/device_video' % visit.id, video['url'])
+        self.assertTrue(visit.with_user(self.tech_user).device_video)       # the technician may read it
         page = mine.fix_tech_act('start')
         self.assertTrue(page['ok'], page)
         self.assertEqual(visit.state, 'in_progress')
         self.assertEqual(page['result']['stage'], 'find')                    # What did you find? next
         self.assertIn('My Visits', ' '.join(visit.message_ids.mapped('body')))
+
+    def test_search_my_visits(self):
+        """My Visits' search: the technician's own visits of any date, by visit or booking number."""
+        order, visit = self._assigned()
+        Visit = self.env['fix.service.visit'].with_user(self.tech_user)
+        for words in (visit.name, visit.name.split('/')[-1], order.name):
+            found = Visit.fix_tech_search(words)
+            self.assertIn(visit.id, [r['id'] for r in found['rows']], words)
+            self.assertGreaterEqual(found['count'], 1)
+        self.assertEqual(Visit.fix_tech_search('x'), {'count': 0, 'rows': []})
+        # another technician's visit is not found
+        other = new_test_user(self.env, login='tech_other_search', groups='base.group_user,mobile_repair.group_mobile_repair_technician')
+        self.env['hr.employee'].create({'name': 'Other Tech', 'user_id': other.id})
+        self.assertNotIn(visit.id, [r['id'] for r in
+                                    self.env['fix.service.visit'].with_user(other).fix_tech_search(visit.name)['rows']])
 
     def test_only_my_own_visits(self):
         _order, visit = self._assigned()
