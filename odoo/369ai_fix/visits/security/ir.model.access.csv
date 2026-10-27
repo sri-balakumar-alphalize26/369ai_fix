@@ -14,3 +14,11 @@ access_visit_safety_line_manager,fix.visit.safety.line manager,model_fix_visit_s
 access_visit_check_photo_tech,fix.visit.check.photo technician,model_fix_visit_check_photo,mobile_repair.group_mobile_repair_technician,1,1,1,1
 access_visit_result_wizard_tech,fix.visit.result.wizard technician,model_fix_visit_result_wizard,mobile_repair.group_mobile_repair_technician,1,1,1,1
 access_visit_result_wizard_line_tech,fix.visit.result.wizard.line technician,model_fix_visit_result_wizard_line,mobile_repair.group_mobile_repair_technician,1,1,1,1
+access_part_ask_wizard_recep,fix.part.ask.wizard receptionist,model_fix_part_ask_wizard,mobile_repair.group_mobile_repair_receptionist,1,1,1,1
+access_part_ask_tech,fix.part.ask technician,model_fix_part_ask,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_part_ask_recep,fix.part.ask receptionist,model_fix_part_ask,mobile_repair.group_mobile_repair_receptionist,1,1,1,0
+access_part_ask_manager,fix.part.ask manager,model_fix_part_ask,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_labour_job_user,fix.labour.job user,model_fix_labour_job,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_labour_job_manager,fix.labour.job manager,model_fix_labour_job,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_labour_price_user,fix.labour.price user,model_fix_labour_price,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_labour_price_manager,fix.labour.price manager,model_fix_labour_price,mobile_repair.group_mobile_repair_manager,1,1,1,1

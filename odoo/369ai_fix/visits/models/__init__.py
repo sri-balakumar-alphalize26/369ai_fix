@@ -6,5 +6,6 @@ from . import service_visit_position
 from . import online_order
 from . import job_card
 from . import visit_checks
+from . import part_ask
 from . import visit_result
 from . import visit_closeout

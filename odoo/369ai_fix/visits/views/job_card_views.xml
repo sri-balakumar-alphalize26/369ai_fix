@@ -16,6 +16,27 @@
                     <field name="fs_visit_count" widget="statinfo" string="Visit"/>
                 </button>
             </xpath>
+            <!-- what the technician asked the office about parts at the visit, and the answers -->
+            <xpath expr="//page[@name='spare_parts']" position="after">
+                <page string="Part questions" name="part_questions" invisible="not part_ask_ids">
+                    <field name="part_ask_ids" readonly="1">
+                        <list>
+                            <field name="asked_on"/>
+                            <field name="technician_id"/>
+                            <field name="name"/>
+                            <field name="rough_price" optional="show"/>
+                            <field name="state" widget="badge" decoration-warning="state == 'asked'"
+                                   decoration-success="state == 'found'" decoration-danger="state == 'none'"
+                                   decoration-info="state == 'later'" decoration-muted="state == 'cancelled'"/>
+                            <field name="product_id"/>
+                            <field name="price" optional="show"/>
+                            <field name="reply"/>
+                            <field name="answered_by_id" optional="show"/>
+                            <field name="answered_on" optional="hide"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
         </field>
     </record>
 </odoo>

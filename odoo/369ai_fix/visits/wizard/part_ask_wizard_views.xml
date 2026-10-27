@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_part_ask_wizard_form" model="ir.ui.view">
+        <field name="name">fix.part.ask.wizard.form</field>
+        <field name="model">fix.part.ask.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Answer the technician">
+                <field name="visit_id" invisible="1"/>
+                <group>
+                    <field name="asked"/>
+                    <field name="product_id" options="{'no_create': True}"/>
+                    <field name="new_name" invisible="product_id"/>
+                    <field name="price"/>
+                    <field name="note"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Add to the job card and tell the technician" class="btn-primary"/>
+                    <button special="cancel" string="Back"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
