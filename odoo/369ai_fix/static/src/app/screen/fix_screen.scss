@@ -35,7 +35,6 @@
     .fxd-brand h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; }
     .fxd-brand small { display: block; color: var(--fxd-muted); font-size: 12px; max-width: 520px; }
     .fxd-logo { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, var(--fxd-green), var(--fxd-green-2)); color: #fff; font: 800 13px 'Schibsted Grotesk', 'Plus Jakarta Sans', sans-serif; letter-spacing: .02em; }
-    .fxd-gap { flex: 1; }
     .fxd-warn { padding: 9px 18px; background: var(--fxd-amber-soft); color: var(--fxd-amber); font-size: 13px; }
 
     .fxd-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 9px 16px; border-radius: 12px; border: 1px solid transparent; font-weight: 700; font-size: 14px; cursor: pointer; transition: background .15s, border-color .15s, color .15s, transform .05s; white-space: nowrap; }
@@ -60,7 +59,8 @@
     .fxd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
     .fxd-box { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: var(--fxd-radius); background: var(--fxd-card); border: 1px solid var(--fxd-line); box-shadow: var(--fxd-shadow); min-width: 0; }
     .fxd-box-wide { grid-column: 1 / -1; }
-    .fxd-box h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--fxd-muted); }
+    /* box titles: plain words in the heading font, not tiny upper case (Look A, 28 Oct) */
+    .fxd-box h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 2px; font-family: 'Schibsted Grotesk', 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 0; color: var(--fxd-ink); }
     .fxd-box h3 i.fa { color: var(--fxd-green); }
     .fxd-muted { color: var(--fxd-muted); font-size: 13px; }
     .fxd-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 50px 16px; text-align: center; color: var(--fxd-muted); }
@@ -205,8 +205,34 @@
     .fxs-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
     .fxs-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; }
     .fxs-field-wide { grid-column: 1 / -1; }
-    .fxs-label { font-size: 12px; font-weight: 700; color: var(--fxd-muted); }
+    .fxs-label { font-size: 13px; font-weight: 700; color: #3a4b41; }
     .fxs-help { margin-left: 4px; font-size: 11px; opacity: .7; }
+    /* settings screens: the box's one-line hint and each setting's explanation, visible */
+    .fxs-sec-hint { margin: -4px 0 12px; font-size: 13.5px; }
+    .fxs-fhelp { font-size: 13px; line-height: 1.45; color: #55665c; }
+
+    /* settings screens (Look A, 28 Oct): one column of full-width boxes, no gaps; each setting a row -
+       its name and explanation on the left, the switch / box on the right */
+    .fxs-settings { font-size: 15px; }
+    .fxs-settings .fxd-grid { grid-template-columns: minmax(0, 1fr); max-width: 1000px; gap: 18px; }
+    .fxs-settings .fxd-box { gap: 2px; padding: 20px 24px 8px; border-radius: 18px; box-shadow: 0 1px 2px rgba(15, 28, 21, .05); }
+    .fxs-settings .fxd-box h3 { gap: 12px; font-size: 19px; }
+    .fxs-settings .fxd-box h3 i.fa { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 11px; background: var(--fxd-soft); font-size: 17px; }
+    .fxs-settings .fxs-sec-hint { margin: 0 0 6px 50px; font-size: 14px; color: #4f6157; }
+    .fxs-settings .fxs-fields { display: flex; flex-direction: column; gap: 0; }
+    .fxs-settings .fxs-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label control" "help control";
+                               column-gap: 32px; row-gap: 3px; align-items: center; padding: 15px 0; border-top: 1px solid rgba(15, 28, 21, .09); }
+    .fxs-settings .fxs-field:first-child { border-top: 0; }
+    .fxs-settings .fxs-field > .fxs-label { grid-area: label; align-self: end; font-size: 15px; font-weight: 600; color: var(--fxd-ink); }
+    .fxs-settings .fxs-field > .fxs-fhelp { grid-area: help; align-self: start; font-size: 13.5px; }
+    .fxs-settings .fxs-field > :not(.fxs-label):not(.fxs-fhelp) { grid-area: control; justify-self: end; }
+    .fxs-settings .fxf-in { min-height: 42px; font-size: 15px; }
+    .fxs-settings .fxf-num { width: 120px; text-align: right; }
+    .fxs-settings .fxf-pick, .fxs-settings .fxf-select, .fxs-settings .fxs-field > .fxf-in:not(.fxf-num) { width: 300px; max-width: 100%; }
+    .fxs-settings .fxf-switch { width: 50px; height: 28px; }
+    .fxs-settings .fxf-slider::before { width: 22px; height: 22px; }
+    .fxs-settings .fxf-switch input:checked + .fxf-slider::before { transform: translateX(22px); }
+    .fxs-settings .fxf-chip { min-height: 40px; font-size: 14px; }
     .fxs-info { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; margin: 0; font-size: 13px; }
     .fxs-info dt { color: var(--fxd-muted); font-weight: 600; }
     .fxs-info dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
@@ -320,6 +346,10 @@
     @media (max-width: 700px) {
         .fxs-record { padding: 12px 12px 40px; }
         .fxd-grid, .fxs-fields { grid-template-columns: minmax(0, 1fr); }
+        /* a phone: the setting's switch / box goes under its explanation */
+        .fxs-settings .fxs-field { grid-template-columns: minmax(0, 1fr); grid-template-areas: "label" "help" "control"; row-gap: 6px; }
+        .fxs-settings .fxs-field > :not(.fxs-label):not(.fxs-fhelp) { justify-self: start; }
+        .fxs-settings .fxs-sec-hint { margin-left: 0; }
         .fxs-lines thead { display: none; }
         .fxs-lines, .fxs-lines tbody, .fxs-lines tr, .fxs-lines td { display: block; width: 100%; }
         .fxs-lines tr { padding: 6px 0; border-bottom: 1px solid var(--fxd-line); }
@@ -453,4 +483,136 @@
     .fxd-notes li { padding: 9px 12px; border-radius: 10px; background: var(--fxd-bg); font-size: 13px; }
     .fxd-note-body { white-space: pre-line; margin-top: 2px; }
     .fxd-assign textarea.fxd-in { min-height: 60px; }
+}
+
+/* ===================================================================== 369 Mart's desk look, in our green
+   (28 Oct). The page is 369 Mart's (mart369 UI kit: .mart-builder.pe, .pe-head, .pe-toolbar, Tabs, Search,
+   .mart-btn); here only its blue becomes our green, and the green screens' own parts (cards, tiles, a
+   record in a dialog, the settings card) take the same shapes. Last in the file, so it wins. */
+.o_fxs {
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+
+    /* the kit, in our green (369 Mart's own screens keep their blue: these rules live under .o_fxs) */
+    .mart-btn.mart-btn-primary { background: linear-gradient(135deg, #1f8a3c, #0f6b37); box-shadow: 0 8px 18px -10px rgba(15, 107, 55, .75); }
+    .mart-tabs .mart-on em { background: #e4f1e3; color: #0f6b37; }
+    .mart-search:focus-within { border-color: #1f8a3c; box-shadow: 0 0 0 3px rgba(31, 138, 60, .16); }
+    .fxd-box h3 { font-family: inherit; }
+
+    /* the page */
+    .fxm { gap: 14px; height: 100%; overflow-y: auto; background: #f3f6f8; padding: 24px 28px 48px; }
+    .fxm-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .fxm-title h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
+    .fxm-title p { margin: 2px 0 0; color: #475a66; font-size: 13.5px; max-width: 760px; }
+    .fxm-h1-icon { color: #1f8a3c; font-size: 18px; }
+    .fxm-head-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .fxm .fxs-err { margin: 0; }
+    .fxm .fxs-page { flex: none; overflow: visible; padding: 0; }
+    .fxm .fxd-empty { padding: 36px 16px; border-radius: 14px; background: #fff; border: 1px dashed #d5dee5; }
+    .fxm .fxd-empty b { color: #13212b; font-size: 15px; }
+
+    /* the counted filters as number tiles: a tile is a filter */
+    .fxm-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+    .fxm-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border: 1px solid #e4eaef;
+                border-radius: 14px; background: #fff; font: inherit; color: #13212b; text-align: left; cursor: pointer;
+                transition: border-color .14s, box-shadow .14s; }
+    .fxm-tile:hover { border-color: #b9d8c2; }
+    .fxm-tile b { font-size: 22px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    .fxm-tile small { font-size: 11.5px; color: #64757f; }
+    .fxm-tile-top { font-size: 12.5px; font-weight: 600; color: #64757f; }
+    .fxm-tile-on { border-color: #1f8a3c; box-shadow: 0 0 0 3px rgba(31, 138, 60, .14); }
+    .fxm-tile-on b { color: #0f6b37; }
+    .fxm-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+    /* the records: one full-width card each */
+    .fxm-list { display: flex; flex-direction: column; gap: 10px; }
+    .fxm-count { font-size: 12px; font-weight: 700; color: #64757f; }
+    .fxm-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .fxm-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #e4eaef; border-radius: 14px;
+               background: #fff; transition: border-color .14s, box-shadow .14s; }
+    .fxm-row:hover { border-color: #b9d8c2; box-shadow: 0 6px 18px -14px rgba(19, 33, 43, .5); }
+    .fxm-row.fxs-on { border-color: #1f8a3c; }
+    .fxm-row.fxs-off { opacity: .6; }
+    .fxm-row-main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none;
+                    font: inherit; color: inherit; text-align: left; cursor: pointer; }
+    .fxm-who { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: #e4f1e3;
+               color: #0f6b37; font-size: 13px; font-weight: 800; }
+    .fxm-thumb { flex: none; width: 40px; height: 40px; object-fit: contain; border-radius: 10px; background: #f3f6f8; }
+    .fxm-row-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .fxm-row-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+    .fxm-row-top b { font-size: 14.5px; font-weight: 800; overflow-wrap: anywhere; }
+    .fxm-row-top small { color: #64757f; font-size: 12.5px; }
+    .fxm-row-top .fxs-badge { margin-left: 0; }
+    .fxm-row-meta { display: flex; flex-wrap: wrap; gap: 2px 16px; font-size: 13px; color: #13212b; }
+    .fxm-row-meta small { margin-right: 4px; color: #64757f; font-size: 12px; }
+    .fxm-open { flex: none; }
+    .fxm-more { display: flex; justify-content: center; }
+    .fxs-board .fxs-col { background: #e9eef2; }
+    .fxs-card { border-color: #e4eaef; }
+
+    /* a table screen (edited in the rows): one white card */
+    .fxs-tablewrap { border-radius: 14px; border-color: #e4eaef; box-shadow: none; }
+    .fxs-table { font-size: 14px; }
+    .fxs-table th { font-size: 12.5px; font-weight: 700; letter-spacing: 0; text-transform: none; color: #64757f; }
+
+    /* a record (in its dialog, on the desk): boxes packed in two columns, no holes */
+    .fxs-record .fxd-grid { display: block; columns: 2 380px; column-gap: 14px; }
+    .fxs-record .fxd-grid > .fxd-box { break-inside: avoid; margin-bottom: 14px; }
+    .fxs-record .fxd-grid > .fxd-box-wide { column-span: all; }
+    .fxs-record .fxd-box { border-color: #e4eaef; box-shadow: none; }
+    .fxs-tabs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border: 0; border-radius: 11px; background: #eef2f5; align-self: flex-start; }
+    .fxs-tab { height: 32px; padding: 0 12px; border-radius: 9px; font-size: 13px; color: #64757f; }
+    .fxs-tab:hover { color: #13212b; }
+    .fxs-tab-on { background: #fff; color: #13212b; box-shadow: 0 2px 6px -3px rgba(19, 33, 43, .4); }
+    .fxd-actions { box-shadow: none; border-color: #e4eaef; }
+
+    /* settings: one white card, a tab per box, the rows inside */
+    .fxs-settings { gap: 12px; padding: 16px 20px 18px; border: 1px solid #e4eaef; border-radius: 14px; background: #fff; }
+    .fxs-settings .fxs-rhead { justify-content: flex-end; min-height: 0; }
+    .fxs-settings .fxs-rtitle { display: none; }
+    .fxs-settings .fxd-actions { padding: 0; border: 0; background: none; }
+    .fxs-settings .fxd-grid { display: block; columns: auto; max-width: none; }
+    .fxs-settings .fxd-grid > .fxd-box { margin: 0; padding: 4px 0 0; border: 0; border-radius: 0; box-shadow: none; }
+    .fxs-settings .fxs-field { padding: 14px 0; }
+
+    @media (max-width: 900px) {
+        .fxm { padding: 16px 14px 40px; }
+        .fxm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .fxm-toolbar .mart-search { flex: 1 1 100%; }
+        .fxm-open { display: none; }
+    }
+}
+
+/* the record's dialog: 369 Mart's light page behind the boxes */
+.fxm-dialog {
+    .modal-body { background: #f3f6f8; padding: 16px 18px; }
+    .fxs-record { padding: 0; }
+}
+
+/* ===================================================================== the pop-ups in 369 Mart's look (28 Oct):
+   a white dialog with its title and a close cross, no logo, its font, normal-size buttons, our green */
+.fxp-layer {
+    --fxd-ink: #13212b;
+    --fxd-muted: #64757f;
+    --fxd-line: #e4eaef;
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+
+    .fxp-card { border-radius: 14px; background: #fff; box-shadow: 0 24px 60px -24px rgba(19, 33, 43, .55); }
+    .fxp-head { gap: 10px; padding: 14px 18px; background: #fff; border-bottom: 1px solid #e4eaef; }
+    .fxp-head h2 { font-size: 17px; font-weight: 800; letter-spacing: -.01em; }
+    .fxp-logo { display: none; }
+    .fxp-x { width: 32px; height: 32px; border: 0; border-radius: 9px; background: none; font-size: 17px; }
+    .fxp-x:hover { background: #f4f6f8; color: #13212b; }
+    .fxp-body { padding: 16px 18px 18px; background: #fff; }
+    .fxp-intro { font-size: 13.5px; color: #475a66; }
+    .fxp-info { border: 0; background: #f4f6f8; }
+    .fxp-btns { padding-top: 10px; }
+
+    .fxd-btn { min-height: 36px; padding: 0 14px; border-radius: 10px; font-size: 13px; }
+    .fxd-btn-sm { min-height: 30px; padding: 0 11px; border-radius: 9px; font-size: 12px; }
+    .fxd-btn-primary { background: linear-gradient(135deg, #1f8a3c, #0f6b37); }
+    .fxd-btn-ghost { border-color: #cfd8df; }
+    .fxf-in { min-height: 38px; border-color: #cfd8df; border-radius: 10px; font-size: 14px; font-weight: 500; }
+    .fxs-label { font-size: 12px; font-weight: 700; color: #64757f; }
+    .fxd-box { border-color: #e4eaef; box-shadow: none; border-radius: 12px; }
+    .fxd-box h3 { font-family: inherit; font-size: 15px; }
 }

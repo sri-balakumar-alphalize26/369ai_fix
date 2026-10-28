@@ -166,7 +166,7 @@
 
     <!-- ================================================================ one record -->
     <t t-name="369ai_fix.Record">
-        <div class="fxs-record" t-att-class="{ 'fxs-embedded': props.embedded }">
+        <div class="fxs-record" t-att-class="{ 'fxs-embedded': props.embedded, 'fxs-settings': meta and meta.kind === 'settings' }">
             <div class="fxd-empty" t-if="!state.meta or !state.rec">
                 <t t-if="state.error"><span class="fxd-note fxd-note-red" t-esc="state.error"/></t>
                 <t t-else=""><i class="fa fa-circle-o-notch fa-spin"/> Loading…</t>
@@ -208,6 +208,7 @@
                     <t t-foreach="sections" t-as="section" t-key="section_index">
                         <section t-if="sectionShown(section)" class="fxd-box" t-att-class="{ 'fxd-box-wide': section.wide or section.lines or section.kind === 'map' }">
                             <h3><i t-attf-class="fa {{ section.icon or 'fa-circle-o' }}"/> <t t-esc="section.title"/></h3>
+                            <p class="fxd-muted fxs-sec-hint" t-if="section.hint" t-esc="section.hint"/>
 
                             <!-- the live map -->
                             <t t-if="section.kind === 'map'">
@@ -282,12 +283,14 @@
                                 <div class="fxs-fields">
                                     <t t-foreach="sectionFields(section)" t-as="name" t-key="name">
                                         <label class="fxs-field" t-att-class="{ 'fxs-field-wide': ['text', 'html', 'many2many'].includes(meta.fields[name].type) or (meta.tokens or {})[name] }">
-                                            <span class="fxs-label" t-att-title="help(name)"><t t-esc="label(name)"/><i t-if="help(name)" class="fa fa-question-circle-o fxs-help"/></span>
+                                            <span class="fxs-label" t-att-title="help(name)"><t t-esc="label(name)"/><i t-if="help(name) and meta.kind !== 'settings'" class="fa fa-question-circle-o fxs-help"/></span>
                                             <FixField name="name" meta="meta.fields[name]" value="state.values[name]"
                                                       readonly="readonly(name)" widget="(meta.widgets or {})[name]" tokens="(meta.tokens or {})[name]"
                                                       options="(section.ticks or []).includes(name) ? state.options[name] : undefined"
                                                       imageUrl="imageUrl(name)" pick="pickFor(name)"
                                                       onChange="(v) => this.onField(name, v)"/>
+                                            <!-- settings: the explanation shows, not only on hover -->
+                                            <small class="fxs-fhelp" t-if="meta.kind === 'settings' and help(name)" t-esc="help(name)"/>
                                         </label>
                                     </t>
                                 </div>
@@ -330,41 +333,38 @@
     <!-- ================================================================ the screen -->
     <t t-name="369ai_fix.Screen">
         <Layout display="{ controlPanel: {} }" className="'o_fxs h-100'">
-            <div class="fxs">
-                <header class="fxd-top">
-                    <div class="fxd-brand">
-                        <span class="fxd-logo">369</span>
-                        <div>
-                            <h1><i t-if="meta" t-attf-class="fa {{ meta.icon }} fxs-h1-icon"/> <t t-esc="meta ? meta.title : 'Loading…'"/></h1>
-                            <small t-if="meta" t-esc="meta.hint"/>
-                        </div>
+            <!-- 369 Mart's desk page (its UI kit), in our green: head, tiles, tabs + search, the cards -->
+            <div class="fxs mart-builder pe fxm">
+                <header class="pe-head fxm-head">
+                    <div class="fxm-title">
+                        <h1><i t-if="meta" t-attf-class="fa {{ meta.icon }} fxm-h1-icon"/> <t t-esc="meta ? meta.title : 'Loading…'"/></h1>
+                        <p t-if="meta and meta.hint" t-esc="meta.hint"/>
                     </div>
-                    <span class="fxd-gap"/>
-                    <t t-if="meta and (kind === 'records' or kind === 'table')">
-                        <div class="fxs-search">
-                            <i class="fa fa-search"/>
-                            <input type="search" placeholder="Search…" t-att-value="state.query" t-on-input="onQuery"/>
-                        </div>
-                        <div class="fxs-modes" t-if="meta.modes.length > 1">
-                            <t t-foreach="meta.modes" t-as="mode" t-key="mode">
-                                <button class="fxs-mode" t-att-class="{ 'fxs-mode-on': state.mode === mode }" t-on-click="() => this.setMode(mode)">
-                                    <i t-attf-class="fa {{ modeIcon(mode) }}"/> <t t-esc="modeLabel(mode)"/>
-                                </button>
-                            </t>
-                        </div>
-                        <button class="fxd-btn fxd-btn-primary" t-if="meta.can_create" t-on-click="() => this.create()"><i class="fa fa-plus"/> New</button>
-                    </t>
+                    <div class="fxm-head-acts" t-if="meta and (kind === 'records' or kind === 'table')">
+                        <Tabs t-if="meta.modes.length > 1" tabs="modeTabs" value="state.mode" onChange="(m) => this.setMode(m)"/>
+                        <button class="mart-btn mart-btn-primary" t-if="meta.can_create" t-on-click="() => this.create()"><i class="fa fa-plus"/> New</button>
+                    </div>
                 </header>
 
-                <div class="fxs-chips" t-if="meta and meta.filters.length > 1 and (kind === 'records' or kind === 'table')">
-                    <t t-foreach="meta.filters" t-as="f" t-key="f.key">
-                        <button class="fxs-chip" t-att-class="{ 'fxs-chip-on': state.filter === f.key }" t-on-click="() => this.setFilter(f.key)">
-                            <t t-esc="f.label"/><span class="fxs-chip-n" t-if="count(f)" t-esc="count(f)"/>
+                <!-- the counted filters as number tiles: a tile is a filter -->
+                <div class="fxm-tiles" t-if="meta and tiles.length and (kind === 'records' or kind === 'table')">
+                    <t t-foreach="tiles" t-as="tile" t-key="tile.key">
+                        <button type="button" class="fxm-tile" t-att-class="{ 'fxm-tile-on': state.filter === tile.key }"
+                                t-att-aria-pressed="state.filter === tile.key ? 'true' : 'false'" t-on-click="() => this.pickTab(tile.key)">
+                            <span class="fxm-tile-top" t-esc="tile.label"/>
+                            <b t-esc="tile.count"/>
+                            <small>Show these</small>
                         </button>
                     </t>
                 </div>
 
-                <div class="fxd-warn fxs-err" t-if="state.error" t-esc="state.error"/>
+                <div class="pe-toolbar fxm-toolbar" t-if="meta and (kind === 'records' or kind === 'table')">
+                    <Tabs t-if="meta.filters.length > 1" tabs="tabItems" value="state.filter" onChange="(k) => this.pickTab(k)"/>
+                    <div class="pe-toolbar-gap"/>
+                    <Search value="state.query" placeholder="'Search…'" label="'Search ' + meta.title" onChange="(v) => this.onSearch(v)"/>
+                </div>
+
+                <div class="pe-error fxs-err" t-if="state.error" t-esc="state.error"/>
 
                 <div class="fxd-empty" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading…</div>
 
@@ -416,35 +416,35 @@
                     </div>
                 </div>
 
-                <!-- list + record -->
-                <div class="fxs-body" t-else="" t-att-class="{ 'fxs-open': state.selectedId }">
-                    <section class="fxs-list">
-                        <div class="fxs-count"><t t-esc="state.total"/> found</div>
+                <!-- the records: one full-width card each (369 Mart); a record opens in a dialog -->
+                <div class="fxm-body" t-else="">
+                    <section class="fxm-list">
+                        <div class="fxm-count"><t t-esc="state.total"/> found</div>
 
-                        <!-- table -->
-                        <t t-if="state.mode === 'table'">
-                            <div class="fxs-tablewrap">
-                                <table class="fxs-table">
-                                    <thead><tr>
-                                        <th t-if="meta.image" class="fxs-narrow"/>
-                                        <t t-foreach="columns()" t-as="c" t-key="c"><th t-esc="label(c)"/></t>
-                                    </tr></thead>
-                                    <tbody>
-                                        <t t-foreach="state.rows" t-as="row" t-key="row.id">
-                                            <tr t-att-class="rowClass(row)" t-on-click="() => this.select(row)">
-                                                <td t-if="meta.image" class="fxs-narrow"><img class="fxs-thumb" t-att-src="thumb(row)" alt="" loading="lazy"/></td>
-                                                <t t-foreach="columns()" t-as="c" t-key="c">
-                                                    <td t-att-data-label="label(c)">
-                                                        <span t-if="isBadge(c)" t-att-class="badgeClass(row)" t-esc="cell(row, c)"/>
-                                                        <t t-else="" t-esc="cell(row, c)"/>
-                                                    </td>
+                        <!-- cards -->
+                        <ul class="fxm-rows" t-if="state.mode === 'table'">
+                            <t t-foreach="state.rows" t-as="row" t-key="row.id">
+                                <li t-att-class="rowClass(row) + ' fxm-row'">
+                                    <button type="button" class="fxm-row-main" t-on-click="() => this.select(row)">
+                                        <img t-if="meta.image" class="fxm-thumb" t-att-src="thumb(row)" alt="" loading="lazy"/>
+                                        <span t-else="" class="fxm-who" aria-hidden="true" t-esc="initials(row)"/>
+                                        <span class="fxm-row-body">
+                                            <span class="fxm-row-top">
+                                                <b t-esc="rowTitle(row)"/>
+                                                <span t-if="meta.badge" t-att-class="badgeClass(row)" t-esc="cell(row, meta.badge)"/>
+                                                <small t-if="meta.subtitle and meta.subtitle !== meta.title_field" t-esc="cell(row, meta.subtitle)"/>
+                                            </span>
+                                            <span class="fxm-row-meta" t-if="metaLine(row).length">
+                                                <t t-foreach="metaLine(row)" t-as="m" t-key="m.key">
+                                                    <span><small t-esc="m.label"/> <t t-esc="m.value"/></span>
                                                 </t>
-                                            </tr>
-                                        </t>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </t>
+                                            </span>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="mart-btn mart-btn-sm fxm-open" t-on-click="() => this.select(row)">Open</button>
+                                </li>
+                            </t>
+                        </ul>
 
                         <!-- board -->
                         <div class="fxs-board" t-elif="state.mode === 'board'">
@@ -488,22 +488,27 @@
 
                         <div class="fxd-empty" t-if="!state.rows.length and state.mode !== 'week'">
                             <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-inbox"/></span>
-                            <span>Nothing here. Try another filter or search.</span>
+                            <b>Nothing here</b>
+                            <span>Try another tab or search.</span>
                         </div>
-                        <button class="fxd-btn fxd-btn-ghost fxs-more" t-if="hasMore" t-on-click="loadMore">Show more (<t t-esc="state.total - state.rows.length"/>)</button>
+                        <div class="fxm-more" t-if="hasMore">
+                            <button class="mart-btn" t-on-click="loadMore">Show more (<t t-esc="state.total - state.rows.length"/> left)</button>
+                        </div>
                     </section>
-
-                    <aside class="fxs-pane">
-                        <div class="fxd-empty fxd-pane-empty" t-if="!state.selectedId">
-                            <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-hand-pointer-o"/></span>
-                            <span>Pick one on the left to see it here.</span>
-                        </div>
-                        <FixRecord t-else="" screen="key" recordId="state.selectedId" meta="meta"
-                                   onChanged="() => this.onRecordChanged()" onClose="() => this.closeRecord()"/>
-                    </aside>
                 </div>
             </div>
         </Layout>
+    </t>
+
+    <!-- ================================================================ a record in a dialog -->
+    <t t-name="369ai_fix.RecordDialog">
+        <Dialog size="'xl'" title="props.title" contentClass="'o_fxs fxm-dialog'">
+            <FixRecord screen="props.screen" recordId="props.recordId" meta="props.meta" embedded="true"
+                       onChanged="props.onChanged"/>
+            <t t-set-slot="footer">
+                <button type="button" class="mart-btn" t-on-click="() => props.close()">Close</button>
+            </t>
+        </Dialog>
     </t>
 
     <!-- ================================================================ pop-ups -->
@@ -668,7 +673,23 @@
                 <div class="fxd-note fxd-note-amber">The checks are done after arriving and before starting work.</div>
             </t>
             <t t-else="">
-                <p class="fxp-intro">Safety first, then photos of the device and a short video, before anyone touches it.</p>
+                <p class="fxp-intro">The brand's warranty first, then safety, photos of the device and a short video, before anyone touches it.</p>
+                <h4 class="fxp-h4"><i class="fa fa-certificate"/> Brand warranty<t t-if="v.warranty.brand"> (<t t-esc="v.warranty.brand"/>)</t></h4>
+                <div class="fxp-photorow">
+                    <span class="fxd-muted">Dial *#06# for the IMEI. Under warranty: the customer chooses.</span>
+                    <a t-if="v.warranty.check_url" class="fxd-btn fxd-btn-ghost fxd-btn-sm" t-att-href="v.warranty.check_url" target="_blank" rel="noopener">
+                        <i class="fa fa-external-link"/> Check warranty</a>
+                </div>
+                <div class="fxf-ticks">
+                    <t t-foreach="v.warranty.answers" t-as="a" t-key="a.key">
+                        <label class="fxf-tick" t-att-class="{ 'fxf-tick-on': v.warranty.answer === a.key }">
+                            <input type="radio" name="fxp-warranty" t-att-checked="v.warranty.answer === a.key"
+                                   t-att-disabled="state.busy" t-on-change="(ev) => this.warranty(a, ev)"/>
+                            <span t-esc="a.label"/>
+                        </label>
+                    </t>
+                </div>
+                <t t-if="v.warranty.answer === 'no' or v.warranty.answer === 'ours'">
                 <h4 class="fxp-h4"><i class="fa fa-shield"/> Safety</h4>
                 <div class="fxf-ticks">
                     <t t-foreach="v.safety" t-as="item" t-key="item.id">
@@ -705,6 +726,7 @@
                     <label class="fxd-btn fxd-btn-ghost fxd-btn-sm"><i class="fa fa-video-camera"/> <t t-esc="v.video ? 'Replace' : 'Add video'"/>
                         <input type="file" accept="video/*" capture="environment" class="fxp-file" t-on-change="onVideo"/></label>
                 </div>
+                </t>
 
                 <div class="fxd-note fxd-note-amber" t-if="v.missing.length">
                     Still to do: <t t-esc="v.missing.join(', ')"/>

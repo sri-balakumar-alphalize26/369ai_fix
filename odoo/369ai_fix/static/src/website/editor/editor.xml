@@ -27,7 +27,7 @@
                         <button class="fx-btn" t-on-click="openHomePageForm" title="Name, dates, everyday page, duplicate"><i class="fa fa-calendar me-1"/>Page settings</button>
                         <label t-if="hiddenCount" class="fx-check"><input type="checkbox" t-model="state.showHidden"/> Show hidden (<t t-esc="hiddenCount"/>)</label>
                     </t>
-                    <span class="fx-gap"/>
+                    <!-- no spacer: Odoo's notifications cover the top right -->
                     <div class="fx-screens" role="group" aria-label="Screen">
                         <button t-att-class="state.screen === 'desktop' ? 'fx-on' : ''" t-on-click="() => state.screen = 'desktop'"><i class="fa fa-desktop"/> Desktop</button>
                         <button t-att-class="state.screen === 'phone' ? 'fx-on' : ''" t-on-click="() => state.screen = 'phone'"><i class="fa fa-mobile"/> Phone</button>

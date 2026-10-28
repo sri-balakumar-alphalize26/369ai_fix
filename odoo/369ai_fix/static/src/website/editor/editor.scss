@@ -82,7 +82,7 @@
     .fx-pane-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
     .fx-pane-title { margin: 4px 0 0; font-size: 17px; font-weight: 800; }
     .fx-back { white-space: nowrap; flex: none; }
-    .fx-jump { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; justify-content: flex-end; }
+    .fx-jump { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
     .fx-jump .fx-ic { width: 26px; height: 26px; }
     .fx-select-sm { padding: 3px 6px; font-size: 12.5px; min-width: 0; max-width: 170px; text-overflow: ellipsis; }
     .fx-h3 { margin: 10px 0 0; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--bs-secondary-color); }

@@ -58,6 +58,11 @@
               action="action_screen_visits" sequence="2"/>
     <menuitem id="menu_fix_spare_requests" name="Spare Requests" parent="menu_fix_service"
               action="action_screen_spare_requests" sequence="3"/>
+    <!-- the technicians' tool bags: leaving the office and leaving each house -->
+    <menuitem id="menu_fix_tool_checks" name="Tool Checks" parent="menu_fix_service"
+              action="action_screen_tool_checks" sequence="4"/>
+    <menuitem id="menu_fix_missing_tools" name="Missing Tools" parent="menu_fix_service"
+              action="action_screen_missing_tools" sequence="5"/>
 
     <!-- Catalogue -->
     <menuitem id="menu_fix_catalogue" name="Catalogue" parent="menu_fix_root" sequence="30"
@@ -103,6 +108,8 @@
               action="action_screen_safety_items" sequence="30"/>
     <menuitem id="menu_fix_device_angles" name="Device Photos" parent="menu_fix_config"
               action="action_screen_device_angles" sequence="31"/>
+    <menuitem id="menu_fix_tool_items" name="Tools Checklist" parent="menu_fix_config"
+              action="action_screen_tool_items" sequence="32"/>
     <menuitem id="menu_fix_repair_settings" name="Repair Settings" parent="menu_fix_config"
               action="action_screen_repair_settings"
               groups="base.group_system" sequence="11"/>

@@ -376,6 +376,15 @@ class ChecksPopup extends Component {
         }
     }
 
+    async warranty(answer, ev) {
+        if (answer.key === "keep" && !(await this.popupService.confirm(
+            _t("The customer keeps the brand's warranty? The visit closes now, nothing is opened, and the customer gets a polite message.")))) {
+            ev.target.checked = false;          // back to the saved answer
+            return;
+        }
+        this.call("check_warranty", { answer: answer.key });
+    }
+
     tick(item, ev) {
         this.call("check_tick", { item_id: item.id, done: ev.target.checked });
     }

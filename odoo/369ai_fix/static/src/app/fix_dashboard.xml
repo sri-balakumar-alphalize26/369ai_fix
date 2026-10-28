@@ -3,13 +3,11 @@
 
     <t t-name="369ai_fix.Dashboard">
         <div class="o_fxdash">
-            <div class="fxdash-head">
-                <span class="fxdash-logo">369</span>
-                <div>
-                    <h1>Dashboard</h1>
-                    <small>Website bookings, job cards and visits at a glance</small>
-                </div>
-            </div>
+            <!-- 369 Mart's desk look: title, tiles (each opens its list), boxes -->
+            <header class="fxdash-head">
+                <h1>Dashboard</h1>
+                <p>Website bookings, job cards and visits at a glance.</p>
+            </header>
 
             <t t-if="state.isLoading">
                 <div class="fxdash-loading"><i class="fa fa-circle-o-notch fa-spin fa-2x"/><p class="mt-2">Loading…</p></div>
@@ -20,24 +18,24 @@
                 <h2 class="fxdash-h2">Website bookings</h2>
                 <div class="fxdash-tiles">
                     <button class="fxdash-tile fxdash-red" t-on-click="() => this.open('bookings', 'new')">
-                        <span class="fxdash-tile-icon">🔔</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-bell" aria-hidden="true"/> Waiting for approval</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_waiting || 0"/>
-                        <span class="fxdash-tile-label">Waiting for approval</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-blue" t-on-click="() => this.open('bookings', 'slot_unseen')">
-                        <span class="fxdash-tile-icon">📅</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-calendar-check-o" aria-hidden="true"/> Visit time booked</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_slot_unseen || 0"/>
-                        <span class="fxdash-tile-label">Visit time booked</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-amber" t-on-click="() => this.open('bookings', 'parts')">
-                        <span class="fxdash-tile-icon">📦</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-cube" aria-hidden="true"/> Waiting for parts</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_parts || 0"/>
-                        <span class="fxdash-tile-label">Waiting for parts</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-grey" t-on-click="() => this.open('bookings', 'rejected_today')">
-                        <span class="fxdash-tile-icon">🚫</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-ban" aria-hidden="true"/> Rejected today</span>
                         <span class="fxdash-tile-count" t-out="state.data.wb_rejected_today || 0"/>
-                        <span class="fxdash-tile-label">Rejected today</span>
+                        <small>Show these</small>
                     </button>
                 </div>
 
@@ -45,34 +43,34 @@
                 <h2 class="fxdash-h2">Job cards</h2>
                 <div class="fxdash-tiles">
                     <button class="fxdash-tile fxdash-grey" t-on-click="() => this.openJobCards('draft')">
-                        <span class="fxdash-tile-icon">📝</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-pencil-square-o" aria-hidden="true"/> Draft</span>
                         <span class="fxdash-tile-count" t-out="state.data.state_counts.draft || 0"/>
-                        <span class="fxdash-tile-label">Draft</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-blue" t-on-click="() => this.openJobCards('inspection')">
-                        <span class="fxdash-tile-icon">🔍</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-search" aria-hidden="true"/> Inspection</span>
                         <span class="fxdash-tile-count" t-out="state.data.state_counts.inspection || 0"/>
-                        <span class="fxdash-tile-label">Inspection</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-amber" t-on-click="() => this.openJobCards('quotation')">
-                        <span class="fxdash-tile-icon">📋</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-clipboard" aria-hidden="true"/> Quotation</span>
                         <span class="fxdash-tile-count" t-out="state.data.state_counts.quotation || 0"/>
-                        <span class="fxdash-tile-label">Quotation</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-green" t-on-click="() => this.openJobCards('repair')">
-                        <span class="fxdash-tile-icon">🔧</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-wrench" aria-hidden="true"/> Repair</span>
                         <span class="fxdash-tile-count" t-out="state.data.state_counts.repair || 0"/>
-                        <span class="fxdash-tile-label">Repair</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-green" t-on-click="() => this.openJobCards('completed')">
-                        <span class="fxdash-tile-icon">✅</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-check-circle-o" aria-hidden="true"/> Completed</span>
                         <span class="fxdash-tile-count" t-out="state.data.state_counts.completed || 0"/>
-                        <span class="fxdash-tile-label">Completed</span>
+                        <small>Show these</small>
                     </button>
                     <button class="fxdash-tile fxdash-red" t-on-click="() => this.openJobCards('cancelled')">
-                        <span class="fxdash-tile-icon">❌</span>
+                        <span class="fxdash-tile-top"><i class="fa fa-times-circle-o" aria-hidden="true"/> Cancelled</span>
                         <span class="fxdash-tile-count" t-out="state.data.state_counts.cancelled || 0"/>
-                        <span class="fxdash-tile-label">Cancelled</span>
+                        <small>Show these</small>
                     </button>
                 </div>
 

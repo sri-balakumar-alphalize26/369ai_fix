@@ -180,6 +180,7 @@ class TestScreens(TransactionCase):
         self.assertEqual(outcome['popup']['model'], 'wb.approve.wizard')
         self.assertEqual(outcome['popup']['context'].get('default_order_id'), order.id)
         self.assertIn('parts_html', outcome['popup']['values'])
+        self.assertTrue(outcome['popup']['meta']['technician_id']['required'])     # shown with a *
         # no parts yet is normal (the technician picks them at the visit): no "No spare parts" line
         self.assertFalse(outcome['popup']['values']['parts_html'])
 

@@ -4,10 +4,12 @@
  * A green screen: every menu of the 369 ai Fix and Fix Website apps opens one of these
  * (client action "369ai_fix.screen", the screen's key in the action's context).
  *
- *   top:    the screen's name and what it is for, search, table / board / week, New
- *   chips:  quick filters (with counts where it helps)
- *   body:   the list on the left, the chosen record on the right (FixRecord);
- *           'table' screens are edited right in the rows; settings screens are one page
+ * Laid out like 369 Mart's desks (its UI kit, @mart369/ui/*, in our green):
+ *   head:    the screen's name and what it is for; list / board / week; New
+ *   tiles:   the counted filters as number tiles - a tile is a filter
+ *   toolbar: every filter as tabs (with their counts), the search box on the right
+ *   body:    one full-width card per record; a record opens in a dialog (FixRecord);
+ *            'table' screens are edited right in the rows; settings screens are one card
  *
  * What the screen shows comes from fix.screen (app/models/fix_screen.py + its configs).
  */
@@ -18,10 +20,23 @@ import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
 import { useDebounced } from "@web/core/utils/timing";
 import { Layout } from "@web/search/layout";
+import { Dialog } from "@web/core/dialog/dialog";
 import { serializeDate, deserializeDateTime } from "@web/core/l10n/dates";
+import { Tabs } from "@mart369/ui/tabs";
+import { Search } from "@mart369/ui/search";
 import { FixField, displayValue } from "./fix_field";
 import { FixRecord, loadMeta } from "./fix_record";
 import { MODEL, errorText } from "./fix_popup";
+
+const MAX_TILES = 4;        // the counted filters shown as tiles (369 Mart's desks show four)
+const META_COLUMNS = 4;     // values on a card's second line
+
+/** One record, opened from a list card: the record view in a wide dialog. */
+export class FixRecordDialog extends Component {
+    static template = "369ai_fix.RecordDialog";
+    static components = { Dialog, FixRecord };
+    static props = ["*"];
+}
 
 const { DateTime } = luxon;
 const MODE_LABELS = { table: "List", board: "Board", week: "Week" };
@@ -29,13 +44,14 @@ const MODE_ICONS = { table: "fa-list", board: "fa-columns", week: "fa-calendar" 
 
 export class FixScreen extends Component {
     static template = "369ai_fix.Screen";
-    static components = { Layout, FixRecord, FixField };
+    static components = { Layout, FixRecord, FixField, Tabs, Search };
     static props = ["*"];
 
     setup() {
         this.orm = useService("orm");
         this.popup = useService("fix_popup");
         this.notification = useService("notification");
+        this.dialog = useService("dialog");
         const ctx = (this.props.action && this.props.action.context) || {};
         const params = (this.props.action && this.props.action.params) || {};
         this.key = params.screen || ctx.fix_screen;
@@ -64,6 +80,9 @@ export class FixScreen extends Component {
             this.state.loading = false;
             if (ctx.fix_screen_new && this.state.meta && this.state.meta.can_create) {
                 this.create(ctx.fix_screen_defaults || {});
+            } else if (this.state.selectedId && this.kind === "records") {
+                // opened on one record (a link from another screen): show it straight away
+                this.openRecord(this.state.selectedId);
             }
         });
         onWillUpdateProps(() => {});
@@ -100,8 +119,43 @@ export class FixScreen extends Component {
     }
 
     onQuery(ev) {
-        this.state.query = ev.target.value;
+        this.onSearch(ev.target.value);
+    }
+
+    onSearch(value) {
+        this.state.query = value;
         this.searchLater();
+    }
+
+    // ------------------------------------------------------------------ tiles and tabs (369 Mart)
+    /** The counted filters (not "All"), as number tiles: a tile is a filter. */
+    get tiles() {
+        if (!this.meta) {
+            return [];
+        }
+        return this.meta.filters
+            .filter((f) => f.key !== "all" && this.state.counts[f.key] !== undefined)
+            .slice(0, MAX_TILES)
+            .map((f) => ({ key: f.key, label: f.label, count: this.state.counts[f.key] }));
+    }
+
+    /** Every filter as a tab: [key, label, count] (no count = no badge). */
+    get tabItems() {
+        return this.meta.filters.map((f) => {
+            const n = this.state.counts[f.key];
+            return [f.key, f.label, n === undefined ? null : n];
+        });
+    }
+
+    pickTab(key) {
+        if (key !== this.state.filter) {
+            this.state.filter = key;
+            this.load();
+        }
+    }
+
+    get modeTabs() {
+        return this.meta.modes.map((m) => [m, this.modeLabel(m), null]);
     }
 
     setFilter(key) {
@@ -164,8 +218,45 @@ export class FixScreen extends Component {
         return (Array.isArray(v) ? v[1] : v) || row.display_name;
     }
 
+    /** A card's round mark: the first letters of its title. */
+    initials(row) {
+        const words = String(this.rowTitle(row) || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/);
+        return ((words[0] || "?")[0] + (words.length > 1 ? words[words.length - 1][0] : (words[0] || "")[1] || "")).toUpperCase();
+    }
+
+    /** A card's second line: the list's other columns that have a value, "label value". */
+    metaLine(row) {
+        const skip = new Set([this.meta.title_field, this.meta.badge, this.meta.subtitle, this.meta.image, "display_name"]);
+        const out = [];
+        for (const c of this.columns()) {
+            if (skip.has(c)) {
+                continue;
+            }
+            const value = this.cell(row, c);
+            if (value === "" || value === false || value === null || value === undefined) {
+                continue;
+            }
+            out.push({ key: c, label: this.label(c), value });
+            if (out.length >= META_COLUMNS) {
+                break;
+            }
+        }
+        return out;
+    }
+
     select(row) {
-        this.state.selectedId = row.id;
+        this.openRecord(row.id);
+    }
+
+    openRecord(id) {
+        this.state.selectedId = id;
+        this.dialog.add(FixRecordDialog, {
+            title: this.meta.title,
+            screen: this.key,
+            recordId: id,
+            meta: this.meta,
+            onChanged: () => this.onRecordChanged(),
+        }, { onClose: () => this.closeRecord() });
     }
 
     closeRecord() {
@@ -308,7 +399,7 @@ export class FixScreen extends Component {
         if (rec) {
             await this.load();
             if (this.kind === "records") {
-                this.state.selectedId = rec.id;
+                this.openRecord(rec.id);
             }
         }
     }

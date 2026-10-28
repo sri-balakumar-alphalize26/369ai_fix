@@ -73,3 +73,39 @@
         .fxdash-bar-label { font-size: 9px; }
     }
 }
+
+/* ===================================================================== 369 Mart's look (28 Oct): its font and light
+   page, plain white tiles (icon + label, the number, "Show these"), boxes with a thin border, words not capitals */
+.o_fxdash {
+    --fxd-ink: #13212b;
+    --fxd-muted: #64757f;
+    --fxd-line: #e4eaef;
+    --fxd-bg: #f3f6f8;
+    padding: 24px 28px 48px;
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+
+    .fxdash-head { display: block; margin-bottom: 6px; }
+    .fxdash-head h1 { font-size: 21px; }
+    .fxdash-head p { margin: 2px 0 0; color: #475a66; font-size: 13.5px; }
+    .fxdash-h2 { margin: 20px 0 10px; font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; color: #13212b; }
+
+    .fxdash-tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+    .fxdash-tile { gap: 2px; min-height: 0; padding: 12px 14px; border: 1px solid #e4eaef; border-radius: 14px; box-shadow: none; }
+    .fxdash-tile:hover { border-color: #b9d8c2; }
+    .fxdash-tile-top { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #64757f; }
+    .fxdash-tile-top .fa { color: var(--fxdash-tone, #1f8a3c); }
+    .fxdash-tile-count { font-size: 22px; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+    .fxdash-tile small { font-size: 11.5px; color: #64757f; }
+    .fxdash-red .fxdash-tile-count { color: #c8433a; }
+
+    .fxdash-row { gap: 12px; }
+    .fxdash-box { border: 1px solid #e4eaef; box-shadow: none; }
+    .fxdash-box h3 { font-size: 15px; font-weight: 700; letter-spacing: 0; text-transform: none; color: #13212b; }
+    .fxdash-stat { background: #eef7f0; }
+    .fxdash-bar-fill { background: linear-gradient(180deg, #1f8a3c, #0f6b37); }
+
+    @media (max-width: 700px) {
+        padding: 16px 14px 40px;
+    }
+}

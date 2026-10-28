@@ -193,8 +193,11 @@ export class FixRecord extends Component {
         return this.meta.sections.filter((s) => !this.meta.tabs.length || !this.state.tab || s.tab === this.state.tab);
     }
 
+    // section.when: {field: [switches]} - the field shows only while one of those switches is on
     sectionFields(section) {
-        return (section.fields || []).filter((f) => this.meta.fields[f]);
+        const when = section.when || {};
+        return (section.fields || []).filter((f) => this.meta.fields[f]
+            && (!when[f] || when[f].some((s) => this.state.values[s])));
     }
 
     sectionInfo(section) {

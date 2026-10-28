@@ -42,6 +42,15 @@ NOTES = 30
 SECRET = {'upload_token_hash', 'slot_token_hash', 'tech_token_hash', 'password', 'password_crypt'}
 BINARY = ('binary', 'image')
 RELATIONAL = ('many2one', 'many2many', 'one2many')
+# Added to every record screen whose "Active" switch can be changed (see `_buttons`):
+# Odoo's own archive / unarchive, so archived records keep their history.
+ARCHIVE_BUTTONS = [
+    {'name': 'action_archive', 'label': 'Archive', 'kind': 'ghost', 'icon': 'fa-archive',
+     'show': [('active', '=', True)],
+     'confirm': 'Archive this? It is hidden from new choices but kept: find it under "Archived".'},
+    {'name': 'action_unarchive', 'label': 'Restore', 'kind': 'ghost', 'icon': 'fa-undo',
+     'show': [('active', '=', False)]},
+]
 
 
 def _field_names(cfg):
@@ -62,12 +71,15 @@ def _field_names(cfg):
 
 def _editable(cfg):
     """Fields the screen may write: the sections' fields (not info), the table's columns,
-    the create pop-up's fields."""
+    the create pop-up's fields, and the line tables not marked readonly (changed one line
+    at a time through `screen_line`)."""
     names = set(cfg.get('create_fields') or [])
     if cfg.get('kind') == 'table':
         names |= set(cfg.get('columns') or [])
     for section in cfg.get('sections') or []:
         names |= set(section.get('fields') or [])
+        if section.get('lines') and not section.get('readonly'):
+            names.add(section['lines'])
     return (names - set(cfg.get('readonly') or [])) - SECRET
 
 
@@ -98,6 +110,16 @@ class FixScreen(models.AbstractModel):
         sections = [s for s in cfg.get('sections') or []
                     if not s.get('groups') or any(user.has_group(g) for g in s['groups'].split(','))]
         return dict(cfg, key=key, sections=sections)
+
+    @api.model
+    def _buttons(self, cfg):
+        """The config's buttons, plus Archive / Restore where the record's Active switch is editable."""
+        buttons = list(cfg.get('buttons') or [])
+        if (cfg.get('kind', 'records') == 'records' and 'active' in _editable(cfg)
+                and 'active' in self.env[cfg['model']]._fields
+                and not any(b['name'] in ('action_archive', 'action_unarchive') for b in buttons)):
+            buttons += ARCHIVE_BUTTONS
+        return buttons
 
     @api.model
     def screen_single(self, key):
@@ -143,10 +165,15 @@ class FixScreen(models.AbstractModel):
         Model = self._model(cfg)
         Model.check_access('read')
         meta = self._fields_meta(Model, _field_names(cfg))
+        # the screen's own words for a field (e.g. a mobile_repair setting, whose label is not ours)
+        for attr, texts in (('string', cfg.get('labels')), ('help', cfg.get('helps'))):
+            for name, text in (texts or {}).items():
+                if name in meta:
+                    meta[name][attr] = text
         can_write = Model.has_access('write')
         can_create = Model.has_access('create') and cfg.get('create', False)
         user = self.env.user
-        buttons = [dict(b) for b in cfg.get('buttons') or []
+        buttons = [dict(b) for b in self._buttons(cfg)
                    if not b.get('groups') or any(user.has_group(g) for g in b['groups'].split(','))]
         for button in buttons:
             button.pop('show', None)
@@ -346,7 +373,7 @@ class FixScreen(models.AbstractModel):
                 lines[fname] = self._values(sub, section.get('columns') or [])
         user = self.env.user
         buttons = []
-        for button in cfg.get('buttons') or []:
+        for button in self._buttons(cfg):
             if button.get('groups') and not any(user.has_group(g) for g in button['groups'].split(',')):
                 continue
             show = button.get('show')
@@ -548,7 +575,7 @@ class FixScreen(models.AbstractModel):
     @api.model
     def screen_button(self, key, rec_id, name):
         cfg = self._screen(key)
-        button = next((b for b in cfg.get('buttons') or [] if b['name'] == name), None)
+        button = next((b for b in self._buttons(cfg) if b['name'] == name), None)
         if not button:
             raise AccessError(_("This button is not on this screen."))
         if button.get('groups') and not any(self.env.user.has_group(g) for g in button['groups'].split(',')):
@@ -644,6 +671,9 @@ class FixScreen(models.AbstractModel):
         Wizard = self.env[model].with_context(**self._safe_context(context))
         names = list(dict.fromkeys((cfg.get('fields') or []) + (cfg.get('info') or []) + (cfg.get('watch') or [])))
         meta = self._fields_meta(Wizard, names)
+        for name in cfg.get('required') or []:      # marked * in the pop-up; the wizard itself checks it
+            if name in meta:
+                meta[name]['required'] = True
         if res_id:
             rec = Wizard.browse(int(res_id)).exists()
             values = self._values(rec, names)[0] if rec else {}
@@ -797,7 +827,8 @@ class FixScreen(models.AbstractModel):
 
     @api.model
     def screen_checks(self, visit_id, action=None, args=None):
-        """'Before you start': the safety ticks, photos and video, then Start work."""
+        """'Before you start': the brand warranty, the safety ticks, photos and video, then Start work.
+        "Customer keeps the warranty" closes the visit, so the pop-up closes as after Start."""
         visit = self._visit(visit_id)
         args = args or {}
         problem = None
@@ -815,9 +846,10 @@ class FixScreen(models.AbstractModel):
                     with self.env.cr.savepoint():
                         problem = visit._vc_tech_act(action, item_id=args.get('item_id'), done=args.get('done'),
                                                      photo_id=args.get('photo_id'), data=args.get('data'),
-                                                     name=args.get('name'))
-                except (UserError, ValidationError):
-                    problem = _("This file could not be read. Try another one.")
+                                                     name=args.get('name'), answer=args.get('answer'))
+                except (UserError, ValidationError) as err:
+                    problem = (err.args[0] if action == 'check_warranty'
+                               else _("This file could not be read. Try another one."))
             else:
                 raise UserError(_("Unknown action."))
         if visit.state == 'arrived':

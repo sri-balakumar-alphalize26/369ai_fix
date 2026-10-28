@@ -116,6 +116,24 @@
         <field name="path">fix-device-photos</field>
         <field name="context" eval="{'fix_screen': 'device_angles'}"/>
     </record>
+    <record id="action_screen_tool_items" model="ir.actions.client">
+        <field name="name">Tools Checklist</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-tools-checklist</field>
+        <field name="context" eval="{'fix_screen': 'tool_items'}"/>
+    </record>
+    <record id="action_screen_tool_checks" model="ir.actions.client">
+        <field name="name">Tool Checks</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-tool-checks</field>
+        <field name="context" eval="{'fix_screen': 'tool_checks'}"/>
+    </record>
+    <record id="action_screen_missing_tools" model="ir.actions.client">
+        <field name="name">Missing Tools</field>
+        <field name="tag">369ai_fix.screen</field>
+        <field name="path">fix-missing-tools</field>
+        <field name="context" eval="{'fix_screen': 'missing_tools'}"/>
+    </record>
     <record id="action_screen_repair_settings" model="ir.actions.client">
         <field name="name">Repair Settings</field>
         <field name="tag">369ai_fix.screen</field>
