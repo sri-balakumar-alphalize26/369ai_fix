@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- The starting tools list; edit it under 369 ai Fix > Configuration > Tools Checklist. -->
+    <record id="tool_item_screwdrivers" model="fix.tool.item"><field name="name">Screwdriver set</field><field name="sequence">10</field></record>
+    <record id="tool_item_opening" model="fix.tool.item"><field name="name">Opening tools (spudger, picks)</field><field name="sequence">20</field></record>
+    <record id="tool_item_suction" model="fix.tool.item"><field name="name">Suction cup</field><field name="sequence">30</field></record>
+    <record id="tool_item_tweezers" model="fix.tool.item"><field name="name">Tweezers</field><field name="sequence">40</field></record>
+    <record id="tool_item_heat_gun" model="fix.tool.item"><field name="name">Heat gun</field><field name="sequence">50</field></record>
+    <record id="tool_item_multimeter" model="fix.tool.item"><field name="name">Multimeter</field><field name="sequence">60</field></record>
+    <record id="tool_item_adhesive" model="fix.tool.item"><field name="name">Glue / adhesive strips</field><field name="sequence">70</field></record>
+    <record id="tool_item_screws" model="fix.tool.item"><field name="name">Spare screws box</field><field name="sequence">80</field></record>
+    <record id="tool_item_cables" model="fix.tool.item"><field name="name">Charger and test cables</field><field name="sequence">90</field></record>
+    <record id="tool_item_cleaning" model="fix.tool.item"><field name="name">Cleaning kit</field><field name="sequence">100</field></record>
+</odoo>

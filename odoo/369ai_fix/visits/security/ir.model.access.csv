@@ -22,3 +22,11 @@ access_labour_job_user,fix.labour.job user,model_fix_labour_job,mobile_repair.gr
 access_labour_job_manager,fix.labour.job manager,model_fix_labour_job,mobile_repair.group_mobile_repair_manager,1,1,1,1
 access_labour_price_user,fix.labour.price user,model_fix_labour_price,mobile_repair.group_mobile_repair_technician,1,0,0,0
 access_labour_price_manager,fix.labour.price manager,model_fix_labour_price,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_tool_item_user,fix.tool.item user,model_fix_tool_item,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_tool_item_manager,fix.tool.item manager,model_fix_tool_item,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_tool_check_tech,fix.tool.check technician,model_fix_tool_check,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_tool_check_recep,fix.tool.check receptionist,model_fix_tool_check,mobile_repair.group_mobile_repair_receptionist,1,1,0,0
+access_tool_check_manager,fix.tool.check manager,model_fix_tool_check,mobile_repair.group_mobile_repair_manager,1,1,1,1
+access_tool_check_line_tech,fix.tool.check.line technician,model_fix_tool_check_line,mobile_repair.group_mobile_repair_technician,1,0,0,0
+access_tool_check_line_recep,fix.tool.check.line receptionist,model_fix_tool_check_line,mobile_repair.group_mobile_repair_receptionist,1,1,0,0
+access_tool_check_line_manager,fix.tool.check.line manager,model_fix_tool_check_line,mobile_repair.group_mobile_repair_manager,1,1,1,1

@@ -23,7 +23,11 @@ class DoorstepCase(TransactionCase):
         cls.employee = cls.env['hr.employee'].create({
             'name': 'Arjun Tech', 'user_id': cls.tech_user.id, 'mobile_phone': '+96890000001'})
         cls.env.company.write({'fs_speed_kmh': 30.0, 'fs_arrival_otp': True,
-                               'fs_show_tech_phone': True, 'fs_stale_after_s': 120})
+                               'fs_show_tech_phone': True, 'fs_stale_after_s': 120,
+                               # whatever the database has: no visit fee unless a test switches it on
+                               'fix_no_fault_fee': False})
+        # no tool bag checks here (an empty Tools Checklist asks nothing): test_visit_tools has them
+        cls.env['fix.tool.item'].search([]).write({'active': False})
 
     def setUp(self):
         super().setUp()

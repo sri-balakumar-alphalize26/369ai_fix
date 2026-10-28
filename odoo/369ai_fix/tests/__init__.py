@@ -12,3 +12,4 @@ from . import test_spin_win
 from . import test_demo_phone
 from . import test_pick_time
 from . import test_slot_places
+from . import test_visit_tools
