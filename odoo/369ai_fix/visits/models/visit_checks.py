@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Before the technician touches the device: the safety check and the device photos.
+"""Before the technician touches the device: the brand warranty, the safety check and the device photos.
 
-At the door, after "Arrived", the technician ticks what they wear (gloves, mask, ...),
+At the door, after "Arrived", the technician first asks about the brand's warranty (a "Check
+warranty" link per brand, for the technician only). Under warranty, the customer chooses: our
+repair (noted on the job card) or keeping the warranty (the visit closes, nothing touched).
+Then the technician ticks what they wear (gloves, mask, ...),
 takes 1 to 3 photos of it, photographs the device from every side and records one
 short video. "Start work" stays shut until that is done - on the visit form and the
 Booking Desk (a "Before you start" window) and on the technician's phone page. A
@@ -22,6 +25,11 @@ MIN_SAFETY_PHOTOS = 1
 MAX_SAFETY_PHOTOS = 3
 PHOTO_BYTES = 8 * 1024 * 1024
 VIDEO_BYTES = 30 * 1024 * 1024
+WARRANTY_ANSWERS = [
+    ('no', 'Not under warranty'),
+    ('ours', 'Under warranty: the customer wants our repair'),
+    ('keep', 'Under warranty: the customer keeps the warranty'),
+]
 
 
 def _sniff(data):
@@ -115,6 +123,7 @@ class VisitCheckPhoto(models.Model):
 class ServiceVisit(models.Model):
     _inherit = 'fix.service.visit'
 
+    warranty_answer = fields.Selection(WARRANTY_ANSWERS, 'Brand warranty', readonly=True, copy=False, tracking=True)
     safety_line_ids = fields.One2many('fix.visit.safety.line', 'visit_id', string='Safety check')
     safety_photo_ids = fields.One2many('fix.visit.check.photo', 'visit_id', string='Safety photos',
                                        domain=[('kind', '=', 'safety')])
@@ -129,7 +138,8 @@ class ServiceVisit(models.Model):
     checks_override_by_id = fields.Many2one('res.users', 'Allowed by', readonly=True, copy=False)
     checks_is_manager = fields.Boolean(compute='_compute_checks_is_manager')
 
-    @api.depends('safety_line_ids.worn', 'safety_photo_ids.image', 'device_photo_ids.image', 'device_video')
+    @api.depends('warranty_answer', 'safety_line_ids.worn', 'safety_photo_ids.image', 'device_photo_ids.image',
+                 'device_video')
     def _compute_checks(self):
         for visit in self:
             missing = visit._vc_missing()
@@ -161,7 +171,7 @@ class ServiceVisit(models.Model):
         """What is still to do, in words: [] when work may start."""
         self.ensure_one()
         visit = self.sudo()
-        missing = []
+        missing = [] if visit.warranty_answer in ('no', 'ours') else [_("Brand warranty not answered")]
         ticked = visit.safety_line_ids.filtered('worn').item_id
         for item in self.env['fix.safety.item'].sudo().search([('required', '=', True)]):
             if item not in ticked:
@@ -236,6 +246,50 @@ class ServiceVisit(models.Model):
         self.with_context(fix_checks_passed=True).action_start()
         return {'type': 'ir.actions.act_window_close'}
 
+    # ------------------------------------------------------------------ the brand's warranty (asked first)
+    def _vc_warranty(self, answer):
+        """The technician's answer about the brand's warranty. "keep": the customer keeps the
+        brand's warranty, so nothing is touched and the visit closes politely, free."""
+        self.ensure_one()
+        visit = self.sudo()
+        self._fs_require(('arrived',))
+        if answer not in dict(WARRANTY_ANSWERS):
+            raise UserError(_("Choose the answer about the brand's warranty."))
+        visit.warranty_answer = answer
+        if answer == 'ours':
+            body = _("Under the brand's warranty: the customer chose our repair (the brand's warranty may end). "
+                     "Noted by %s.", self.env.user.name)
+            (visit.job_card_id or visit).message_post(body=body, subtype_xmlid='mail.mt_note')
+        elif answer == 'keep':
+            if not (visit.check_found or '').strip():
+                visit.check_found = _("Your device is still under the brand's warranty and you chose to keep it, "
+                                      "so we did not open it.")
+            visit._vr_no_repair('warranty')
+        return True
+
+    # the "Before you start" window's buttons
+    def action_vc_warranty_no(self):
+        self._vc_warranty('no')
+        return self.action_open_checks()
+
+    def action_vc_warranty_ours(self):
+        self._vc_warranty('ours')
+        return self.action_open_checks()
+
+    def action_vc_warranty_keep(self):
+        self._vc_warranty('keep')
+        return {'type': 'ir.actions.act_window_close'}
+
+    def _vc_warranty_view(self):
+        self.ensure_one()
+        brand = self.sudo()._vr_device()[1]
+        return {
+            'answer': self.sudo().warranty_answer or '',
+            'answers': [{'key': k, 'label': _(label)} for k, label in WARRANTY_ANSWERS],
+            'brand': brand.name or '',
+            'check_url': brand.fix_warranty_url or '',
+        }
+
     def _vc_stamp(self):
         for visit in self.sudo().filtered(lambda v: not v.checks_done_on):
             visit.checks_done_on = fields.Datetime.now()
@@ -278,6 +332,7 @@ class ServiceVisit(models.Model):
         self.ensure_one()
         visit = self.sudo()
         return {
+            'warranty': visit._vc_warranty_view(),
             'safety': [{'id': line.id, 'name': line.name, 'required': line.required, 'done': line.worn}
                        for line in visit.safety_line_ids.sorted(lambda l: (l.sequence, l.id))
                        if line.item_id.active],
@@ -299,12 +354,17 @@ class ServiceVisit(models.Model):
             view['checks'] = self._vc_view()
         return view
 
-    def _vc_tech_act(self, action, item_id=None, done=None, photo_id=None, data=None, name=None):
+    def _vc_tech_act(self, action, item_id=None, done=None, photo_id=None, data=None, name=None, answer=None):
         """One change from the phone page. Returns None, or an error in words."""
         self.ensure_one()
         visit = self.sudo()
         if visit.state != 'arrived':
             return _("The checks are done after arriving and before starting work.")
+        if action == 'check_warranty':
+            if answer not in dict(WARRANTY_ANSWERS):
+                return _("Choose the answer about the brand's warranty.")
+            self._vc_warranty(answer)
+            return None
         if action == 'check_tick':
             line = visit.safety_line_ids.filtered(lambda l: l.id == item_id)
             if not line:
@@ -353,9 +413,9 @@ class ServiceVisit(models.Model):
                 with self.env.cr.savepoint():
                     problem = visit._vc_tech_act(action, item_id=kw.get('item_id'), done=kw.get('done'),
                                                  photo_id=kw.get('photo_id'), data=kw.get('data'),
-                                                 name=kw.get('name'))
-            except (UserError, ValidationError):
-                problem = _("This photo could not be read. Take it again.")
+                                                 name=kw.get('name'), answer=kw.get('answer'))
+            except (UserError, ValidationError) as err:
+                problem = err.args[0] if action == 'check_warranty' else _("This photo could not be read. Take it again.")
             view = visit._fs_tech_view()
             return dict(view, ok=False, error='check', message=problem) if problem else view
         if action == 'start' and visit.state == 'arrived':

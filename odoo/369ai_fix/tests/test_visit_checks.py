@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import base64
+from unittest.mock import patch
 
 from odoo.exceptions import AccessError, UserError
 from odoo.tests import new_test_user, tagged
@@ -24,7 +25,9 @@ class TestVisitChecks(DoorstepCase):
         self.assertTrue(visit._fs_arrive(skip_code=True)['ok'])
         return visit, token
 
-    def _fill(self, visit):
+    def _fill(self, visit, warranty='no'):
+        if warranty:
+            visit._vc_warranty(warranty)
         visit._vc_prepare()
         visit.safety_line_ids.write({'worn': True})
         self.env['fix.visit.check.photo'].create({'visit_id': visit.id, 'kind': 'safety', 'image': b64(PNG)})
@@ -52,6 +55,45 @@ class TestVisitChecks(DoorstepCase):
         self.assertEqual(visit.state, 'in_progress')
         self.assertTrue(visit.checks_done_on)
 
+    def test_brand_warranty_is_asked_first(self):
+        """The brand's warranty comes before everything; "our repair" is noted, then work can start."""
+        visit, token = self._arrived()
+        self._fill(visit, warranty=None)                             # everything but the warranty
+        self.assertEqual(visit._vc_missing(), ['Brand warranty not answered'])
+        with self.assertRaises(UserError):
+            visit.action_start_checked()
+        category = self.env['device.category'].create({'name': 'VC Phones'})
+        brand = self.env['device.brand'].create({'name': 'VC Brand', 'category_id': category.id,
+                                                 'fix_warranty_url': 'https://brand.example/warranty'})
+        with patch.object(type(visit), '_vr_device', lambda v: (category, brand, v.env['device.model'])):
+            view = visit._vc_view()['warranty']
+        self.assertEqual((view['answer'], view['brand'], view['check_url']),
+                         ('', 'VC Brand', 'https://brand.example/warranty'))
+        self.assertEqual([a['key'] for a in view['answers']], ['no', 'ours', 'keep'])
+        page = self.env['fix.service.visit'].tech_page(HOST, visit.name, token, action='check_warranty', answer='ours')
+        self.assertNotEqual(page.get('ok'), False, page)
+        self.assertEqual(page['checks']['warranty']['answer'], 'ours')
+        noted = (visit.job_card_id or visit).message_ids.mapped('body')
+        self.assertTrue(any('the customer chose our repair' in str(b) for b in noted), noted)
+        self.assertTrue(visit.checks_done)
+        visit.action_start_checked()
+        self.assertEqual(visit.state, 'in_progress')
+        # "Under the brand's warranty" is no longer a "Can it be fixed?" answer
+        self.assertNotIn('warranty', [o['key'] for o in visit._vr_view()['outcomes']])
+
+    def test_customer_keeps_the_brand_warranty(self):
+        """Keeping the brand's warranty closes the visit at the door, free, with a polite message."""
+        visit, token = self._arrived()
+        before = len(self.sent)
+        page = self.env['fix.service.visit'].tech_page(HOST, visit.name, token, action='check_warranty', answer='keep')
+        self.assertNotEqual(page.get('ok'), False, page)
+        self.assertEqual((visit.state, visit.check_outcome, visit.warranty_answer), ('done', 'warranty', 'keep'))
+        self.assertFalse(visit.safety_line_ids.filtered('worn'))      # nothing prepared, nothing opened
+        texts = [text for _phone, text in self.sent[before:]]
+        self.assertTrue(any('still under the brand' in t for t in texts), texts)
+        page = self.env['fix.service.visit'].tech_page(HOST, visit.name, token, action='check_warranty', answer='no')
+        self.assertEqual(page.get('ok'), False)                       # closed: no more answers
+
     def test_optional_items_and_new_items(self):
         visit, _token = self._arrived()
         self._fill(visit)
@@ -77,6 +119,9 @@ class TestVisitChecks(DoorstepCase):
         self.assertEqual(refused['error'], 'checks')
         self.assertEqual(visit.state, 'arrived')
 
+        wrong = Visit.tech_page(HOST, visit.name, token, action='check_warranty', answer='maybe')
+        self.assertEqual(wrong['error'], 'check')
+        self.assertTrue(Visit.tech_page(HOST, visit.name, token, action='check_warranty', answer='no')['ok'])
         for item in checks['safety']:
             Visit.tech_page(HOST, visit.name, token, action='check_tick', item_id=item['id'], done=True)
         bad = Visit.tech_page(HOST, visit.name, token, action='check_safety_photo', data=b64(b'not a photo'))

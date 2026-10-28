@@ -63,6 +63,15 @@
                     All checks are done. Press <strong>Start work</strong>.
                 </div>
 
+                <h4>Brand warranty <small class="text-muted">(asked first - dial *#06# for the IMEI)</small></h4>
+                <field name="warranty_answer" readonly="1" placeholder="Not answered yet"/>
+                <div class="mb-3" invisible="warranty_answer in ('no', 'ours')">
+                    <button name="action_vc_warranty_no" type="object" string="Not under warranty" class="btn-secondary"/>
+                    <button name="action_vc_warranty_ours" type="object" string="Under warranty: customer wants our repair" class="btn-secondary ms-2"/>
+                    <button name="action_vc_warranty_keep" type="object" string="Under warranty: customer keeps it (close)" class="btn-secondary ms-2"
+                            confirm="The visit closes now, nothing is opened, and the customer gets a polite message. Continue?"/>
+                </div>
+
                 <h4>1. Safety check</h4>
                 <field name="safety_line_ids" nolabel="1">
                     <list editable="bottom" create="0" delete="0">
