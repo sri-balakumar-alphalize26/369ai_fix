@@ -265,7 +265,8 @@ class TestBookingDesk(TransactionCase):
         self.assertFalse(wizard.brand_id)                        # nothing to match in "My tablet"
         with self.assertRaises(UserError):
             wizard.action_confirm()                              # the brand is asked for
-        Wizard.create({'order_id': order.id, 'brand_id': brand.id, 'model_id': m4.id}).action_confirm()
+        Wizard.create({'order_id': order.id, 'brand_id': brand.id, 'model_id': m4.id,
+                       'technician_id': self.employee.id}).action_confirm()
         card = order.job_card_ids
         self.assertEqual((card.brand_id, card.model_id), (brand, m4))
         self.assertEqual(card.service_line_ids.product_id, repair)
@@ -279,6 +280,27 @@ class TestBookingDesk(TransactionCase):
         order.line_ids.write({'brand_id': False, 'series_id': False, 'model_id': False})
         wizard = self.env['wb.approve.wizard'].create({'order_id': order.id})
         self.assertEqual((wizard.brand_id, wizard.model_id), (brand, m4))
+
+    def test_no_approval_without_a_technician(self):
+        """The booking is approved with the technician who goes - never "To be assigned"."""
+        order = self._book_with_card()
+        repair = self.env['product.product'].create({'name': 'Desk Repair', 'type': 'service', 'list_price': 10.0})
+        order.job_card_ids.service_line_ids = [(0, 0, {'product_id': repair.id, 'quantity': 1, 'unit_price': 10.0})]
+        wizard = self.env['wb.approve.wizard'].with_user(self.desk_user).create({'order_id': order.id})
+        self.assertFalse(wizard.technician_id)                   # the placeholder is never offered
+        with self.assertRaisesRegex(UserError, 'Choose the technician first'):
+            wizard.action_confirm()
+        placeholder = self.env.company._wb_unassigned_employee()
+        with self.assertRaisesRegex(UserError, 'Choose the technician first'):
+            order._wb_do_approve(technician=placeholder)
+        self.assertEqual(order.state, 'new')
+        wizard.technician_id = self.employee
+        wizard.action_confirm()
+        self.assertEqual((order.state, order.job_card_ids.assigned_to), ('confirmed', self.employee))
+        # a technician already on the job card comes pre-filled
+        again = self._book_with_card()
+        again.job_card_ids.assigned_to = self.employee
+        self.assertEqual(self.env['wb.approve.wizard'].create({'order_id': again.id}).technician_id, self.employee)
 
     def test_approve_card_without_a_repair(self):
         order = self._book_with_card()                           # the repair is a name only: no line

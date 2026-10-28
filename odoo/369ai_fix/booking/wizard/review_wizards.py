@@ -13,7 +13,8 @@ class ApproveWizard(models.TransientModel):
 
     order_id = fields.Many2one('online.service.order', required=True, ondelete='cascade')
     technician_id = fields.Many2one('hr.employee', string='Technician',
-                                    help="Replaces the placeholder on the job card(s).")
+                                    compute='_compute_technician', store=True, readonly=False,
+                                    help="Who goes. Needed to approve; replaces the placeholder on the job card(s).")
     parts_html = fields.Html('Parts', compute='_compute_parts', sanitize=False)
     has_missing = fields.Boolean(compute='_compute_parts')
     days = fields.Integer('Parts arrive in about (days)')
@@ -34,6 +35,15 @@ class ApproveWizard(models.TransientModel):
     def _compute_bill_type(self):
         for wiz in self:
             wiz.bill_type = wiz.order_id._wb_bill_type() if wiz.order_id else False
+
+    @api.depends('order_id')
+    def _compute_technician(self):
+        """The job card's technician when one is already chosen (never the placeholder)."""
+        for wiz in self:
+            order = wiz.order_id.sudo()
+            placeholder = (order.company_id or self.env.company).wb_unassigned_employee_id
+            assigned = order.job_card_ids.filtered(lambda c: c.state != 'cancelled').assigned_to - placeholder
+            wiz.technician_id = assigned[:1]
 
     def _brandless_lines(self):
         self.ensure_one()

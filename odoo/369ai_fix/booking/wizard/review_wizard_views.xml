@@ -16,7 +16,7 @@
                 <group>
                     <field name="brand_id" invisible="not needs_card" required="needs_card" options="{'no_create': True}"/>
                     <field name="model_id" invisible="not needs_card" options="{'no_create': True}"/>
-                    <field name="technician_id" options="{'no_create': True}"/>
+                    <field name="technician_id" options="{'no_create': True}" required="1"/>
                     <field name="bill_type" widget="radio"/>
                 </group>
                 <separator string="Parts on the job card" invisible="not parts_html"/>

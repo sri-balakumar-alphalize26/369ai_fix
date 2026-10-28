@@ -267,8 +267,12 @@ class OnlineServiceOrder(models.Model):
         if not cards.service_line_ids:
             raise UserError(_("The job card of %s has no repair on it yet: open the job card, add the "
                               "repair with its price, then approve.", self.name))
-        if technician:
-            cards.sudo().write({'assigned_to': technician.id})
+        # no approval without the technician who goes (not the "To be assigned" placeholder)
+        placeholder = (self.company_id or self.env.company).sudo().wb_unassigned_employee_id
+        technician = (technician or cards.assigned_to)[:1]
+        if not technician or technician == placeholder:
+            raise UserError(_("Choose the technician first: a booking is approved with the technician who goes."))
+        cards.sudo().write({'assigned_to': technician.id})
         missing = self._wb_missing_parts()
         self.sudo().write({
             'approved_on': fields.Datetime.now(),

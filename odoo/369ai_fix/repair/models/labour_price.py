@@ -19,9 +19,19 @@ class FixLabourJob(models.Model):
     price_ids = fields.One2many(
         'fix.labour.price', 'job_id', string='Price per device type',
         help='A different price for some device types (e.g. Laptop OMR 8). The others get the price for every device.')
+    category_ids = fields.Many2many(
+        'device.category', string='Only for device types',
+        help='Empty: the technician sees this price on every visit. Otherwise only on these device types '
+             '(e.g. Add more cameras: CCTV only).')
     active = fields.Boolean(default=True)
 
     _one_per_service = models.Constraint('unique (service_id)', 'This service already has a labour price.')
+
+    def _fits(self, category):
+        """Shown for this device type: no "Only for" types, or this one among them. An unknown
+        device type (nothing booked or on the job card) sees every price."""
+        self.ensure_one()
+        return not self.category_ids or not category or category in self.category_ids
 
     def _price_for(self, category):
         """The price for a device type: its own row, else the price for every device."""
