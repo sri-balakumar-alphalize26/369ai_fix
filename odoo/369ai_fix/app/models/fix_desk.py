@@ -306,6 +306,8 @@ class OnlineServiceOrder(models.Model):
             'recheck': visit._vr_recheck_view() if visit and visit.state not in ('done', 'cancelled') else '',
             # the technician waits at the door for the office's answer about a part
             'part_asked': (visit.ask_name or '') if visit and visit.state == 'in_progress' and visit.ask_state == 'asked' else '',
+            # a tool marked missing at this booking's visit (leaving the office or this place), not found yet
+            'tools_missing': visit._vt_lost_here() if visit else '',
             # the visit's time, for "Visit time" order in the list
             'slot_start': _dt(visit.slot_start if visit and visit.slot_start else
                               order.slot_id._window(order.slot_date)[0] if order.slot_id and order.slot_date else False),
@@ -522,6 +524,8 @@ class OnlineServiceOrder(models.Model):
                 'stale': visit.tech_stale,
                 'fix_age_s': visit.tech_fix_age_s,
                 'directions_url': visit.directions_url or '',
+                # the tool bag: from the office (that day) and from this customer's place
+                'tools': visit._vt_desk(),
             }
             row['map'] = order._fix_desk_map(visit)
         return row

@@ -152,6 +152,12 @@
     .fxt-total small { font-weight: 500; color: var(--fxd-muted); }
     .fxt-total b { font-size: 18px; }
 
+    /* the tool bag */
+    .fxt-lost { border-color: var(--fxd-red); }
+    .fxt-lost h3 { color: var(--fxd-red); }
+    .fxt-tools .fxt-note { margin: 0 0 6px; }
+    .fxt-lockhint { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--fxd-amber-soft); color: var(--fxd-amber); font-weight: 600; }
+
     /* finish */
     .fxt-finish { border-color: var(--fxd-green); }
     .fxt-paybox { display: flex; flex-direction: column; gap: 10px; }
@@ -160,6 +166,11 @@
     .fxt-closed { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 8px; }
     .fxt-closed span { display: grid; font-size: 14px; }
     .fxt-closed b { font-size: 12px; font-weight: 600; color: var(--fxd-muted); }
+
+    /* the tool bag: each tool's row tinted green (in the bag) / red (missing) */
+    .fxt-tools .fxt-line { margin: 0 0 6px; padding: 6px 8px 6px 12px; border-radius: 12px; background: #f4f6f8; font-weight: 600; }
+    .fxt-tools .fxt-line:has(.fxd-btn-primary) { background: #eef7f0; }
+    .fxt-tools .fxt-line:has(.fxd-btn-danger) { background: #fdeeed; }
 
     @media (min-width: 821px) {
         /* the main buttons as wide as their words on a laptop; full width on a phone */
@@ -181,5 +192,65 @@
         .fxt-lb-nav { top: auto; bottom: 16px; transform: none; }
         .fxt-lb-prev { left: calc(50% - 56px); }
         .fxt-lb-next { right: calc(50% - 56px); }
+    }
+}
+
+/* ===================================================================== My Visits in 369 Mart's look (28 Oct):
+   its font, light page, white cards with a thin border, normal-size buttons (36px; 44px for the one main
+   step), in our green. .o_fxt is My Visits only - the Booking Desk shares .o_fxd and is not touched here. */
+.o_fxt {
+    --fxd-ink: #13212b;
+    --fxd-muted: #64757f;
+    --fxd-line: #e4eaef;
+    --fxd-bg: #f3f6f8;
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+
+    .fxd { background: #f3f6f8; }
+    .fxd-top { padding: 14px 22px; background: #fff; border-bottom: 1px solid #e4eaef; }
+    .fxd-brand h1 { font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+    .fxd-brand small { font-size: 12.5px; }
+
+    .fxd-box { gap: 8px; padding: 14px 16px; border-radius: 14px; border-color: #e4eaef; box-shadow: none; }
+    .fxd-box h3 { font-family: inherit; font-size: 15px; font-weight: 700; }
+    .fxd-box h4 { margin: 8px 0 2px; font-size: 13.5px; font-weight: 700; }
+    .fxt-cust { font-size: 16px; font-weight: 800; }
+    .fxt-sum, .fxt-addr, .fxt-hint, .fxd-muted { font-size: 13px; }
+
+    .fxd-btn { min-height: 36px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+    .fxd-btn-sm { min-height: 30px; padding: 0 11px; border-radius: 9px; font-size: 12px; }
+    .fxd-btn-primary { border-color: transparent; background: linear-gradient(135deg, #1f8a3c, #0f6b37); }
+    .fxd-btn-ghost { border-color: #cfd8df; }
+    .fxt-big { min-height: 44px; border-radius: 10px; font-size: 14px; }
+    .fxd-in, .fxd-pick { min-height: 36px; border-radius: 10px; font-size: 13.5px; }
+
+    .fxt-line { min-height: 40px; }
+    .fxt-tick { min-height: 40px; border-color: #e4eaef; border-radius: 10px; font-size: 13.5px; }
+    .fxt-tick input { width: 18px; height: 18px; }
+    .fxt-chip { min-height: 34px; padding: 5px 12px; font-size: 13px; }
+    .fxt-outcome { min-height: 40px; border-color: #e4eaef; border-radius: 10px; font-size: 13.5px; }
+    .fxt-lockhint { padding: 9px 12px; border-radius: 10px; font-size: 13px; }
+    .fxt-card { border-color: #e4eaef; }
+
+    /* on a phone the main steps stay easy to tap */
+    @media (max-width: 820px) {
+        .fxt-big { min-height: 48px; font-size: 15px; }
+        .fxd-btn-sm { min-height: 36px; }
+    }
+}
+
+/* My Visits' 369 Mart layout (28 Oct): the tiles / tabs / cards come from fix_desk.scss (.o_fxdesk, .o_fxt);
+   here only its own two columns, visit cards | the visit */
+.o_fxt {
+    .fxt-body { grid-template-columns: 380px minmax(0, 1fr); gap: 14px; }
+    .fxd-list-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+    .fxd-list-title small { color: #64757f; font-size: 12.5px; }
+    .fxt-card .fxd-card-top { flex-wrap: wrap; }
+
+    @media (max-width: 1040px) {
+        .fxt-body { grid-template-columns: 300px minmax(0, 1fr); }
+    }
+    @media (max-width: 820px) {
+        .fxt-body { grid-template-columns: minmax(0, 1fr); }
     }
 }

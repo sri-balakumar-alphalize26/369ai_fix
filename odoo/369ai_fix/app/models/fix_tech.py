@@ -7,6 +7,7 @@ the visits they are the technician of (their employee is linked to their user); 
 manager can open any visit, to help or to test. Office staff keep the Booking Desk.
 """
 import base64
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError
@@ -21,6 +22,7 @@ MANAGER = 'mobile_repair.group_mobile_repair_manager'
 # as fix_checks_passed or wb_silent through My Visits
 KEEP_CONTEXT = ('lang', 'tz', 'allowed_company_ids')
 SEARCH_LIMIT = 50       # the search box lists the newest this many (and says how many matched)
+CANCELLED_DAYS = 7      # visits the office cancelled stay in the list this long
 
 
 class ServiceVisit(models.Model):
@@ -32,8 +34,9 @@ class ServiceVisit(models.Model):
 
     @api.model
     def fix_tech_load(self):
-        """My visits: the open ones (the soonest first), then the ones finished today.
-        A repair manager without an employee of their own sees every technician's."""
+        """My visits: the open ones (the soonest first), the ones finished today, and the ones
+        the office cancelled in the last week (so the technician knows). A repair manager
+        without an employee of their own sees every technician's."""
         me = self._fix_tech_me()
         manager = self.env.user.has_group(MANAGER)
         if not me and not manager:
@@ -43,7 +46,10 @@ class ServiceVisit(models.Model):
         today = fields.Datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         visits = Visit.search(mine + [('state', 'in', OPEN_STATES)], order='slot_start asc, id asc', limit=100)
         done = Visit.search(mine + [('state', '=', 'done'), ('done_on', '>=', today)], order='done_on desc', limit=30)
-        visits |= done
+        cancelled = Visit.search(mine + [('state', '=', 'cancelled'),
+                                         ('cancelled_on', '>=', today - timedelta(days=CANCELLED_DAYS))],
+                                 order='cancelled_on desc', limit=30)
+        visits |= done | cancelled
         currency = self.env.company.currency_id
         return {
             'visits': [v._fix_tech_row() for v in visits],

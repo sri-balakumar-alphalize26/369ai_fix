@@ -22,6 +22,7 @@ import { _t } from "@web/core/l10n/translation";
 import { Layout } from "@web/search/layout";
 import { AlarmLoop, FixAlarm, NEW_TONE, SLOT_TONE, setDeskOpen } from "./desk_alarm";
 import { destroyMap, hasLeaflet, mountMap, updateMap } from "./leaflet_map";
+import { Tabs } from "@mart369/ui/tabs";
 import { FixRecord } from "../screen/fix_record";
 import { errorText } from "../screen/fix_popup";
 import { FixSort, readSort, saveSort, sortRows } from "../list_sort";
@@ -92,7 +93,7 @@ const BUTTONS = {
 
 export class FixDesk extends Component {
     static template = "369ai_fix.Desk";
-    static components = { Layout, FixRecord, FixSort };
+    static components = { Layout, FixRecord, FixSort, Tabs };
     static props = ["*"];
 
     setup() {
@@ -361,6 +362,11 @@ export class FixDesk extends Component {
             }
         }
         return changed;
+    }
+
+    /** The stages as 369 Mart tabs: [key, label, count]. */
+    get stageTabs() {
+        return this.state.stages.map((s) => [s.key, s.label, this.state.counts[s.key] || 0]);
     }
 
     railClass(s) {

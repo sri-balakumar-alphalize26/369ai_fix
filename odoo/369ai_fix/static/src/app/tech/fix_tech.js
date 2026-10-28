@@ -22,6 +22,7 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { _t } from "@web/core/l10n/translation";
 import { Layout } from "@web/search/layout";
+import { Tabs } from "@mart369/ui/tabs";
 import { errorText } from "../screen/fix_popup";
 import { FixSort, readSort, saveSort, sortRows } from "../list_sort";
 
@@ -57,12 +58,13 @@ const PLANS_ORDER = [["keep", _t("Customer keeps it until the part arrives")],
                      ["order_take", _t("Take the device to the office until the part arrives")]];
 // "Can it be fixed?": these close the visit with the reason the technician writes
 const NO_REPAIR = ["no_fault", "not_worth", "warranty"];
+const FEE_OUTCOMES = ["no_fault", "not_worth"];     // the visit fee when Repair Settings' switch is on
 const OUTCOME_ICONS = { parts: "fa-cogs", labour: "fa-wrench", lab: "fa-flask", no_fault: "fa-check",
                         not_worth: "fa-ban", warranty: "fa-certificate" };
 
 export class FixTech extends Component {
     static template = "369ai_fix.Tech";
-    static components = { Layout, FixSort };
+    static components = { Layout, FixSort, Tabs };
     static props = ["*"];
 
     setup() {
@@ -110,7 +112,8 @@ export class FixTech extends Component {
             prices: {},         // typed labour prices, by repair line
             labourPrice: "",
             labourOpen: false,  // Labour only: the charge box open (before a charge is saved)
-            noFaultFee: false,  // No fault found: charge the visit fee (else free)
+            waiveFee: false,    // Not worth repairing: the technician waives the visit fee at the door
+            listTab: "open",    // the list shown: open | working | done | cancelled (369 Mart tiles and tabs)
             alts: [],           // other grades offered for one part
             altsFor: 0,
             reqOpen: false,
@@ -192,7 +195,7 @@ export class FixTech extends Component {
     }
 
     get openVisits() {
-        return sortRows(this.state.visits.filter((v) => v.state !== "done"), SORTS, this.state.sort);
+        return sortRows(this.state.visits.filter((v) => !["done", "cancelled"].includes(v.state)), SORTS, this.state.sort);
     }
 
     get sorts() {
@@ -265,13 +268,46 @@ export class FixTech extends Component {
         return this.state.visits.filter((v) => v.state === "done");
     }
 
+    get cancelledVisits() {
+        return this.state.visits.filter((v) => v.state === "cancelled");
+    }
+
+    // ------------------------------------------------------------------ tiles and tabs (369 Mart)
+    get workingVisits() {
+        return this.openVisits.filter((v) => v.state === "in_progress");
+    }
+
+    /** The lists as tiles / tabs: [key, label, count, hint]. */
+    get listTabs() {
+        return [
+            ["open", _t("To do"), this.openVisits.length, _t("Today and upcoming")],
+            ["working", _t("Working now"), this.workingVisits.length, _t("At a customer")],
+            ["done", _t("Done today"), this.doneVisits.length, this.todayText() || _t("Finished today")],
+            ["cancelled", _t("Cancelled"), this.cancelledVisits.length, _t("Last 7 days")],
+        ];
+    }
+
+    get tabItems() {
+        return this.listTabs.map(([key, label, count]) => [key, label, count]);
+    }
+
+    get listVisits() {
+        return { open: this.openVisits, working: this.workingVisits, done: this.doneVisits,
+                 cancelled: this.cancelledVisits }[this.state.listTab] || this.openVisits;
+    }
+
+    pickList(key) {
+        this.clearFind();
+        this.state.listTab = key;
+    }
+
     async open(visit) {
         this.state.selectedId = visit.id;
         this.state.showDetail = true;
         this.clearSearch();
         Object.assign(this.state, { message: "", code: "", plan: "", accIds: [], noAcc: false,
                                     issuesOpen: false, issueWord: "", brandId: 0, partDaysSet: false,
-                                    outcome: "", prices: {}, labourPrice: "", labourOpen: false, alts: [], altsFor: 0, reqOpen: false,
+                                    outcome: "", prices: {}, labourPrice: "", labourOpen: false, waiveFee: false, alts: [], altsFor: 0, reqOpen: false,
                                     reqName: "", reqPrice: "", reqPhoto: "", payMethod: 0, payAmount: "", finishCode: "" });
         try {
             this.show(await this.orm.call(MODEL, "fix_tech_view", [[visit.id]]));
@@ -362,7 +398,7 @@ export class FixTech extends Component {
             if (res && res.ok === false && !quiet) {
                 this.state.message = res.message || _t("That did not work. Try again.");
             }
-            if (action !== "ping" && !action.startsWith("check_")) {
+            if (action !== "ping" && !action.startsWith("check_") && !action.startsWith("tool_")) {
                 this.load();
             }
             return res;
@@ -383,7 +419,51 @@ export class FixTech extends Component {
 
     get stepBlocked() {
         const v = this.state.view;
-        return !!(v && v.state === "arrived" && v.checks && v.checks.missing && v.checks.missing.length);
+        return !!(v && v.state === "arrived" && v.checks && v.checks.missing && v.checks.missing.length) || this.toolsBlock;
+    }
+
+    get stepBlockedText() {
+        const v = this.state.view;
+        if (this.toolsBlock) {
+            return _t("Check your tools first (above).");
+        }
+        return _t("Still to do: %s.", ((v.checks && v.checks.missing) || []).join(", "));
+    }
+
+    // ------------------------------------------------------------------ the tool bag
+    get toolsBlock() {
+        const v = this.state.view;
+        return !!(v && v.state === "assigned" && v.tools && v.tools.required && !v.tools.done);
+    }
+
+    // "Before you leave" is open and not done: the steps that end the visit wait for it
+    get toolsLock() {
+        const v = this.state.view;
+        return !!(v && v.state === "in_progress" && v.tools && v.tools.kind === "house" && v.tools.required && !v.tools.done);
+    }
+
+    get toolsTitle() {
+        const t = this.state.view.tools;
+        return t.for_ref ? _t("Tools: the house you left (%s)", t.for_customer || t.for_ref) : t.title;
+    }
+
+    get toolsHint() {
+        const t = this.state.view.tools;
+        if (t.for_ref) {
+            return _t("You left %(customer)s (%(ref)s) without checking your tools. Do it now, before the next trip.",
+                      { customer: t.for_customer || _t("the customer"), ref: t.for_ref });
+        }
+        return t.kind === "office"
+            ? _t("Before you leave the office: mark each tool and take a photo of the open bag. A missing tool does not stop you; the office is told.")
+            : _t("Before you leave the customer: every tool back in the bag, then a photo of the open bag.");
+    }
+
+    async toolsDone() {
+        const gone = this.state.view.tools.lines.filter((line) => line.state === "missing").map((line) => line.name);
+        if (gone.length && !(await this.popup.confirm(_t("Missing: %s. The office is told. Carry on?", gone.join(", "))))) {
+            return;
+        }
+        await this.act("tool_done");
     }
 
     async onStep() {
@@ -436,6 +516,14 @@ export class FixTech extends Component {
     }
 
     // ------------------------------------------------------------------ before you start
+    async warranty(answer) {
+        if (answer.key === "keep" && !(await this.popup.confirm(
+            _t("The customer keeps the brand's warranty? The visit closes now, nothing is opened, and the customer gets a polite message.")))) {
+            return;
+        }
+        await this.act("check_warranty", { answer: answer.key });
+    }
+
     async tick(item, ev) {
         await this.act("check_tick", { item_id: item.id, done: ev.target.checked });
     }
@@ -677,14 +765,19 @@ export class FixTech extends Component {
         return NO_REPAIR.includes(this.state.outcome);
     }
 
-    // No fault found: the visit fee can be charged (not on a free re-check)
-    get noFaultFeeOffered() {
+    // No fault found / not worth repairing: the visit fee is charged when Repair Settings' switch is on
+    // (never on a free re-check); for Not worth repairing the technician may waive it
+    get feeDue() {
         const r = this.result;
-        return this.state.outcome === "no_fault" && !!r && !!r.visit_fee && !r.recheck;
+        return FEE_OUTCOMES.includes(this.state.outcome) && !!r && !!r.visit_fee && !r.recheck;
+    }
+
+    get feeWaivable() {
+        return this.feeDue && this.state.outcome === "not_worth";
     }
 
     get chargingVisitFee() {
-        return this.noFaultFeeOffered && this.state.noFaultFee;
+        return this.feeDue && !(this.feeWaivable && this.state.waiveFee);
     }
 
     outcomeIcon(key) {
@@ -715,6 +808,7 @@ export class FixTech extends Component {
                 return;
             }
             await this.act("result_outcome", { outcome: key, note: this.state.note, fee,
+                                               waive: this.feeWaivable && this.state.waiveFee,
                                                brand_id: this.state.brandId || false });
         } else if (key === "lab") {
             const days = Number(this.state.labDays);

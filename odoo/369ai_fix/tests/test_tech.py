@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """My Visits (app/models/fix_tech.py): the technician's own screen in Odoo runs the web page's
 steps with their login; only their own visits, and no flag can skip the safety check."""
+from odoo import fields
 from odoo.exceptions import AccessError
 from odoo.tests import new_test_user, tagged
 
@@ -39,6 +40,7 @@ class TestMyVisits(DoorstepCase):
         self.assertEqual(visit.state, 'arrived')
 
         checks = page['checks']
+        self.assertTrue(mine.fix_tech_act('check_warranty', answer='no')['ok'])   # the brand's warranty first
         for item in checks['safety']:
             mine.fix_tech_act('check_tick', item_id=item['id'], done=True)
         self.assertTrue(mine.fix_tech_act('check_safety_photo', data=b64(PNG))['ok'])
@@ -81,6 +83,15 @@ class TestMyVisits(DoorstepCase):
         load = self.env['fix.service.visit'].with_user(self.other_user).fix_tech_load()
         self.assertFalse(load['linked'])
         self.assertEqual(load['visits'], [])
+
+    def test_cancelled_visits_stay_in_the_list_for_a_week(self):
+        _order, visit = self._assigned()
+        visit.action_cancel()
+        Visit = self.env['fix.service.visit'].with_user(self.tech_user)
+        rows = {v['id']: v for v in Visit.fix_tech_load()['visits']}
+        self.assertEqual(rows[visit.id]['state'], 'cancelled')               # the technician still sees it
+        visit.cancelled_on = fields.Datetime.subtract(fields.Datetime.now(), days=9)
+        self.assertNotIn(visit.id, [v['id'] for v in Visit.fix_tech_load()['visits']])
 
     def test_the_web_page_still_works(self):
         _order, visit = self._assigned()
