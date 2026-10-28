@@ -258,10 +258,11 @@ class TestVisitCloseout(DoorstepCase):
         self.assertFalse(any('cancelled' in t.lower() for t in texts), texts)
 
     # ------------------------------------------------------------------ no fault found: free, or the visit fee
-    def _visit_fee(self, price=5.0):
+    def _visit_fee(self, price=5.0, on=True):
+        """A visit fee product, and Repair Settings' "Charge a visit fee when no fault is found" (`on`)."""
         fee = self.env['product.product'].create({'name': 'CO Visit fee', 'type': 'service', 'lst_price': price})
         self.env['ir.config_parameter'].sudo().set_param('mobile_repair.inspection_charge_product_id', fee.id)
-        self.env.company.fix_recheck_days = 7
+        self.env.company.write({'fix_recheck_days': 7, 'fix_no_fault_fee': on})
         return fee
 
     def _working_for(self, phone):
@@ -274,9 +275,9 @@ class TestVisitCloseout(DoorstepCase):
         return order, visit
 
     def test_no_fault_free_tells_the_free_recheck(self):
-        self._visit_fee()
+        self._visit_fee(on=False)                                          # the switch is off: always free
         _order, visit = self._working_for('+968 9123 7001')
-        self.assertEqual(visit._vr_view()['visit_fee'], 5.0)              # the technician may charge it
+        self.assertFalse(visit._vr_view()['visit_fee'])
         before = len(self.sent)
         visit._vr_outcome('no_fault', note='Works fine after a restart')
         self.assertEqual((visit.state, visit.job_card_id.state), ('done', 'cancelled'))
@@ -302,6 +303,51 @@ class TestVisitCloseout(DoorstepCase):
         texts = self._texts(before)
         self.assertTrue(any('no fault found' in t and 'within 7 days' in t for t in texts), texts)
         self.assertFalse(any('repair for order' in t or 'completed' in t.lower() for t in texts), texts)
+
+    def test_switch_on_charges_the_fee_without_asking(self):
+        self._visit_fee()
+        _order, visit = self._working_for('+968 9123 7005')
+        self.assertEqual(visit._vr_view()['visit_fee'], 5.0)
+        visit._vr_outcome('no_fault', note='Works fine after a restart')  # no choice: the switch decides
+        self.assertEqual((visit.state, visit.close_stage), ('in_progress', 'finish'))
+        self.assertAlmostEqual(visit._co_due(), 5.0)
+
+    def test_not_worth_repairing_charges_the_fee_too(self):
+        self._visit_fee()
+        order, visit = self._working_for('+968 9123 7006')
+        before = len(self.sent)
+        visit._vr_outcome('not_worth', note='Board too old, a repair costs more than the phone')
+        self.assertEqual((visit.state, visit.close_stage, visit.check_outcome), ('in_progress', 'finish', 'not_worth'))
+        self.assertAlmostEqual(visit._co_due(), 5.0)
+        self.assertEqual(visit._co_view()['outcome'], 'not_worth')
+        self.assertNotIn('Photo of the repaired device', ' '.join(visit._co_missing()))
+        texts = self._texts(before)
+        self.assertTrue(any('not worth repairing' in t and visit.finish_code in t for t in texts), texts)
+        visit._co_pay(self.cash.id)
+        before = len(self.sent)
+        self.assertTrue(visit._co_finish(code=visit.finish_code)['ok'])
+        self.assertEqual((visit.state, order.state), ('done', 'done'))
+        self.assertFalse(visit.warranty_until)
+        texts = self._texts(before)
+        self.assertTrue(any('checked, not repaired' in t for t in texts), texts)
+        # the technician waives it at the door: closes free, the waiver is noted for the office
+        _order3, waived = self._working_for('+968 9123 7008')
+        waived._vr_outcome('not_worth', note='Too old', waive=True)
+        self.assertEqual(waived.state, 'done')
+        self.assertTrue(waived.message_ids.filtered(lambda m: 'waived' in (m.body or '')))
+        # switched off: not worth repairing closes for free, as before
+        self.env.company.fix_no_fault_fee = False
+        _order2, free = self._working_for('+968 9123 7007')
+        free._vr_outcome('not_worth', note='Too old')
+        self.assertEqual(free.state, 'done')
+
+    def test_settings_switch_and_amount(self):
+        fee = self._visit_fee(on=False)
+        settings = self.env['res.config.settings'].create({'fix_no_fault_fee': True, 'fix_visit_fee_amount': 7.5})
+        settings.execute()
+        self.assertTrue(self.env.company.fix_no_fault_fee)
+        self.assertAlmostEqual(fee.lst_price, 7.5)
+        self.assertAlmostEqual(self.env['res.config.settings'].create({}).fix_visit_fee_amount, 7.5)
 
     def test_no_visit_fee_set_cannot_charge_it(self):
         self.env['ir.config_parameter'].sudo().set_param('mobile_repair.inspection_charge_product_id', '')

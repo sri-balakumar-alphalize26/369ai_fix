@@ -30,6 +30,7 @@ from odoo.tools.mimetypes import guess_mimetype
 
 from .service_visit import MAX_CODE_TRIES, _iso
 from .visit_checks import PHOTO_BYTES, _sniff
+from .visit_result import FEE_OUTCOMES
 
 _logger = logging.getLogger(__name__)
 
@@ -85,11 +86,11 @@ class ServiceVisit(models.Model):
         visit.message_post(body=note, subtype_xmlid='mail.mt_note')
 
     # ------------------------------------------------------------------ no fault found, with the visit fee
-    def _vr_no_fault_fee(self, brand=None):
-        """No fault found, the visit fee charged (the technician's choice): the job card keeps only
-        the visit fee - the booked repairs at 0, no parts - and the visit goes to Finish: the
-        customer pays at the door and gives the finish code. A visit without a website booking
-        closes; the office bills the fee from the job card."""
+    def _vr_no_fault_fee(self, brand=None, outcome='no_fault'):
+        """No fault found / not worth repairing (`outcome`), the visit fee charged (Repair Settings'
+        switch): the job card keeps only the visit fee - the booked repairs at 0, no parts - and the
+        visit goes to Finish: the customer pays at the door and gives the finish code. A visit
+        without a website booking closes; the office bills the fee from the job card."""
         self.ensure_one()
         visit = self.sudo()
         fee = visit._vr_visit_fee()
@@ -104,23 +105,28 @@ class ServiceVisit(models.Model):
         card.service_line_ids.filtered(self._vr_is_labour_line).unlink()
         card.service_line_ids.write({'unit_price': 0.0})
         card.inspection_type = 'paid'               # _co_due(): the visit fee
-        visit.check_outcome = 'no_fault'
+        visit.check_outcome = outcome
         visit._vr_clear_plan()
         visit._vr_set('no_repair')
         currency = visit._co_currency()
         fee_text = _("Visit fee %(cur)s %(amount)s", cur=currency.name,
                      amount='%.*f' % (currency.decimal_places, visit._co_due()))
-        card.message_post(body=_("No fault found at the visit: only the visit fee. %s", visit.check_found or ''))
+        what = _("Not worth repairing") if outcome == 'not_worth' else _("No fault found")
+        card.message_post(body=_("%(what)s at the visit: only the visit fee. %(found)s",
+                                 what=what, found=visit.check_found or ''))
         if not visit.order_id:
             visit.action_done()
             return True
         visit._co_open_finish(
-            'visit_no_fault_fee', _("No fault found, %s: finishing (payment, the customer's code).", fee_text),
+            'visit_not_worth_fee' if outcome == 'not_worth' else 'visit_no_fault_fee',
+            _("%(what)s, %(fee)s: finishing (payment, the customer's code).", what=what, fee=fee_text),
             reason=visit.check_found or '', fee=fee_text)
         return True
 
     def _co_no_fault(self):
-        return self.sudo().check_outcome == 'no_fault'
+        """Nothing repaired, only the visit fee (no fault found / not worth repairing): no photo of the
+        repaired device, no warranty, the "not repaired" receipt."""
+        return self.sudo().check_outcome in FEE_OUTCOMES
 
     def _co_require(self):
         self.ensure_one()
@@ -388,6 +394,10 @@ class ServiceVisit(models.Model):
         self.ensure_one()
         visit = self.sudo()
         link = visit._co_rate_link()
+        if visit.check_outcome == 'not_worth':
+            visit.with_context(osm_extra={'paid': visit._co_paid_text(), 'rate_url': link}
+                               )._fs_notify('visit_not_worth_receipt')
+            return
         if visit._co_no_fault():
             visit.with_context(osm_extra={'paid': visit._co_paid_text(), 'recheck': visit._vr_recheck_line(),
                                           'rate_url': link})._fs_notify('visit_no_fault_receipt')
@@ -501,6 +511,7 @@ class ServiceVisit(models.Model):
             'tries_left': max(MAX_CODE_TRIES - visit.finish_tries, 0),
             'missing': visit._co_missing(),
             'no_fault': visit._co_no_fault(),      # no photo step, the visit fee only
+            'outcome': visit.check_outcome or '',  # no_fault / not_worth: the hint's words
         }
 
     def _co_steps(self):

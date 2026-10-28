@@ -29,6 +29,10 @@ class ResCompany(models.Model):
         'Free re-check (days)', default=7,
         help="After \"No fault found\", the customer is told: if the problem comes back within this many "
              "days, book again and the check is free (no visit fee). 0: no free re-check.")
+    fix_no_fault_fee = fields.Boolean(
+        'Charge a visit fee when no fault is found',
+        help="On: when the technician finds nothing wrong, the customer pays the visit fee at the door, "
+             "then gives the finish code (a free re-check stays free). Off: \"No fault found\" is always free.")
     fix_review_url = fields.Char(
         'Review link (Google)',
         help="Customers who give 4 or 5 stars after a visit are also offered this link "

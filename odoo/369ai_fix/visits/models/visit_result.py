@@ -57,6 +57,8 @@ OUTCOMES = [
     ('warranty', "Under the brand's warranty"),
 ]
 NO_REPAIR = ('no_fault', 'not_worth', 'warranty')
+# not repaired, but the visit fee is charged when Repair Settings' switch is on (paid at the door, then the code)
+FEE_OUTCOMES = ('no_fault', 'not_worth')
 MAX_PRICE = 100000.0
 # What the technician proposes with the quotation
 PLANS = [
@@ -94,6 +96,8 @@ class ServiceVisit(models.Model):
     pend_part_days = fields.Integer(readonly=True, copy=False)
     pend_date = fields.Date('Back by', readonly=True, copy=False)
     # the part asked of the office at the door, and the office's answer
+    # Labour only: the technician chose Free or a charge (no default: Fixed on the spot waits for it)
+    labour_set = fields.Boolean('Labour charge chosen', readonly=True, copy=False)
     ask_state = fields.Selection(ASK_STATES, 'Part asked', readonly=True, copy=False, index=True, tracking=True)
     ask_name = fields.Char('Part asked for', readonly=True, copy=False)
     ask_price = fields.Float('Rough price (technician)', readonly=True, copy=False)
@@ -429,14 +433,16 @@ class ServiceVisit(models.Model):
         return card.service_line_ids.filtered(self._vr_is_labour_line) if card else self.env['job.card.service.line']
 
     def _vr_labour_free(self, brand=None):
-        """Labour only: the work is free to start with - the booked repairs at 0, no labour line.
-        A charge is added only when needed (`_vr_labour_charge`), and the customer approves it."""
+        """Labour only: the booked repairs at 0, no labour line - and nothing chosen yet. The
+        technician then picks Free or a charge (`_vr_labour_charge`, `labour_set`); a charge is
+        quoted to the customer first."""
         self.ensure_one()
         visit = self.sudo()
         card = visit._vr_card(brand=brand)
         card.service_line_ids.filtered(self._vr_is_labour_line).unlink()
         card.service_line_ids.write({'unit_price': 0.0})
-        visit.message_post(body=_("Labour only: free."), subtype_xmlid='mail.mt_note')
+        visit.labour_set = False
+        visit.message_post(body=_("Labour only: free or a charge, to be chosen."), subtype_xmlid='mail.mt_note')
 
     def _vr_labour_restore(self):
         """Back to Needs parts: the booked repairs at their own price again, no labour line."""
@@ -452,13 +458,13 @@ class ServiceVisit(models.Model):
                            subtype_xmlid='mail.mt_note')
 
     def _vr_labour_presets(self):
-        """The office's fixed labour prices (Catalogue > Labour Prices), at this device type's price."""
+        """The office's fixed labour prices (Catalogue > Labour Prices) for this device type, at its price."""
         self.ensure_one()
         visit = self.sudo()
         company = visit.company_id or self.env.company
         category = visit._vr_device()[0]
         jobs = self.env['fix.labour.job'].sudo().search([('service_id.company_id', 'in', [company.id, False])])
-        return [{'id': j.id, 'name': j.name, 'price': j._price_for(category)} for j in jobs]
+        return [{'id': j.id, 'name': j.name, 'price': j._price_for(category)} for j in jobs if j._fits(category)]
 
     def _vr_labour_preset(self, preset_id, brand=None):
         """The technician tapped a fixed labour price: its name and price come from the office's list."""
@@ -466,7 +472,10 @@ class ServiceVisit(models.Model):
         job = self.env['fix.labour.job'].sudo().browse(int(preset_id or 0)).exists()
         if not job or not job.active:
             raise UserError(_("That labour price is not in the list any more."))
-        price = job._price_for(self.sudo()._vr_device()[0])
+        category = self.sudo()._vr_device()[0]
+        if not job._fits(category):
+            raise UserError(_("%(job)s is not for a %(device)s.", job=job.name, device=category.name))
+        price = job._price_for(category)
         return self._vr_labour_charge(price, brand=brand, name=job.name)
 
     def _vr_labour_charge(self, amount, brand=None, name=None):
@@ -485,6 +494,7 @@ class ServiceVisit(models.Model):
         visit = self.sudo()
         labour = visit._vr_labour_lines()
         currency = (visit.company_id or self.env.company).currency_id
+        visit.labour_set = True
         if currency.compare_amounts(amount, 0.0) <= 0:
             labour.unlink()
             visit.message_post(body=_("Labour only: free."), subtype_xmlid='mail.mt_note')
@@ -503,10 +513,11 @@ class ServiceVisit(models.Model):
         return True
 
     def _vr_labour_note(self):
-        """For the office: 'free', the labour charge, or '' when the outcome is not Labour only."""
+        """For the office: 'free', the labour charge, or '' when the outcome is not Labour only
+        or the technician has not chosen free / a charge yet."""
         self.ensure_one()
         visit = self.sudo()
-        if visit.check_outcome != 'labour':
+        if visit.check_outcome != 'labour' or not visit.labour_set:
             return ''
         charge = sum(l.unit_price * l.quantity for l in visit._vr_labour_lines())
         return charge if charge > 0 else 'free'
@@ -571,6 +582,11 @@ class ServiceVisit(models.Model):
         self._vr_require()
         self._vr_note(note)
         need = self._vr_need()
+        if self.check_outcome == 'labour' and self.check_result != 'repairing' and not self.sudo().labour_set:
+            raise UserError(_("Labour only: choose Free, or the labour charge, first."))
+        if self.check_outcome == 'parts' and self.check_result != 'repairing' and not need['parts']:
+            raise UserError(_("Needs parts: add the part first. Fixed on the spot is for a part you have "
+                              "at the price the customer agreed; otherwise send the quotation."))
         if self.check_result != 'repairing' and (need['needs_quote'] or need['to_order']):
             raise UserError(_("The price changed: send the quotation first, the customer approves "
                               "before the repair."))
@@ -639,7 +655,7 @@ class ServiceVisit(models.Model):
         return True
 
     # --- "Can it be fixed?"
-    def _vr_outcome(self, outcome, note=None, days=None, unit='days', brand=None, fee=False):
+    def _vr_outcome(self, outcome, note=None, days=None, unit='days', brand=None, fee=False, waive=False):
         """The technician's first answer. Needs parts / labour only: the parts and the price
         follow on the same screen. Lab check: the device goes to the office (accessories next),
         the price follows from there. No fault / not worth it / brand warranty: the visit closes
@@ -682,8 +698,15 @@ class ServiceVisit(models.Model):
             return True
         if not (visit.check_found or '').strip():
             raise UserError(_("Write what you checked and why it is not repaired: the customer reads it."))
-        if outcome == 'no_fault' and fee:
-            return visit._vr_no_fault_fee(brand=brand)
+        # the office's switch (Repair Settings): the visit fee on every "No fault found" and "Not worth
+        # repairing", a re-check free. Not worth repairing: the technician may waive it at the door.
+        due = fee or visit._vr_fee_view()
+        if due and outcome == 'not_worth' and waive:
+            visit.message_post(body=_("Visit fee waived by %s (not worth repairing).", self.env.user.name),
+                               subtype_xmlid='mail.mt_note')
+            due = False
+        if outcome in FEE_OUTCOMES and due:
+            return visit._vr_no_fault_fee(brand=brand, outcome=outcome)
         return visit._vr_no_repair(outcome)
 
     # --- no fault found: free, or the visit fee; a free re-check when the problem comes back
@@ -1205,7 +1228,8 @@ class ServiceVisit(models.Model):
             'timeline_date': visit.pend_date.strftime('%a %d %b') if visit.pend_date else '',
             'need_device': not visit.job_card_id and not visit._vr_device_guess()[1],
             'outcome': visit.check_outcome or '',
-            'outcomes': [{'key': k, 'label': _(label)} for k, label in OUTCOMES],
+            # "Under the brand's warranty" is asked first, in "Before you start" (visit_checks.py)
+            'outcomes': [{'key': k, 'label': _(label)} for k, label in OUTCOMES if k != 'warranty'],
             'lines': visit._vr_lines(),
             'services': visit._vr_services(),
             'issues': visit._vr_issues(),
@@ -1224,6 +1248,7 @@ class ServiceVisit(models.Model):
             'labour': visit._vr_labour_note(),
             # the office's fixed labour prices: one tap instead of typing the charge
             'labour_presets': visit._vr_labour_presets() if visit.check_outcome == 'labour' else [],
+            'labour_for': visit._vr_device()[0].name or '' if visit.check_outcome == 'labour' else '',
             # No fault found: free, or the visit fee (paid at the door); none on a free re-check
             'visit_fee': visit._vr_fee_view(),
             'recheck': visit._vr_recheck_view(),
@@ -1236,9 +1261,13 @@ class ServiceVisit(models.Model):
         return view
 
     def _vr_fee_view(self):
-        """The visit fee the technician can charge for "No fault found" (False: none set)."""
+        """The visit fee "No fault found" charges: Repair Settings' switch on, a price set and not a
+        free re-check (False: free)."""
+        company = self.company_id or self.env.company
         fee = self._vr_visit_fee()
-        return fee.lst_price if fee and fee.lst_price > 0 else False
+        if not company.fix_no_fault_fee or not fee or fee.lst_price <= 0 or self._vr_recheck_of():
+            return False
+        return fee.lst_price
 
     def _vr_recheck_view(self):
         """The earlier "No fault found" visit when this one is a free re-check ('' when not)."""
@@ -1302,7 +1331,8 @@ class ServiceVisit(models.Model):
                                 product_id=args.get('product_id') or 0, brand=Model('device.brand', 'brand_id'))
         elif action == 'result_outcome':
             visit._vr_outcome(args.get('outcome'), note=note, days=args.get('days'), unit=_unit(args.get('unit')),
-                              brand=Model('device.brand', 'brand_id'), fee=bool(args.get('fee')))
+                              brand=Model('device.brand', 'brand_id'), fee=bool(args.get('fee')),
+                              waive=bool(args.get('waive')))
         elif action == 'result_request':
             visit._vr_request_part(args.get('name'), price=args.get('price'), data=args.get('data'),
                                    brand=Model('device.brand', 'brand_id'), note=note)

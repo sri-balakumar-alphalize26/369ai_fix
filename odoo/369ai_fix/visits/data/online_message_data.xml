@@ -74,6 +74,21 @@ Paid: {paid}
 {recheck}
 How did {technician} do? Rate the visit: {rate_url}</field>
     </record>
+    <!-- Not worth repairing, with the visit fee (Repair Settings' switch): the same steps as no fault found. -->
+    <record id="msg_visit_not_worth_fee" model="online.service.message">
+        <field name="key">visit_not_worth_fee</field>
+        <field name="sequence">21</field>
+        <field name="body">Hi {name}, {technician} has checked your device (order {order}): it is not worth repairing.
+{reason}
+{fee}. After paying, give them this code: {code}</field>
+    </record>
+    <record id="msg_visit_not_worth_receipt" model="online.service.message">
+        <field name="key">visit_not_worth_receipt</field>
+        <field name="sequence">22</field>
+        <field name="body">Thank you {name}! Order {order}: checked, not repaired.
+Paid: {paid}
+How did {technician} do? Rate the visit: {rate_url}</field>
+    </record>
     <record id="msg_visit_part_sourcing" model="online.service.message">
         <field name="key">visit_part_sourcing</field>
         <field name="sequence">18</field>

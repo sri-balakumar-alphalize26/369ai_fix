@@ -192,13 +192,18 @@ class TestVisitResult(DoorstepCase):
         self.assertIn(request.name, visit.part_ask_ids.reply)
 
     # ------------------------------------------------------------------ Labour only: free, or a charge with the customer's OK
-    def test_labour_only_is_free_by_default(self):
+    def test_labour_only_has_no_default(self):
         order, visit, _token = self._working()
         visit._vr_outcome('labour', brand=self.brand)
         card = visit.job_card_id
         self.assertTrue(card)
         self.assertEqual(card._wb_lines_total(), 0.0)
         self.assertFalse(visit._vr_need()['needs_quote'])
+        self.assertEqual(visit._vr_view()['labour'], '')                    # nothing chosen yet
+        self.assertEqual(order._fix_desk_row()['labour'], '')
+        with self.assertRaises(UserError):
+            visit._vr_fixed()                                                # free or a charge first
+        visit._vr_labour_charge(0)                                           # the technician ticks Free
         self.assertEqual(visit._vr_view()['labour'], 'free')
         self.assertEqual(order._fix_desk_row()['labour'], 'free')          # the office's note
         visit._vr_fixed()                                                    # no quotation needed
@@ -269,6 +274,22 @@ class TestVisitResult(DoorstepCase):
         cleaning.active = False                                              # archived: no tap
         with self.assertRaises(UserError):
             visit._vr_labour_preset(cleaning.id)
+
+    def test_a_labour_price_only_for_some_device_types(self):
+        """"Only for device types": a CCTV job is neither shown nor taken on a phone visit."""
+        _order, visit, _token = self._working()
+        cctv = self.env['device.category'].create({'name': 'VR CCTV'})
+        service = self.env['product.template'].create({'name': 'VR Add cameras', 'type': 'service'})
+        cameras = self.env['fix.labour.job'].create({'service_id': service.id, 'price': 2.0,
+                                                     'category_ids': [(6, 0, cctv.ids)]})
+        visit._vr_outcome('labour', brand=self.brand)                        # a VR Phones phone
+        view = visit._vr_view()
+        self.assertNotIn(cameras.id, [p['id'] for p in view['labour_presets']])
+        self.assertEqual(view['labour_for'], self.category.name)             # "Prices for: VR Phones"
+        with self.assertRaises(UserError):
+            visit._vr_labour_preset(cameras.id)
+        cameras.category_ids |= self.category                                # phones too: shown
+        self.assertIn(cameras.id, [p['id'] for p in visit._vr_view()['labour_presets']])
 
     # ------------------------------------------------------------------ a device at our office
     def test_lab_take_receipt_received_and_overdue(self):

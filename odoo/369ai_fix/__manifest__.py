@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.24.0',
+    'version': '19.0.2.25.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """
@@ -74,6 +74,7 @@ mobile_repair and 369 Mart's add-ons are extended, never changed.
         'visits/data/online_message_data.xml',
         'visits/wizard/arrival_code_wizard_views.xml',
         'visits/data/visit_checks_data.xml',
+        'visits/data/visit_tools_data.xml',
         'visits/views/service_visit_views.xml',
         'visits/views/visit_checks_views.xml',
         'visits/wizard/visit_result_wizard_views.xml',

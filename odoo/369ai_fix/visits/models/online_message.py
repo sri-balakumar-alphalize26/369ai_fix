@@ -13,6 +13,8 @@ VISIT_KEYS = [
     ('visit_part_sourcing', 'Visit: part asked of the office, price follows'),
     ('visit_no_fault_fee', 'Visit: no fault found, the visit fee and the finish code'),
     ('visit_no_fault_receipt', 'Visit: no fault found, receipt and rating link'),
+    ('visit_not_worth_fee', 'Visit: not worth repairing, the visit fee and the finish code'),
+    ('visit_not_worth_receipt', 'Visit: not worth repairing, receipt and rating link'),
 ]
 
 
