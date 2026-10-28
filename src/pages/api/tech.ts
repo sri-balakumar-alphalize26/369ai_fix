@@ -2,6 +2,7 @@
 //   GET  ?v=&t=                                          what the page shows
 //   POST {v, t, action: 'ping', lat, lng, accuracy, heading, speed, battery}   the phone's position
 //   POST {v, t, action: 'on_the_way' | 'arrive' | 'start' | 'done', lat?, lng?, code?}   one step
+//   POST {v, t, action: 'check_warranty', answer: no | ours | keep}      the brand's warranty, asked first (keep closes the visit)
 //   POST {v, t, action: 'check_tick', item_id, done}                       a safety tick (after arriving)
 //   POST {v, t, action: 'check_safety_photo' | 'check_side_photo' | 'check_video', photo_id?, data, name?}
 //   POST {v, t, action: 'check_clear_safety'}                              take the safety photos again
@@ -16,6 +17,8 @@
 //   POST {v, t, action: 'result_ask', name, price?, data?}  /  'result_ask_cancel'   ask the office and wait at the door
 //   POST {v, t, action: 'result_alts' | 'result_choose', line_id}          another grade of a part / keep this grade
 //   POST {v, t, action: 'close_photo' {data} | 'close_clear' | 'close_pay' {method_id, amount?} | 'close_free' | 'close_code' {code}}   Finish
+//   POST {v, t, action: 'tool_mark' {line_id, mark: ok|missing|todo, note?} | 'tool_photo' {data} | 'tool_done'}
+//        the tool bag: leaving the office (before Start trip) and leaving the house (before closing)
 import type { APIRoute } from 'astro';
 import { hostOf, json, odooCall, originOk } from '../../lib/odoo';
 
@@ -24,8 +27,8 @@ export const prerender = false;
 const s = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n);
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const ACTIONS = new Set(['ping', 'on_the_way', 'arrive', 'start', 'done',
-  // before work: the safety check, the photos and the video (Odoo checks the files' content)
-  'check_tick', 'check_safety_photo', 'check_side_photo', 'check_video', 'check_clear_safety',
+  // before work: the brand's warranty, the safety check, the photos and the video (Odoo checks the files' content)
+  'check_warranty', 'check_tick', 'check_safety_photo', 'check_side_photo', 'check_video', 'check_clear_safety',
   // while working: what was found, the parts, and the result
   'result_issue', 'result_parts', 'result_note', 'result_add_part', 'result_remove_part',
   'result_fixed', 'result_quote',
@@ -38,7 +41,9 @@ const ACTIONS = new Set(['ping', 'on_the_way', 'arrive', 'start', 'done',
   // Labour only: the labour charge (0 = free); any charge is quoted to the customer first
   'result_labour',
   // after the repair: the photo, the payment and the customer's finish code
-  'close_photo', 'close_clear', 'close_pay', 'close_free', 'close_code']);
+  'close_photo', 'close_clear', 'close_pay', 'close_free', 'close_code',
+  // the tool bag: each tool in the bag or missing, one photo of the bag, done
+  'tool_mark', 'tool_photo', 'tool_done']);
 const MAX_B64 = 42 * 1024 * 1024;   // a 30 MB video, base64
 
 export const GET: APIRoute = async ({ request }) => {
@@ -62,16 +67,20 @@ export const POST: APIRoute = async ({ request }) => {
   if (data.length > MAX_B64) return json({ ok: false, error: 'check', message: 'The file is too large.' }, 413);
   const check = action.startsWith('check_') ? {
     item_id: num(b.item_id), photo_id: num(b.photo_id), done: !!b.done, name: s(b.name, 80), data,
+    answer: ['no', 'ours', 'keep'].includes(b.answer) ? b.answer : '',
   } : action.startsWith('result_') ? {
     query: s(b.query, 80), product_id: num(b.product_id), brand_id: num(b.brand_id), line_id: num(b.line_id),
     issue_id: num(b.issue_id), on: !!b.on, plan: s(b.plan, 20),
     qty: num(b.qty), days: num(b.days), part_days: num(b.part_days), unit: b.unit === 'weeks' ? 'weeks' : 'days',
-    take: !!b.take, no_accessories: !!b.no_accessories,
+    take: !!b.take, no_accessories: !!b.no_accessories, waive: !!b.waive,
     note: b.note === undefined ? null : s(b.note, 2000),
     accessory_ids: Array.isArray(b.accessory_ids) ? b.accessory_ids.filter((x: unknown) => Number.isInteger(x)).slice(0, 50) : [],
     outcome: s(b.outcome, 20), price: num(b.price), name: s(b.name, 120), data,
   } : action.startsWith('close_') ? {
     data, method_id: num(b.method_id), amount: num(b.amount),
+  } : action.startsWith('tool_') ? {
+    data, line_id: num(b.line_id), mark: ['ok', 'missing', 'todo'].includes(b.mark) ? b.mark : '',
+    note: b.note === undefined ? null : s(b.note, 200),
   } : {};
   try {
     return json(await odooCall(host, 'fix.service.visit', 'tech_page', {

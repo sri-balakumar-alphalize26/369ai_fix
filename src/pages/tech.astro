@@ -45,31 +45,48 @@ export const prerender = false;
           <div data-vr-asklist></div>
         </div>
 
-        <!-- after arriving: the safety check and the device photos; Start work waits for them -->
+        <!-- a tool marked missing at an earlier check and not found yet: at every step -->
+        <div class="tv-card vt-lost" data-vt-lost hidden>
+          <h3>⚠ Tool still missing</h3>
+          <div data-vt-lostlist></div>
+          <p class="tv-hint">Found it? Mark it "In the bag" at your next tool check, or tell the office.</p>
+        </div>
+
+        <!-- after arriving: the brand's warranty first, then the safety check and the device photos; Start work waits for them -->
         <div class="tv-card tv-ck" data-vc hidden>
           <h3>Before you start</h3>
           <p class="tv-hint">Do these at the door, before you touch the device.</p>
 
-          <h4>1. Safety check</h4>
+          <h4>1. Brand warranty <small data-vc-wbrand></small></h4>
+          <p class="tv-hint">Dial *#06# for the IMEI. Under warranty: the customer chooses. Opening the device may end the brand's warranty.</p>
+          <a class="tv-btn ghost sm" data-vc-wcheck target="_blank" rel="noopener" hidden>Check warranty ↗</a>
+          <div class="vr-outcomes" role="radiogroup" aria-label="Brand warranty" data-vc-warranty></div>
+
+          <div data-vc-rest hidden>
+          <h4>2. Safety check</h4>
           <div class="vc-list" data-vc-safety></div>
 
-          <h4>2. Photo of you ready to work <small>(1 to 3)</small></h4>
+          <h4>3. Photo of you ready to work <small>(1 to 3)</small></h4>
           <div class="vc-row">
             <span class="vc-st" data-vc-sp></span>
             <label class="tv-btn ghost sm">Take photo<input type="file" accept="image/*" capture="user" data-vc-spin hidden /></label>
             <button type="button" class="vc-link" data-vc-spclear hidden>Take again</button>
           </div>
 
-          <h4>3. Device photos</h4>
+          <h4>4. Device photos</h4>
           <div class="vc-list" data-vc-sides></div>
 
-          <h4>4. Short video of the device <small>(under a minute)</small></h4>
+          <h4>5. Short video of the device <small>(under a minute)</small></h4>
           <div class="vc-row">
             <span class="vc-st" data-vc-vid></span>
             <label class="tv-btn ghost sm">Record video<input type="file" accept="video/*" capture="environment" data-vc-vin hidden /></label>
           </div>
+          </div>
           <p class="vc-busy" data-vc-busy hidden>Sending…</p>
         </div>
+
+        <!-- "Before you leave" first: the steps that end the visit stay shut until the tools are checked -->
+        <p class="vt-lockhint" data-vt-lockhint hidden>🧰 Check your tools first (<b>Before you leave</b>, below). Fixed on the spot, Take the device, Declined, Decides later and Finish open after that.</p>
 
         <!-- while working: what was found -> the quotation first -> the customer's OK -> the plan -->
         <div class="tv-card tv-ck" data-vr hidden>
@@ -101,6 +118,10 @@ export const prerender = false;
             </div>
             <div class="vr-sub" data-vr-close hidden>
               <p class="tv-hint">Write above what you checked and why. The customer gets it on WhatsApp and the visit closes.</p>
+              <!-- No fault found: the visit fee when Repair Settings' switch is on; a free re-check is free -->
+              <p class="tv-hint" data-vr-fee hidden></p>
+              <!-- Not worth repairing: the technician may waive the visit fee at the door -->
+              <label class="vr-free" data-vr-waivebox hidden><input type="checkbox" data-vr-waive /> <span>No charge (free) — the office sees it was waived</span></label>
               <button type="button" class="tv-btn big ghost" data-vr-nogo>Close without a repair</button>
             </div>
 
@@ -109,7 +130,7 @@ export const prerender = false;
                 <h4>Repair price <small>(type it when it is “price after check” or not right)</small></h4>
                 <div class="vc-list" data-vr-services></div>
               </div>
-              <!-- Labour only: free by default; a charge goes to the customer for their OK first -->
+              <!-- Labour only: no default - free, or a charge the customer approves first -->
               <div data-vr-labourbox hidden>
                 <h4>Labour charge</h4>
                 <label class="vr-free"><input type="checkbox" data-vr-free /> <span>No labour charge (free)</span></label>
@@ -167,6 +188,7 @@ export const prerender = false;
               <button type="button" class="tv-btn big" data-vr-quote>Send the quotation</button>
             </div>
             <button type="button" class="tv-btn big" data-vr-fixed>Fixed on the spot</button>
+            <p class="tv-hint" data-vr-nopart hidden>Add the part above. <b>Fixed on the spot</b> shows when the part is here and the price is what the customer already agreed; otherwise send the quotation.</p>
             </div>
             <p class="tv-hint" data-vr-pick>Choose one to go on.</p>
           </div>
@@ -228,6 +250,21 @@ export const prerender = false;
           </div>
           <button type="button" class="tv-btn big" data-co-go>Finish the visit</button>
           <p class="tv-hint" data-co-miss></p>
+        </div>
+
+        <!-- the tool bag: leaving the office (once a day, before Start trip) and leaving each house
+             (before the visit closes); a missing tool never stops the work, the office is told -->
+        <div class="tv-card tv-ck" data-vt hidden>
+          <h3 data-vt-title></h3>
+          <p class="tv-hint" data-vt-hint></p>
+          <div class="vc-list" data-vt-lines></div>
+          <h4>Photo of the open bag</h4>
+          <div class="vc-row">
+            <span class="vc-st" data-vt-ph></span>
+            <label class="tv-btn ghost sm"><span data-vt-phl>Take photo</span><input type="file" accept="image/*" capture="environment" data-vt-pin hidden /></label>
+          </div>
+          <button type="button" class="tv-btn big" data-vt-done>Tools checked</button>
+          <p class="tv-hint" data-vt-miss></p>
         </div>
 
         <div class="tv-card" data-tv-step hidden>
@@ -346,15 +383,19 @@ export const prerender = false;
     const step = STEP[d.state];
     $('[data-tv-step]').hidden = !step;
     renderChecks(d.checks);
+    renderTools(d.tools, d.tools_missing);
     if (step) {
       const waiting = step[1] === 'start' && d.checks?.missing?.length;
+      const tools = step[1] === 'on_the_way' && d.tools?.required && !d.tools.done;
       $('[data-tv-go]').textContent = step[0];
-      $<HTMLButtonElement>('[data-tv-go]').disabled = !!waiting;
-      $('[data-tv-hint]').textContent = waiting ? `Still to do: ${d.checks.missing.join(', ')}.` : step[2];
+      $<HTMLButtonElement>('[data-tv-go]').disabled = !!waiting || !!tools;
+      $('[data-tv-hint]').textContent = waiting ? `Still to do: ${d.checks.missing.join(', ')}.`
+        : tools ? 'Check your tools first (above).' : step[2];
       $('[data-tv-codebox]').hidden = !(step[1] === 'arrive' && d.need_code);
     }
     renderResult(d.result);
     renderClose(d.close);
+    lockClosing(d);
     const end = $('[data-tv-end]');
     end.hidden = !!step || !!d.result || !!d.close;
     if (!step) {
@@ -377,6 +418,14 @@ export const prerender = false;
     const box = $('[data-vc]');
     box.hidden = !c;
     if (!c) return;
+    const w = c.warranty || { answers: [] };
+    $('[data-vc-wbrand]').textContent = w.brand ? `(${w.brand})` : '';
+    const wcheck = $<HTMLAnchorElement>('[data-vc-wcheck]');
+    wcheck.hidden = !w.check_url;
+    if (w.check_url) wcheck.href = w.check_url;
+    $('[data-vc-warranty]').innerHTML = w.answers.map((a: any) => `<button type="button" role="radio" aria-checked="${w.answer === a.key}"
+      class="vr-out${w.answer === a.key ? ' on' : ''}" data-vc-warranty-answer="${a.key}">${esc(a.label)}</button>`).join('');
+    $('[data-vc-rest]').hidden = !['no', 'ours'].includes(w.answer);
     $('[data-vc-safety]').innerHTML = c.safety.map((i: any) => `<label class="vc-item">
       <input type="checkbox" data-vc-tick="${i.id}" ${i.done ? 'checked' : ''} />
       <span>${esc(i.name)}${i.required ? '' : ' <small>(optional)</small>'}</span></label>`).join('');
@@ -432,6 +481,13 @@ export const prerender = false;
     }
   });
   $('[data-vc-spclear]').addEventListener('click', () => check({ action: 'check_clear_safety' }));
+  // the brand's warranty: "keeps it" closes the visit, so it is confirmed first
+  $('[data-vc-warranty]').addEventListener('click', (e) => {
+    const answer = (e.target as HTMLElement).closest<HTMLElement>('[data-vc-warranty-answer]')?.dataset.vcWarrantyAnswer;
+    if (!answer) return;
+    if (answer === 'keep' && !confirm("The customer keeps the brand's warranty? The visit closes now, nothing is opened, and the customer gets a polite message.")) return;
+    check({ action: 'check_warranty', answer });
+  });
 
   // ---- while working: what was found -> the quotation first -> the customer's OK -> the plan ----
   const WHERE: Record<string, (p: any) => string> = {
@@ -474,6 +530,7 @@ export const prerender = false;
 
   // "Can it be fixed?": lab / no repair are chosen here, then confirmed; parts / labour are saved at once
   const NO_REPAIR = ['no_fault', 'not_worth', 'warranty'];
+  const FEE_OUTCOMES = ['no_fault', 'not_worth'];   // the visit fee when Repair Settings' switch is on
   let outcome = '', savedOutcome = '', altsFor = 0, alts: any[] = [], reqPhoto = '';
   let labourOpen = false;   // Labour only: the charge box open, before a charge is saved
   const prices: Record<string, string> = {};
@@ -574,12 +631,18 @@ export const prerender = false;
       box.placeholder = r.labour && r.labour !== 'free' ? String(r.labour) : '0';
       $('[data-vr-lhint]').textContent = free ? 'Free for the customer: fix it and tap Fixed on the spot.'
         : r.labour && r.labour !== 'free' ? `Charge ${money(r, r.labour)}: send it for the customer's OK below, before the repair.`
-          : 'Type the charge and Save. The customer approves it before the repair.';
+          : !r.labour && !labourOpen ? 'Choose one: tick "No labour charge (free)", or type the charge and Save.'
+            : 'Type the charge and Save. The customer approves it before the repair.';
     }
     $('[data-vr-total]').innerHTML = `<span>Total${r.approved ? ` <small>· customer agreed ${esc(money(r, r.approved))}</small>` : ''}</span><b>${esc(money(r, r.total))}</b>`;
     const quoted = r.lines.length > 0 || !!r.needs_quote;
     show('[data-vr-plan]', quoted);
-    show('[data-vr-fixed]', !quoted || (!r.needs_quote && !r.to_order && !r.choices));
+    // Needs parts: no "Fixed on the spot" until the part is added (then only at the price the customer agreed)
+    const noPart = r.outcome === 'parts' && !r.lines.length;
+    // Labour only: no default - free or a charge is chosen first
+    const noLabour = r.outcome === 'labour' && !r.labour;
+    show('[data-vr-fixed]', !noPart && !noLabour && (!quoted || (!r.needs_quote && !r.to_order && !r.choices)));
+    show('[data-vr-nopart]', noPart);
     const kind = r.to_order ? 'order' : 'here';
     if (quoted && plansFor !== kind) {
       const list = r.to_order ? PLANS_ORDER : PLANS_HERE;
@@ -620,6 +683,17 @@ export const prerender = false;
       class="vr-out${outcome === o.key ? ' on' : ''}" data-vr-outcome="${o.key}">${esc(o.label)}</button>`).join('');
     show('[data-vr-lab]', outcome === 'lab');
     show('[data-vr-close]', NO_REPAIR.includes(outcome));
+    const due = FEE_OUTCOMES.includes(outcome) && r.visit_fee && !r.recheck;
+    const waivable = due && outcome === 'not_worth';
+    show('[data-vr-waivebox]', !!waivable);
+    if (!waivable) $<HTMLInputElement>('[data-vr-waive]').checked = false;
+    const fee = due && !(waivable && $<HTMLInputElement>('[data-vr-waive]').checked);
+    const feeBox = $('[data-vr-fee]');
+    feeBox.hidden = !FEE_OUTCOMES.includes(outcome);
+    feeBox.textContent = r.recheck ? `Free re-check: this customer had "No fault found" on ${r.recheck}. No visit fee.`
+      : fee ? `Visit fee ${money(r, r.visit_fee)}: collect it at the door, then the customer gives you the finish code.`
+        : 'No charge: the visit is free.';
+    $('[data-vr-nogo]').textContent = fee ? 'Charge the visit fee' : 'Close without a repair';
     show('[data-vr-priced]', ['parts', 'labour'].includes(outcome));
     show('[data-vr-partsbox]', outcome === 'parts');
     show('[data-vr-pick]', !outcome);
@@ -687,6 +761,62 @@ export const prerender = false;
     const file = el.files?.[0];
     el.value = '';
     if (file) await closeAct({ action: 'close_photo', data: await photoData(file) });
+  });
+
+  // ---- "Before you leave" first: the steps that end the visit stay shut until the tools are checked ----
+  const CLOSING = '[data-vr-fixed],[data-vr-done],[data-vr-take],[data-vr-no],[data-vr-later],[data-vr-reqlater],[data-co-go]';
+  function lockClosing(d: any) {
+    const lock = d.state === 'in_progress' && d.tools?.kind === 'house' && d.tools.required && !d.tools.done;
+    show('[data-vt-lockhint]', !!lock);
+    document.querySelectorAll<HTMLButtonElement>(CLOSING).forEach((b) => {
+      if (lock) {
+        if (!b.disabled) b.dataset.vtLocked = '1';
+        b.disabled = true;
+      } else if (b.dataset.vtLocked) {
+        delete b.dataset.vtLocked;
+        if (!b.matches('[data-co-go]')) b.disabled = false;     // Finish keeps its own rule (renderClose)
+      }
+    });
+  }
+
+  // ---- the tool bag: each tool in the bag or missing, one photo of the bag ----
+  function renderTools(c: any, lost: any[]) {
+    const gone = lost || [];
+    show('[data-vt-lost]', gone.length > 0);
+    $('[data-vt-lostlist]').innerHTML = gone.map((l: any) => `<p class="vt-lost-row"><b>${esc(l.name)}</b>
+      <small>· ${esc(l.where)} · ${esc(day(l.day))}${l.note ? ' · ' + esc(l.note) : ''}</small></p>`).join('');
+    show('[data-vt]', !!c);
+    if (!c) return;
+    $('[data-vt-title]').textContent = c.for_ref ? `Tools: the house you left (${c.for_customer || c.for_ref})` : c.title;
+    $('[data-vt-hint]').textContent = c.for_ref
+      ? `You left ${c.for_customer || 'the customer'} (${c.for_ref}) without checking your tools. Do it now, before the next trip.`
+      : c.kind === 'office' ? 'Before you leave the office: mark each tool and take a photo of the open bag. A missing tool does not stop you; the office is told.'
+      : 'Before you leave the customer: every tool back in the bag, then a photo of the open bag.';
+    $('[data-vt-lines]').innerHTML = c.lines.map((l: any) => `<div class="vc-row vt-row">
+      <span class="vc-st">${l.state === 'ok' ? OK : `<span class="vc-no">${l.state === 'missing' ? '✗' : '●'}</span>`} ${esc(l.name)}</span>
+      <span class="vt-acts"><button type="button" class="vt-b${l.state === 'ok' ? ' on' : ''}" aria-pressed="${l.state === 'ok'}" data-vt-ok="${l.id}">In the bag</button><button type="button" class="vt-b miss${l.state === 'missing' ? ' on' : ''}" aria-pressed="${l.state === 'missing'}" data-vt-miss="${l.id}">Missing</button></span></div>
+      ${l.state === 'missing' ? `<input class="vt-note" data-vt-note="${l.id}" maxlength="200" placeholder="What happened? (optional)" value="${esc(l.note)}" />` : ''}`).join('');
+    $('[data-vt-ph]').innerHTML = c.photo ? `${OK} Bag photo taken` : '<span class="vc-no">No photo yet</span>';
+    $('[data-vt-phl]').textContent = c.photo ? 'Retake' : 'Take photo';
+    $<HTMLButtonElement>('[data-vt-done]').disabled = c.missing.length > 0;
+    $('[data-vt-miss]').textContent = c.missing.length ? `Still to do: ${c.missing.join(', ')}.` : '';
+  }
+  $('[data-vt]').addEventListener('click', async (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-vt-ok],[data-vt-miss],[data-vt-done]');
+    if (!el) return;
+    if (el.dataset.vtOk) return closeAct({ action: 'tool_mark', line_id: Number(el.dataset.vtOk), mark: 'ok' });
+    if (el.dataset.vtMiss) return closeAct({ action: 'tool_mark', line_id: Number(el.dataset.vtMiss), mark: 'missing' });
+    const gone = (view?.tools?.lines || []).filter((l: any) => l.state === 'missing').map((l: any) => l.name);
+    if (gone.length && !confirm(`Missing: ${gone.join(', ')}. The office is told. Carry on?`)) return;
+    closeAct({ action: 'tool_done' });
+  });
+  $('[data-vt]').addEventListener('change', async (e) => {
+    const el = e.target as HTMLInputElement;
+    if (el.dataset.vtNote) return closeAct({ action: 'tool_mark', line_id: Number(el.dataset.vtNote), mark: 'missing', note: el.value });
+    if (!el.hasAttribute('data-vt-pin')) return;
+    const file = el.files?.[0];
+    el.value = '';
+    if (file) await closeAct({ action: 'tool_photo', data: await photoData(file) });
   });
 
   async function result(body: Record<string, unknown>) {
@@ -768,8 +898,11 @@ export const prerender = false;
     }
     if (el.hasAttribute('data-vr-nogo')) {
       if (!$<HTMLTextAreaElement>('[data-vr-note]').value.trim()) { msg('Write what you checked and why it is not repaired: the customer reads it.'); return; }
-      if (confirm('Close the visit without a repair? The customer gets your reason on WhatsApp.')) {
-        await result({ action: 'result_outcome', outcome, ...noteArg() });
+      const waive = outcome === 'not_worth' && $<HTMLInputElement>('[data-vr-waive]').checked;
+      const fee = FEE_OUTCOMES.includes(outcome) && view?.result?.visit_fee && !view?.result?.recheck && !waive;
+      if (confirm(fee ? 'Charge the visit fee? The customer gets your reason and a finish code; they pay you, then give you the code.'
+        : 'Close the visit without a repair? The customer gets your reason on WhatsApp.')) {
+        await result({ action: 'result_outcome', outcome, waive, ...noteArg() });
       }
       return;
     }
@@ -860,6 +993,11 @@ export const prerender = false;
   });
   $('[data-vr]').addEventListener('change', async (e) => {
     const el = e.target as HTMLInputElement;
+    if (el.hasAttribute('data-vr-waive')) {
+      // Not worth repairing: the visit fee waived or not - the note and the button follow
+      if (view?.result) renderOutcome(view.result);
+      return;
+    }
     if (el.hasAttribute('data-vr-free')) {
       // Labour only: back to free (no charge), or open the charge box (nothing charged until Save)
       if (el.checked) { labourOpen = false; await result({ action: 'result_labour', price: 0, brand_id: brandArg() }); }
@@ -1015,7 +1153,7 @@ export const prerender = false;
   .tv-acts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
   .tv-btn { display: inline-flex; align-items: center; justify-content: center; height: 46px; padding: 0 18px; border: 0; border-radius: 12px; background: var(--grad, var(--violet)); color: var(--on-accent, #fff); font: inherit; font-weight: 700; font-size: 16px; cursor: pointer; text-decoration: none; }
   .tv-btn.ghost { background: var(--tint); color: var(--ink); }
-  .tv-btn.big { width: 100%; height: 58px; font-size: 18px; }
+  .tv-btn.big { width: 100%; height: 52px; border-radius: 12px; font-size: 16px; }
   .tv-btn:disabled { opacity: .6; }
   .tv-code { display: grid; gap: 8px; margin-bottom: 14px; }
   .tv-code label { font-weight: 600; color: var(--ink); }
@@ -1023,6 +1161,22 @@ export const prerender = false;
   .tv-hint { margin: 10px 0 0; font-size: 14px; color: var(--ink-3); }
   .tv-end { font-weight: 600; color: var(--ink); }
   .tv-prize { border: 1.5px dashed #f5b400; background: color-mix(in srgb, #f5b400 10%, var(--surface)); }
+  /* the tool bag: In the bag / Missing per tool (rows drawn by innerHTML: :global) */
+  .vt-lockhint { margin: 0 0 14px; padding: 12px 16px; border-radius: 14px; background: color-mix(in srgb, #f5b400 14%, var(--surface)); color: var(--ink); font-weight: 600; }
+  .vt-lost { border: 1.5px solid #d63a3a; background: color-mix(in srgb, #d63a3a 8%, var(--surface)); }
+  .vt-lost h3 { color: #d63a3a; }
+  .vt-lost :global(.vt-lost-row) { margin: 6px 0; }
+  /* Look C's touch sizes (28 Oct): each tool a tinted row - green in the bag, red missing - with
+     buttons big enough for a thumb in gloves */
+  .tv-ck :global(.vt-row) { flex-wrap: wrap; margin: 0 0 6px; padding: 6px 8px 6px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ink) 4%, var(--surface)); }
+  .tv-ck :global(.vt-row:has(.vt-b.on:not(.miss))) { background: color-mix(in srgb, #1a9a52 10%, var(--surface)); }
+  .tv-ck :global(.vt-row:has(.vt-b.miss.on)) { background: color-mix(in srgb, #d63a3a 10%, var(--surface)); }
+  .tv-ck :global(.vt-acts) { display: flex; gap: 6px; flex: none; }
+  .tv-ck :global(.vt-b) { height: 40px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .tv-ck :global(.vt-b.on) { border-color: #1a9a52; background: #1a9a52; color: #fff; }
+  .tv-ck :global(.vt-b.miss.on) { border-color: #d63a3a; background: #d63a3a; }
+  .tv-ck :global(.vt-note) { width: 100%; box-sizing: border-box; height: 42px; margin: 0 0 6px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
+  [data-vt] [data-vt-done] { margin-top: 12px; }
   .tv-prize-t { margin: 0; font-size: 17px; }
   .tv-prize-t small { color: var(--ink-3); font-size: 13px; }
   .tv-prize .tv-btn { margin-top: 12px; }
