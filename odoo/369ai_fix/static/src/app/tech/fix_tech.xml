@@ -27,7 +27,7 @@
                 </div>
 
                 <!-- the lists as tiles: a tile shows its list -->
-                <div class="fxk-tiles">
+                <div class="fxk-tiles" t-att-class="{ 'fxk-tiles-hide': state.tilesHidden }">
                     <!-- (not "lt" as the loop name: OWL reads lt as "<") -->
                     <t t-foreach="listTabs" t-as="tile" t-key="tile[0]">
                         <button type="button" class="fxk-tile" t-att-class="{ 'fxk-tile-on': state.listTab === tile[0] and !findActive }"
@@ -57,7 +57,7 @@
                 <div class="fxt-body" t-att-class="{ 'fxt-detail-open': state.showDetail }">
 
                     <!-- my visits -->
-                    <section class="fxd-list">
+                    <section class="fxd-list" t-on-scroll="onPaneScroll">
                         <t t-if="findActive">
                             <div class="fxd-list-head">
                                 <div class="fxd-list-title">
@@ -100,7 +100,7 @@
                     </section>
 
                     <!-- the visit -->
-                    <aside class="fxd-pane">
+                    <aside class="fxd-pane" t-on-scroll="onPaneScroll">
                         <div class="fxd-empty fxd-pane-empty" t-if="!state.view">
                             <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-car"/></span>
                             Choose a visit on the left.

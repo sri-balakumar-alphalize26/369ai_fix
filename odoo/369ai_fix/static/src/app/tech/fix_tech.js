@@ -127,6 +127,7 @@ export class FixTech extends Component {
             today: null,
             // a photo opened big: its place in the list, its picture once loaded
             photo: { ix: -1, uri: "", name: "" },
+            tilesHidden: false, // the tiles slide away while the visits or the visit are scrolled down
         });
         this.fix = null;
         this.savedOutcome = "";
@@ -257,6 +258,17 @@ export class FixTech extends Component {
         clearTimeout(this.findTimer);
         this.findSeq = (this.findSeq || 0) + 1;
         Object.assign(this.state, { findQ: "", findRows: null, findCount: 0, finding: false });
+    }
+
+    // as on the Booking Desk: scrolling down hides the tiles, back at the top shows them; only
+    // when there is plenty to scroll, or the taller pane stops scrolling and the tiles flicker
+    onPaneScroll(ev) {
+        const el = ev.currentTarget;
+        if (el.scrollTop <= 4) {
+            this.state.tilesHidden = false;
+        } else if (el.scrollTop > 40 && el.scrollHeight - el.clientHeight > 200) {
+            this.state.tilesHidden = true;
+        }
     }
 
     setSort(key) {

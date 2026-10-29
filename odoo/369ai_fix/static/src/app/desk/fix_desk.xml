@@ -77,7 +77,7 @@
                 </div>
 
                 <!-- what needs someone now, as tiles: each opens its tab (and leaves any search) -->
-                <div class="fxk-tiles">
+                <div class="fxk-tiles" t-att-class="{ 'fxk-tiles-hide': state.tilesHidden }">
                     <button type="button" class="fxk-tile fxk-tile-new" t-att-class="{ 'fxk-tile-on': state.stage === 'new' and !searchActive, 'fxk-tile-hot': state.counts.new }"
                             t-on-click="() => this.goTo('new')">
                         <span class="fxk-tile-top"><i class="fa fa-bell"/> New bookings</span>
@@ -118,7 +118,7 @@
                 <div class="fxd-body" t-att-class="{ 'fxd-detail-open': state.showDetail }">
 
                     <!-- the cards of the stage -->
-                    <section class="fxd-list">
+                    <section class="fxd-list" t-on-scroll="onPaneScroll">
                         <t t-if="searchActive">
                             <div class="fxd-list-head">
                                 <div class="fxd-list-title">
@@ -188,7 +188,7 @@
                     </section>
 
                     <!-- the booking -->
-                    <aside class="fxd-pane">
+                    <aside class="fxd-pane" t-on-scroll="onPaneScroll">
                         <div class="fxd-empty fxd-pane-empty" t-if="!state.selectedId">
                             <span class="fxd-empty-mark fxd-empty-soft"><i class="fa fa-hand-pointer-o"/></span>
                             <span>Pick a booking on the left.</span>

@@ -147,6 +147,7 @@ export class FixDesk extends Component {
             paneCard: 0,
             notes: [],
             noteText: "",
+            tilesHidden: false, // the tiles slide away while the cards or the booking are scrolled down
         });
         this.newAlarm = new FixAlarm();
         this.slotAlarm = new FixAlarm();
@@ -301,6 +302,17 @@ export class FixDesk extends Component {
         clearTimeout(this.searchTimer);
         this.searchSeq = (this.searchSeq || 0) + 1;
         Object.assign(this.state, { searchQ: "", found: null, foundCount: 0, searching: false });
+    }
+
+    // scrolling the cards or the booking down hides the tiles, back at the top shows them; only
+    // when there is plenty to scroll, or the taller pane stops scrolling and the tiles flicker
+    onPaneScroll(ev) {
+        const el = ev.currentTarget;
+        if (el.scrollTop <= 4) {
+            this.state.tilesHidden = false;
+        } else if (el.scrollTop > 40 && el.scrollHeight - el.clientHeight > 200) {
+            this.state.tilesHidden = true;
+        }
     }
 
     setSort(key) {

@@ -405,7 +405,11 @@
     .fxk-warn { margin: 0; }
 
     /* what needs someone now: tiles (each opens its tab) */
-    .fxk-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    /* scrolled down: the tiles slide away (the padding keeps the green ring of the open tile visible) */
+    .fxk-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; flex-shrink: 0;
+                 max-height: 260px; overflow: hidden; padding: 3px; margin: -3px;
+                 transition: max-height .25s ease, opacity .2s ease, margin .25s ease, padding .25s ease; }
+    .fxk-tiles-hide { max-height: 0; opacity: 0; padding-block: 0; margin-bottom: -9px; pointer-events: none; }
     .fxk-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border: 1px solid #e4eaef;
                 border-radius: 14px; background: #fff; font: inherit; color: #13212b; text-align: left; cursor: pointer;
                 transition: border-color .14s, box-shadow .14s; }
