@@ -7,8 +7,8 @@ import DeviceArt from './DeviceArt.astro';
 import CatArt from './CatArt.astro';
 import { money, PRICE_LATER } from '../data/site';
 import { iconPaths } from '../data/devices';
-import { note, brandColor, quickLinks } from '../data/menu';
-import { staticCatalog, fromPrice, type WzCategory } from '../lib/catalog';
+import { brandColor, quickLinks } from '../data/menu';
+import { staticCatalog, fromPrice, serviceCaption, type WzCategory } from '../lib/catalog';
 
 // Device types, repairs and brands: Odoo's catalogue (passed by Base), in its order; the site's own lists otherwise.
 const { categories = staticCatalog().categories } = Astro.props as { categories?: WzCategory[] };
@@ -128,7 +128,7 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
         <div class="p2-art"><CatArt cat={c} /></div>
         <ul class="rows">
           {c.issues.slice(0, 6).map((iss) => (
-            <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} /><span><b>{iss}</b><small>{note(iss)}</small></span></a></li>
+            <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} /><span><b>{iss}</b><small>{serviceCaption(c, iss)}</small></span></a></li>
           ))}
         </ul>
         <div class="p2-brands">
@@ -231,7 +231,7 @@ const quickIcon = svg('<path d="M9 5l7 7-7 7"/>');
       {cats.map((c, i) => (
         <ul class:list={['rows', 'p5', { on: i === 0 }]} data-dp={c.id}>
           {c.issues.slice(0, 6).map((iss) => (
-            <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} /><span><b>{iss}</b><small>{note(iss)}</small></span></a></li>
+            <li><a href={catHref(c.id)}><span class="ri" set:html={svg(issueIcon(iss))} /><span><b>{iss}</b><small>{serviceCaption(c, iss)}</small></span></a></li>
           ))}
         </ul>
       ))}

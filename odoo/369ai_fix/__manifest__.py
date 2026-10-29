@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': '369 ai Fix',
-    'version': '19.0.2.25.0',
+    'version': '19.0.2.26.0',
     'summary': 'The doorstep repair service in one add-on: website orders and bookings, '
                'repair catalogue, technician visits, website pictures and the 369 ai Fix app',
     'description': """

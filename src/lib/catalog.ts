@@ -6,12 +6,14 @@
 import { categories as staticCategories, type Icon } from '../data/devices';
 import { PRICE, hasPrice } from '../data/site';
 import { photo } from '../data/photos';
+import { note } from '../data/menu';
 import { odooCall } from './odoo';
 
 // image / logo / photo: picture URLs chosen in Odoo (369ai_fix_website_content), relative
 // (/web/image/...), served through the site's /web/image passthrough; null = use the site's own.
 export type WzService = { id: number | null; name: string; price: number | null; b: number | null; s: number | null; m: number | null; image?: string | null;
-  mostBooked?: boolean; homeSequence?: number };   // "Most booked" on the home page, ticked in Odoo
+  mostBooked?: boolean; homeSequence?: number;     // "Most booked" on the home page, ticked in Odoo
+  caption?: string };                              // the line under the name: the service's Sales Description in Odoo
 export type WzModel = { id: number | null; name: string; series: string; seriesId: number | null };
 export type WzBrand = { id: string; odooId: number | null; name: string; hue: number; models: string[]; items: WzModel[]; logo?: string | null };
 export type WzCategory = {
@@ -64,7 +66,7 @@ function fromOdoo(raw: any): Catalog {
     const services: WzService[] = (cat.services || []).map((s: any) => ({
       id: s.id, name: s.name, price: typeof s.price === 'number' ? s.price : null,
       b: s.brand_id || null, s: s.series_id || null, m: s.model_id || null, image: url(s.image),
-      mostBooked: !!s.most_booked, homeSequence: Number(s.home_sequence) || 0,
+      mostBooked: !!s.most_booked, homeSequence: Number(s.home_sequence) || 0, caption: String(s.caption || ''),
     }));
     if (!services.length) continue;                    // nothing to book for this device
     const look = looks.get(LOOK[cat.name] || '');
@@ -115,6 +117,13 @@ export function serviceImage(cat: WzCategory, name: string): string | null {
   const odoo = (all.find((s) => !s.b && !s.s && !s.m && s.image) ?? all.find((s) => s.image))?.image;
   const own = photo[`${cat.id}:${name}`];
   return odoo || (own ? `/media/repairs/${own}.jpg` : null);
+}
+
+/** The line under a repair's name ("Cracked or broken screen"): its Sales Description in Odoo,
+ * else the site's own (src/data/menu.ts). */
+export function serviceCaption(cat: WzCategory, name: string): string {
+  const all = cat.services.filter((s) => s.name === name);
+  return (all.find((s) => !s.b && !s.s && !s.m && s.caption) ?? all.find((s) => s.caption))?.caption || note(name);
 }
 
 export async function getCatalog(host: string): Promise<Catalog> {

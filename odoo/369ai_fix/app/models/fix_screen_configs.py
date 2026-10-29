@@ -471,6 +471,9 @@ SCREENS = {
         ],
         'pick_domain': {'device_series_id': [('brand_id', '=', '$device_brand_id')],
                         'device_model_id': [('series_id', '=', '$device_series_id')]},
+        'labels': {'description_sale': 'Line under the name on the website'},
+        'helps': {'description_sale': 'Short, e.g. "Cracked or broken screen". Shown in the Services menu, '
+                                      'the booking cards and Most booked. Empty: the website\'s own line.'},
     },
     # fixed prices for labour-only jobs: the technician taps one at the door (the customer approves it first)
     'labour_prices': {

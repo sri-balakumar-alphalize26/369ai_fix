@@ -5,8 +5,8 @@
 import DeviceArt from './DeviceArt.astro';
 import { money, hasPrice, PRICE_LATER } from '../data/site';
 import { iconPaths } from '../data/devices';
-import { artFor, note } from '../data/menu';
-import { staticCatalog, fromPrice, type WzCategory } from '../lib/catalog';
+import { artFor } from '../data/menu';
+import { staticCatalog, fromPrice, serviceCaption, type WzCategory } from '../lib/catalog';
 interface Props { categories?: WzCategory[]; odoo?: boolean }
 // The wizard's catalogue (Odoo's when connected), so brands, models and repairs carry Odoo's ids.
 const { categories = staticCatalog().categories, odoo = false } = Astro.props;
@@ -98,7 +98,7 @@ const issueIcon = (s: string) => {
                     <div class="bk-card" data-name={sv.name} data-pid={sv.id ?? ''} data-price={odoo && hasPrice(sv.price) ? sv.price : ''} data-b={sv.b ?? ''} data-s={sv.s ?? ''} data-m={sv.m ?? ''}>
                       <span class:list={['bk-pic', { photo: !!picOf(c, sv.name, sv.image) }]}>{picOf(c, sv.name, sv.image) ? <img src={picOf(c, sv.name, sv.image)} alt={sv.name} loading="lazy" width="360" height="200" onerror="this.parentElement.classList.remove('photo');this.remove()" /> : null}<span class:list={['bk-pic-art', { 'has-pic': !!c.drawing }]}>{c.drawing && <img class="bk-artpic" src={c.drawing} alt="" loading="lazy" onerror={PIC_FAIL} />}<DeviceArt kind={artFor[c.id] ?? 'phone'} /></span><span class="bk-badge" set:html={`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${issueIcon(sv.name)}</svg>`} /></span>
                       <b>{sv.name}</b>
-                      <small>{note(sv.name)}</small>
+                      <small>{serviceCaption(c, sv.name)}</small>
                       <span class="bk-foot">
                         <span>{odoo && hasPrice(sv.price) ? <>from <em>{money(sv.price)}</em></> : <em>{PRICE_LATER}</em>}</span>
                         <button type="button" class="bk-add" data-bk-inc aria-label={`Add ${sv.name}`}>Add</button>

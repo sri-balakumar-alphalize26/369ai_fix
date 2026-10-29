@@ -39,6 +39,7 @@ def load_starter_content(env, sites=None):
             _make_home_page(env, site, d)
             pages += 1
     _tick_catalogue(env)
+    fill_repair_captions(env)
     fill_popular_links(env, d)
     _logger.info('%s: starter content loaded for %d website(s), %d home page(s) made', MODULE, len(sites), pages)
     return pages
@@ -239,3 +240,34 @@ def _tick_catalogue(env):
         if p:
             seq += 10
             p.write({'web_most_booked': True, 'web_home_sequence': seq})
+
+
+def fill_repair_captions(env):
+    """The line under each repair's name on the website ("Cracked or broken screen") is the
+    service's Sales Description. Empty ones get the line the site had in code
+    (repair/data/seed_repairs.json), matched by internal reference, else by device type and
+    name, else by name. Lines typed in Odoo are never overwritten."""
+    with file_open(f'{MODULE}/repair/data/seed_repairs.json') as f:
+        seed = json.load(f)
+    by_code, by_cat, by_name = {}, {}, {}
+    for cat in seed['categories']:
+        for r in cat['repairs']:
+            if not r.get('note'):
+                continue
+            by_code[r['default_code']] = r['note']
+            by_cat[(cat['odoo_category'].lower(), r['name'].lower())] = r['note']
+            by_name.setdefault(r['name'].lower(), r['note'])
+    Product = env['product.template'].with_context(active_test=False)
+    filled = 0
+    for p in Product.search([('type', '=', 'service'), ('repair_category_ids', '!=', False)]):
+        if (p.description_sale or '').strip():
+            continue
+        name = (p.name or '').lower()
+        line = by_code.get(p.default_code or '') or next(
+            (by_cat[(c.name.lower(), name)] for c in p.repair_category_ids if (c.name.lower(), name) in by_cat),
+            by_name.get(name))
+        if line:
+            p.description_sale = line
+            filled += 1
+    if filled:
+        _logger.info('%s: website line filled for %d repair services', MODULE, filled)

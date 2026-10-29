@@ -41,7 +41,7 @@ const localPhoto = (cid: string, iss: string) => (photo[`${cid}:${iss}`] ? `/med
 // price: "from OMR x" when Odoo has one, else "Price after check"; px / pid go into the cart with "Add"
 type Pick = { photo: string; iss: string; cat: string; dev: string; devFull: string; note: string; wa: string; price: string; px: number | null; pid: number | null };
 const fromCatalog: Pick[] = catalog.categories.flatMap((c) => c.services.filter((s) => s.mostBooked && !s.b && !s.s && !s.m).map((s) => ({
-  seq: s.homeSequence ?? 0, photo: s.image || localPhoto(c.id, s.name), iss: s.name, cat: c.id, dev: one(c.name), devFull: c.name, note: note(s.name),
+  seq: s.homeSequence ?? 0, photo: s.image || localPhoto(c.id, s.name), iss: s.name, cat: c.id, dev: one(c.name), devFull: c.name, note: s.caption || note(s.name),
   wa: wa(`Hi ${C.name}, I want to book a ${s.name} service for my ${one(c.name).toLowerCase()}.`),
   price: fromMoney(catalog.odoo ? s.price : null), px: catalog.odoo && hasPrice(s.price) ? s.price : null, pid: s.id,
 }))).sort((a, b) => a.seq - b.seq);

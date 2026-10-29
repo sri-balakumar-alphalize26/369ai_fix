@@ -264,8 +264,9 @@ class OnlineServiceOrder(models.Model):
 
     @api.model
     def website_catalog(self, host):
-        """Also tell the website which device types are on the home page and which repairs
-        are "most booked", so it can draw both from the catalogue it already has."""
+        """Also tell the website which device types are on the home page, which repairs
+        are "most booked" and each repair's line under its name (its Sales Description),
+        so it can draw them from the catalogue it already has."""
         data = super().website_catalog(host)
         if data.get('ok'):
             for cat in data.get('categories', []):
@@ -275,4 +276,5 @@ class OnlineServiceOrder(models.Model):
                     p = self.env['product.product'].browse(sv['id']).product_tmpl_id
                     sv['most_booked'] = bool(p.web_most_booked)
                     sv['home_sequence'] = p.web_home_sequence or 0
+                    sv['caption'] = (p.description_sale or '').strip()
         return data
