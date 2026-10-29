@@ -147,7 +147,7 @@ export class FixTech extends Component {
 
         onWillStart(async () => {
             await this.load();
-            const first = this.state.visits.find((v) => v.state !== "done");
+            const first = this.openVisits[0];   // the top To do card: never a cancelled or done visit
             if (first && window.innerWidth > 820) {
                 await this.open(first);
             }
@@ -311,6 +311,10 @@ export class FixTech extends Component {
     pickList(key) {
         this.clearFind();
         this.state.listTab = key;
+        // the visit on the right stays only if it is in this tab; selectedId stays so the GPS ping goes on
+        if (this.state.view && !this.listVisits.some((v) => v.id === this.state.selectedId)) {
+            Object.assign(this.state, { view: null, showDetail: false });
+        }
     }
 
     async open(visit) {
