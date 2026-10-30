@@ -340,7 +340,9 @@
                         <h1><i t-if="meta" t-attf-class="fa {{ meta.icon }} fxm-h1-icon"/> <t t-esc="meta ? meta.title : 'Loading…'"/></h1>
                         <p t-if="meta and meta.hint" t-esc="meta.hint"/>
                     </div>
+                    <!-- no spacer: Odoo's notifications cover the top right, so search and New stay by the title -->
                     <div class="fxm-head-acts" t-if="meta and (kind === 'records' or kind === 'table')">
+                        <Search value="state.query" placeholder="'Search…'" label="'Search ' + meta.title" onChange="(v) => this.onSearch(v)"/>
                         <Tabs t-if="meta.modes.length > 1" tabs="modeTabs" value="state.mode" onChange="(m) => this.setMode(m)"/>
                         <button class="mart-btn mart-btn-primary" t-if="meta.can_create" t-on-click="() => this.create()"><i class="fa fa-plus"/> New</button>
                     </div>
@@ -358,10 +360,8 @@
                     </t>
                 </div>
 
-                <div class="pe-toolbar fxm-toolbar" t-if="meta and (kind === 'records' or kind === 'table')">
-                    <Tabs t-if="meta.filters.length > 1" tabs="tabItems" value="state.filter" onChange="(k) => this.pickTab(k)"/>
-                    <div class="pe-toolbar-gap"/>
-                    <Search value="state.query" placeholder="'Search…'" label="'Search ' + meta.title" onChange="(v) => this.onSearch(v)"/>
+                <div class="pe-toolbar fxm-toolbar" t-if="meta and (kind === 'records' or kind === 'table') and meta.filters.length > 1">
+                    <Tabs tabs="tabItems" value="state.filter" onChange="(k) => this.pickTab(k)"/>
                 </div>
 
                 <div class="pe-error fxs-err" t-if="state.error" t-esc="state.error"/>

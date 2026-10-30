@@ -465,6 +465,7 @@
         .fxk { padding: 12px 12px 0; }
         .fxd-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
         .fxd-pane { border-radius: 0; }
+        .fxk-head-acts { flex: 1 1 100%; }
         .fxk-search { flex: 1 1 100%; min-width: 0; }
     }
 }

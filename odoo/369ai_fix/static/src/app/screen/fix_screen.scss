@@ -500,11 +500,12 @@
 
     /* the page */
     .fxm { gap: 14px; height: 100%; overflow-y: auto; background: #f3f6f8; padding: 24px 28px 48px; }
-    .fxm-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .fxm-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 20px; }
     .fxm-title h1 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -.01em; }
     .fxm-title p { margin: 2px 0 0; color: #475a66; font-size: 13.5px; max-width: 760px; }
     .fxm-h1-icon { color: #1f8a3c; font-size: 18px; }
     .fxm-head-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .fxm-head .mart-search { min-width: 320px; }
     .fxm .fxs-err { margin: 0; }
     .fxm .fxs-page { flex: none; overflow: visible; padding: 0; }
     .fxm .fxd-empty { padding: 36px 16px; border-radius: 14px; background: #fff; border: 1px dashed #d5dee5; }
@@ -577,7 +578,8 @@
     @media (max-width: 900px) {
         .fxm { padding: 16px 14px 40px; }
         .fxm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .fxm-toolbar .mart-search { flex: 1 1 100%; }
+        .fxm-head-acts { flex: 1 1 100%; }
+        .fxm-head .mart-search { flex: 1 1 100%; min-width: 0; }
         .fxm-open { display: none; }
     }
 }

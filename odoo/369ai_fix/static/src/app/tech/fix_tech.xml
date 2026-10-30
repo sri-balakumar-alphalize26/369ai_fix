@@ -11,8 +11,17 @@
                         <h1>My Visits</h1>
                         <p><t t-esc="state.me"/><t t-if="state.manager and !state.linked"> · every technician's visits</t></p>
                     </div>
-                    <!-- no spacer: Odoo's notifications cover the top right -->
+                    <!-- no spacer: Odoo's notifications cover the top right, so the search and buttons stay by the title -->
                     <div class="fxk-head-acts">
+                        <!-- search my visits of any date: VIS/…, OS/…, the job card, the customer, phone or area -->
+                        <label class="mart-search fxk-search" role="search">
+                            <i class="fa fa-search" aria-hidden="true"/>
+                            <input type="search" placeholder="VIS/01045, OS/01520, name or area"
+                                   aria-label="Search my visits" autocomplete="off" t-att-value="state.findQ"
+                                   t-on-input="onFind" t-on-keydown="onFindKey"/>
+                            <i class="fa fa-circle-o-notch fa-spin" t-if="state.finding" aria-hidden="true"/>
+                            <button type="button" class="mart-search-x" t-elif="state.findQ" aria-label="Clear the search" t-on-click="clearFind"><i class="fa fa-times"/></button>
+                        </label>
                         <span class="mart-pill mart-t-green" t-if="state.gps === 'on'" role="status"><i/> Sharing your location</span>
                         <span class="mart-pill mart-t-red" t-elif="state.gps === 'blocked'" role="status"><i/> Location blocked</span>
                         <button class="mart-btn mart-btn-sm" t-on-click="() => this.load()"><i class="fa fa-refresh"/> Refresh</button>
@@ -39,19 +48,9 @@
                     </t>
                 </div>
 
-                <!-- the same lists as tabs, the search on the right -->
+                <!-- the same lists as tabs -->
                 <div class="pe-toolbar fxk-toolbar">
                     <Tabs tabs="tabItems" value="state.listTab" onChange="(k) => this.pickList(k)"/>
-                    <div class="pe-toolbar-gap"/>
-                    <!-- search my visits of any date: VIS/…, OS/…, the job card, the customer, phone or area -->
-                    <label class="mart-search fxk-search" role="search">
-                        <i class="fa fa-search" aria-hidden="true"/>
-                        <input type="search" placeholder="VIS/01045, OS/01520, name or area"
-                               aria-label="Search my visits" autocomplete="off" t-att-value="state.findQ"
-                               t-on-input="onFind" t-on-keydown="onFindKey"/>
-                        <i class="fa fa-circle-o-notch fa-spin" t-if="state.finding" aria-hidden="true"/>
-                        <button type="button" class="mart-search-x" t-elif="state.findQ" aria-label="Clear the search" t-on-click="clearFind"><i class="fa fa-times"/></button>
-                    </label>
                 </div>
 
                 <div class="fxt-body" t-att-class="{ 'fxt-detail-open': state.showDetail }">

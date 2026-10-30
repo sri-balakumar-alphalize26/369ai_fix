@@ -56,8 +56,17 @@
                         <h1>Booking Desk</h1>
                         <p>Every website booking, from new to done.</p>
                     </div>
-                    <!-- no spacer: the alarm toasts cover the top right, so the buttons stay by the title -->
+                    <!-- no spacer: the alarm toasts cover the top right, so the search and buttons stay by the title -->
                     <div class="fxk-head-acts">
+                        <!-- search every booking (any stage, any date): name, phone, OS/…, VIS/… or the job card -->
+                        <label class="mart-search fxk-search" role="search">
+                            <i class="fa fa-search" aria-hidden="true"/>
+                            <input type="search" placeholder="Name, phone, OS/01520 or VIS/01045"
+                                   aria-label="Search bookings" autocomplete="off" t-att-value="state.searchQ"
+                                   t-on-input="onSearch" t-on-keydown="onSearchKey"/>
+                            <i class="fa fa-circle-o-notch fa-spin" t-if="state.searching" aria-hidden="true"/>
+                            <button type="button" class="mart-search-x" t-elif="state.searchQ" aria-label="Clear the search" t-on-click="clearSearch"><i class="fa fa-times"/></button>
+                        </label>
                         <button class="mart-btn fxk-alarm-off" t-if="!state.soundOn" t-on-click="onEnableSound">
                             <i class="fa fa-volume-up"/> Turn on the alarm
                         </button>
@@ -100,19 +109,9 @@
                     </button>
                 </div>
 
-                <!-- the stages as tabs, the search on the right -->
+                <!-- the stages as tabs -->
                 <div class="pe-toolbar fxk-toolbar">
                     <Tabs tabs="stageTabs" value="state.stage" onChange="(k) => this.setStage(k)"/>
-                    <div class="pe-toolbar-gap"/>
-                    <!-- search every booking (any stage, any date): name, phone, OS/…, VIS/… or the job card -->
-                    <label class="mart-search fxk-search" role="search">
-                        <i class="fa fa-search" aria-hidden="true"/>
-                        <input type="search" placeholder="Name, phone, OS/01520 or VIS/01045"
-                               aria-label="Search bookings" autocomplete="off" t-att-value="state.searchQ"
-                               t-on-input="onSearch" t-on-keydown="onSearchKey"/>
-                        <i class="fa fa-circle-o-notch fa-spin" t-if="state.searching" aria-hidden="true"/>
-                        <button type="button" class="mart-search-x" t-elif="state.searchQ" aria-label="Clear the search" t-on-click="clearSearch"><i class="fa fa-times"/></button>
-                    </label>
                 </div>
 
                 <div class="fxd-body" t-att-class="{ 'fxd-detail-open': state.showDetail }">
