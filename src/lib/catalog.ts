@@ -23,6 +23,7 @@ export type WzCategory = {
   photo?: string | null;   // the category's chosen photo, whatever the look
   drawing?: string | null; // the category's drawing (the "drawing" look), replaceable in Odoo
   showHome?: boolean;      // a tile in "What can we fix for you?" on the home page (ticked in Odoo)
+  homeSequence?: number;   // the tiles' order (Home order in Odoo, dragged in Fix Website)
 };
 export type Catalog = { odoo: boolean; deviceLook: 'drawing' | 'photo'; categories: WzCategory[]; totals: { categories: number; brands: number; models: number } };
 
@@ -83,7 +84,7 @@ function fromOdoo(raw: any): Catalog {
     out.push({
       id: look?.id || slug(cat.name),
       odooId: cat.id,
-      name: look?.name || cat.name,
+      name: cat.name,                                   // the name typed in Odoo
       short: look?.short || '',
       icon: look?.icon || 'support',
       hue: look?.hue ?? hueOf(cat.name),
@@ -95,12 +96,12 @@ function fromOdoo(raw: any): Catalog {
       image: url(cat.image),
       drawing: url(cat.drawing),
       showHome: cat.show_home !== false,
+      homeSequence: Number(cat.home_sequence) || 0,
       photo: url(cat.photo),
     });
   }
-  // the website's own order first, then anything new staff added in Odoo
-  const order = staticCategories.map((c) => c.id);
-  out.sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
+  // Odoo's order (Home order), then by name
+  out.sort((a, b) => (a.homeSequence ?? 0) - (b.homeSequence ?? 0) || a.name.localeCompare(b.name));
   return { odoo: true, deviceLook: raw.device_look === 'photo' ? 'photo' : 'drawing', categories: out, totals: totalsOf(out) };
 }
 
