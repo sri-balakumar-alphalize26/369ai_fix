@@ -650,13 +650,16 @@
             <!-- what we fix: tiles and most booked -->
             <t t-if="sec.kind === 'services'">
                 <details class="fx-group" open="">
-                    <summary>Device tiles <small>eye = show on the home page</small></summary>
-                    <div t-foreach="d.tiles" t-as="c" t-key="c.id" t-attf-class="fx-row {{ c.show ? '' : 'fx-dim' }}" t-att-data-fx-for="K('tile', c.id)">
-                        <img t-if="c.image" class="fx-thumb" t-att-src="c.image" alt=""/><i t-else="" class="fx-thumb"/>
-                        <span class="fx-row-name" t-esc="c.name"/>
-                        <button type="button" class="fx-ic" t-on-click="() => this.toggleTile(c)" t-att-title="c.show ? 'Hide this tile' : 'Show this tile'"><i t-attf-class="fa {{ c.show ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                    <summary>Device tiles <small>eye = show on the home page · drag to reorder</small></summary>
+                    <div class="fx-rows" t-ref="tileRows">
+                        <div t-foreach="d.tiles" t-as="c" t-key="c.id" t-attf-class="fx-row {{ c.show ? '' : 'fx-dim' }}" t-att-data-row="c.id" t-att-data-fx-for="K('tile', c.id)">
+                            <button type="button" class="fx-grip" title="Drag to reorder"><i class="fa fa-ellipsis-v"/><i class="fa fa-ellipsis-v"/></button>
+                            <img t-if="c.image" class="fx-thumb" t-att-src="c.image" alt=""/><i t-else="" class="fx-thumb"/>
+                            <span class="fx-row-name" t-esc="c.name"/>
+                            <button type="button" class="fx-ic" t-on-click="() => this.toggleTile(c)" t-att-title="c.show ? 'Hide this tile' : 'Show this tile'"><i t-attf-class="fa {{ c.show ? 'fa-eye' : 'fa-eye-slash' }}"/></button>
+                        </div>
                     </div>
-                    <small class="fx-f-hint">The device types from the Catalogue. Their names and pictures are edited there and under Pictures ▸ Device Pictures.</small>
+                    <small class="fx-f-hint">The device types from the Catalogue, in this order on the website. Their names and icons (3D, line, flat, sketch, duotone or a photo) are edited in Catalogue ▸ Device Categories.</small>
                 </details>
                 <details class="fx-group" open="">
                     <summary>Most booked repairs <small>drag to reorder</small></summary>

@@ -205,7 +205,7 @@ class FixHomeSection(models.Model):
                 parts.append('<div style="display:flex;gap:18px;margin-top:10px">' + ''.join(
                     f'<div><b style="font:800 18px sans-serif">{e(l.value or "")}</b><br><small style="color:#8593a8">{e(l.name or "")}</small></div>' for l in lines) + '</div>')
             elif s.kind == 'services':
-                tiles = self.env['device.category'].search([('web_show_home', '=', True)], order='id')
+                tiles = self.env['device.category'].search([('web_show_home', '=', True)], order='web_home_sequence, id')
                 parts.append('<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">' + ''.join(
                     f'<span style="background:#e8efff;border-radius:10px;padding:8px 10px;font:600 12px sans-serif">{e(c.name)}</span>' for c in tiles) + '</div>')
                 picks = self.env['product.template'].search([('web_most_booked', '=', True)], order='web_home_sequence, id')

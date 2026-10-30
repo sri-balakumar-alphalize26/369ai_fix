@@ -15,6 +15,9 @@ _logger = logging.getLogger(__name__)
 MODULE = '369ai_fix'
 # device types hidden from the home tiles today (the site shows 7 of the 9)
 HIDDEN_TILES = ('Printer', 'CCTV Installation')
+# the tiles' order on the site today; new device types go after these (Home order 100)
+TILE_ORDER = ('Mobile Phone', 'Tablet', 'Laptop', 'Desktop', 'Printer', 'CCTV Installation',
+              'Networking & Wi-Fi', 'Data Recovery', 'IT Support')
 # today's "Most booked" row, as (device category, repair service name)
 MOST_BOOKED = [
     ('Mobile Phone', 'Screen replacement'), ('Mobile Phone', 'Battery replacement'),
@@ -228,6 +231,7 @@ def _tick_catalogue(env):
     Cat = env['device.category'].with_context(active_test=False)
     hidden = Cat.search([('name', 'in', HIDDEN_TILES)])
     hidden.filtered('web_show_home').write({'web_show_home': False})
+    fill_tile_order(env)
     Product = env['product.template'].with_context(active_test=False)
     if Product.search_count([('web_most_booked', '=', True)]):
         return
@@ -240,6 +244,14 @@ def _tick_catalogue(env):
         if p:
             seq += 10
             p.write({'web_most_booked': True, 'web_home_sequence': seq})
+
+
+def fill_tile_order(env):
+    """The home tiles' order is Home order on each device type. Types still on the default
+    get the place they had on the site; an order dragged in Fix Website is never changed."""
+    Cat = env['device.category'].with_context(active_test=False)
+    for i, name in enumerate(TILE_ORDER, 1):
+        Cat.search([('name', '=ilike', name), ('web_home_sequence', '=', 100)]).write({'web_home_sequence': i * 10})
 
 
 def fill_repair_captions(env):

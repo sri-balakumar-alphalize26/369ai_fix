@@ -58,7 +58,7 @@ class OnlineServiceSite(models.Model):
         fee = site._fix_visit_fee()
         price = f'OMR {fee:g}' if fee > 0 else 'price after check'
         Cat = self.env['device.category']
-        cats = Cat.search([], order='id')
+        cats = Cat.search([], order='web_home_sequence, id')
         Brand = self.env['device.brand']
         return {
             'sites': [{'id': s.id, 'name': s.name} for s in sites],
@@ -76,7 +76,7 @@ class OnlineServiceSite(models.Model):
                 'kinds': [{'key': k, 'name': n} for k, n in KINDS],
             },
             'flow': self._fix_section(everyday.with_context(active_test=False).section_ids.filtered(lambda s: s.kind == 'modes')[:1]) if everyday else False,
-            'tiles': [{'id': c.id, 'name': c.name, 'show': bool(c.web_show_home),
+            'tiles': [{'id': c.id, 'name': c.name, 'show': bool(c.web_show_home), 'sequence': c.web_home_sequence,
                        'image': (c._fix_photo_url() if site.show_device_photos and c.web_photo_id else c._fix_drawing_url(site.drawing_style or '3d'))}
                       for c in cats],
             'brands': [{'id': b.id, 'name': b.name, 'caption': b.web_caption or '', 'logo': b._fix_logo_url() if b.web_has_logo else False}

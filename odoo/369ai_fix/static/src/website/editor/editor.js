@@ -327,6 +327,12 @@ export class FixSiteEditor extends Component {
             enable: () => Boolean(this.rowsRef.el),
             onDrop: (p) => this.onDrop("rows", p),
         });
+        this.tileRowsRef = useRef("tileRows");
+        useSortable({
+            ref: this.tileRowsRef, elements: ".fx-row[data-row]", handle: ".fx-grip", cursor: "grabbing",
+            enable: () => Boolean(this.tileRowsRef.el),
+            onDrop: (p) => this.onDrop("tiles", p),
+        });
         // hovering a field: the part of the page it changes lights up and comes into view
         useEffect(() => {
             const key = this.state.hover;
@@ -608,6 +614,8 @@ export class FixSiteEditor extends Component {
         if (which === "sections") {
             model = M.section;
             list = this.d.home.sections;
+        } else if (which === "tiles") {
+            model = M.cat; list = this.d.tiles; field = "web_home_sequence";
         } else {
             const s = this.state.sel;
             if (!s) {

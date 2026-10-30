@@ -216,6 +216,8 @@ class DeviceCategory(models.Model):
 
     web_show_home = fields.Boolean(string='Show on home', default=True,
                                    help='A tile in "What can we fix for you?" on the home page.')
+    web_home_sequence = fields.Integer(string='Home order', default=100,
+                                       help='Order of the tiles on the website (drag them in Fix Website).')
 
 
 class DeviceBrand(models.Model):
@@ -245,7 +247,7 @@ class OnlineServiceOrder(models.Model):
             return {'ok': False, 'error': 'unknown website'}
         page = site._fix_live_home_page()
         Cat = self.env['device.category']
-        tiles = [{'id': c.id, 'name': c.name} for c in Cat.search([('web_show_home', '=', True)], order='id')]
+        tiles = [{'id': c.id, 'name': c.name} for c in Cat.search([('web_show_home', '=', True)], order='web_home_sequence, id')]
         Brand = self.env['device.brand']
         strip = [{'id': b.id, 'name': b.name, 'caption': b.web_caption or '', 'color': b.web_color or '',
                   'logo': b._fix_logo_url() if b.web_has_logo else False}
@@ -264,7 +266,7 @@ class OnlineServiceOrder(models.Model):
 
     @api.model
     def website_catalog(self, host):
-        """Also tell the website which device types are on the home page, which repairs
+        """Also tell the website which device types are on the home page (and their order), which repairs
         are "most booked" and each repair's line under its name (its Sales Description),
         so it can draw them from the catalogue it already has."""
         data = super().website_catalog(host)
@@ -272,6 +274,7 @@ class OnlineServiceOrder(models.Model):
             for cat in data.get('categories', []):
                 c = self.env['device.category'].browse(cat['id'])
                 cat['show_home'] = bool(c.web_show_home)
+                cat['home_sequence'] = c.web_home_sequence or 0
                 for sv in cat.get('services', []):   # the catalogue lists product variants
                     p = self.env['product.product'].browse(sv['id']).product_tmpl_id
                     sv['most_booked'] = bool(p.web_most_booked)
